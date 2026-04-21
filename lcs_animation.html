@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Longest Common Subsequence — DP Animation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 16px 40px;
+    }
+
+    h1 { font-size: 1.9rem; margin-bottom: 5px; color: #f472b6; letter-spacing: 1px; }
+    .subtitle { color: #888; margin-bottom: 22px; font-size: 0.92rem; text-align: center; }
+
+    /* ── String editor ── */
+    .string-inputs {
+      display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
+      margin-bottom: 18px;
+    }
+    .string-inputs label { font-size: 0.8rem; color: #888; display: block; margin-bottom: 4px; }
+    .string-inputs input {
+      background: #1e1e2e; border: 1px solid #3d3d5c; border-radius: 8px;
+      color: #e0e0e0; padding: 7px 11px; font-size: 1rem; font-family: monospace;
+      width: 200px; letter-spacing: 3px;
+    }
+    .string-inputs input:focus { outline: none; border-color: #f472b6; }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 22px;
+    }
+    button {
+      padding: 9px 20px; border: none; border-radius: 8px;
+      font-size: 0.9rem; cursor: pointer; font-weight: 600; transition: all 0.2s;
+    }
+    #btnPlay  { background: #be185d; color: white; }
+    #btnPlay:hover  { background: #9d174d; }
+    #btnPlay:disabled { background: #444; cursor: default; }
+    #btnStep  { background: #0e7490; color: white; }
+    #btnStep:hover  { background: #0c6378; }
+    #btnStep:disabled { background: #444; cursor: default; }
+    #btnReset { background: #374151; color: #e0e0e0; }
+    #btnReset:hover { background: #4b5563; }
+    #btnApply { background: #6d28d9; color: white; }
+    #btnApply:hover { background: #5b21b6; }
+
+    .speed-wrap { display: flex; align-items: center; gap: 8px; font-size: 0.87rem; color: #aaa; }
+    input[type=range] { width: 90px; accent-color: #f472b6; }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 20px; font-size: 0.8rem;
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-box  { width: 14px; height: 14px; border-radius: 3px; }
+
+    /* ── String display ── */
+    #strings-display {
+      display: flex; gap: 28px; justify-content: center;
+      margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .str-row { display: flex; align-items: center; gap: 7px; }
+    .str-label { font-size: 0.78rem; color: #888; width: 22px; text-align: right; }
+    .str-chars { display: flex; gap: 3px; }
+    .str-char {
+      width: 30px; height: 30px; border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: monospace; font-size: 0.95rem; font-weight: 700;
+      background: #1e1e2e; border: 1px solid #2d2d44; color: #94a3b8;
+      transition: all 0.25s;
+    }
+    .str-char.active-x { background: #831843; border-color: #f472b6; color: #fce7f3; box-shadow: 0 0 10px #f472b666; }
+    .str-char.active-y { background: #1e3a5f; border-color: #60a5fa; color: #dbeafe; box-shadow: 0 0 10px #60a5fa66; }
+    .str-char.lcs-char  { background: #064e3b; border-color: #10b981; color: #d1fae5; box-shadow: 0 0 10px #10b98166; }
+
+    /* ── DP Table ── */
+    #table-wrap { overflow-x: auto; max-width: 100%; margin-bottom: 20px; }
+
+    #dp-table {
+      border-collapse: separate;
+      border-spacing: 2px;
+      margin: 0 auto;
+    }
+
+    /* Header cells */
+    #dp-table .hdr {
+      width: 52px; height: 28px;
+      background: #1a1a2e; color: #4b5563;
+      font-size: 0.78rem; font-family: monospace;
+      text-align: center; vertical-align: middle;
+      border: 1px solid #2d2d44; border-radius: 4px;
+      padding: 0;
+    }
+    #dp-table .hdr.char-x { color: #f472b6; font-size: 0.95rem; font-weight: 700; background: #1f1020; border-color: #4d1f35; }
+    #dp-table .hdr.char-y { color: #60a5fa; font-size: 0.95rem; font-weight: 700; background: #10172a; border-color: #1e3a5f; }
+    #dp-table .hdr.active-row { background: #2a0f1e; border-color: #f472b6; color: #f472b6; }
+    #dp-table .hdr.active-col { background: #0f1e30; border-color: #60a5fa; color: #60a5fa; }
+
+    /* Data cells — tall enough for arrow + number */
+    #dp-table td.cell {
+      width: 52px; height: 52px;
+      position: relative;
+      background: #14142a; border: 1px solid #252540;
+      border-radius: 5px; padding: 0;
+      transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+    }
+
+    /* Cell states */
+    #dp-table td.cell.empty    { background: #14142a; border-color: #1e1e38; }
+    #dp-table td.cell.filled   { background: #1a1a30; border-color: #2a2a48; }
+    #dp-table td.cell.active   { background: #0f2040; border-color: #60a5fa; box-shadow: 0 0 10px #60a5fa55; }
+    #dp-table td.cell.match    { background: #0a2a1a; border-color: #4ade80; box-shadow: 0 0 10px #4ade8055; }
+    #dp-table td.cell.no-match { background: #1a1030; border-color: #7c3aed; box-shadow: 0 0 8px #7c3aed44; }
+    #dp-table td.cell.source   { background: #1a2810; border-color: #86efac; }
+    #dp-table td.cell.lcs-path { background: #052e18; border-color: #10b981; box-shadow: 0 0 10px #10b98166; }
+    #dp-table td.cell.computing {
+      background: #0f1830; border-color: #818cf8;
+      animation: cpulse 0.55s ease infinite alternate;
+    }
+    @keyframes cpulse {
+      from { box-shadow: 0 0 4px #818cf844; }
+      to   { box-shadow: 0 0 16px #818cf8cc; }
+    }
+
+    /* Arrow — top-left of cell */
+    .cell-arrow {
+      position: absolute;
+      top: 3px; left: 4px;
+      font-size: 0.72rem;
+      line-height: 1;
+      color: #4b5563;
+      letter-spacing: -1px;
+      transition: color 0.25s;
+    }
+
+    /* Value — bottom-right of cell */
+    .cell-val {
+      position: absolute;
+      bottom: 5px; right: 7px;
+      font-family: monospace;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #475569;
+      transition: color 0.25s;
+    }
+
+    /* State-driven colour overrides */
+    td.cell.filled   .cell-arrow { color: #374151; }
+    td.cell.filled   .cell-val   { color: #6b7280; }
+    td.cell.active   .cell-arrow { color: #60a5fa; }
+    td.cell.active   .cell-val   { color: #93c5fd; }
+    td.cell.match    .cell-arrow { color: #4ade80; }
+    td.cell.match    .cell-val   { color: #86efac; font-size: 1.05rem; }
+    td.cell.no-match .cell-arrow { color: #a78bfa; }
+    td.cell.no-match .cell-val   { color: #c4b5fd; }
+    td.cell.source   .cell-arrow { color: #86efac; }
+    td.cell.source   .cell-val   { color: #86efac; }
+    td.cell.lcs-path .cell-arrow { color: #34d399; }
+    td.cell.lcs-path .cell-val   { color: #6ee7b7; font-size: 1.1rem; }
+    td.cell.computing .cell-val  { color: #818cf8; }
+
+    /* ── Formula panel ── */
+    #formula-wrap { max-width: 860px; width: 100%; margin-bottom: 16px; }
+    #formula-wrap h3 { font-size: 0.8rem; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 7px; }
+    #formula-box {
+      background: #1e1e2e; border: 1px solid #2d2d44; border-radius: 10px;
+      padding: 12px 16px; font-family: monospace; font-size: 0.85rem;
+      color: #94a3b8; line-height: 1.9;
+    }
+    #formula-box .hi  { color: #f472b6; font-weight: bold; }
+    #formula-box .hi2 { color: #60a5fa; font-weight: bold; }
+    #formula-box .hi3 { color: #4ade80; font-weight: bold; }
+    #formula-box .dim { color: #374151; }
+
+    /* ── Explanation ── */
+    #explanation {
+      background: #1e1e2e; border: 1px solid #2d2d44; border-radius: 12px;
+      padding: 15px 20px; max-width: 860px; width: 100%;
+      min-height: 68px; margin-bottom: 18px;
+      font-size: 0.91rem; line-height: 1.65; color: #c9c9d8;
+    }
+    #explanation .step-label { color: #f472b6; font-weight: 700; margin-right: 7px; }
+
+    /* ── LCS result ── */
+    #lcs-result { max-width: 860px; width: 100%; margin-bottom: 14px; display: none; }
+    #lcs-result h3 { font-size: 0.8rem; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 7px; }
+    #lcs-box {
+      background: #052e16; border: 1px solid #10b981; border-radius: 10px;
+      padding: 13px 20px; font-size: 1.1rem; font-family: monospace;
+      color: #6ee7b7; font-weight: 700; letter-spacing: 3px;
+    }
+    #lcs-length { font-size: 0.8rem; color: #6b7280; margin-top: 4px;
+      font-family: sans-serif; font-weight: normal; letter-spacing: 0; }
+
+    /* ── Progress ── */
+    #progress-wrap { max-width: 860px; width: 100%; margin-bottom: 7px; }
+    #progress-bar-bg { width: 100%; height: 5px; background: #2d2d44; border-radius: 3px; overflow: hidden; }
+    #progress-bar { height: 100%; background: linear-gradient(90deg, #be185d, #7c3aed);
+      border-radius: 3px; transition: width 0.35s; width: 0%; }
+    #step-counter { text-align: right; font-size: 0.74rem; color: #444; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<h1>Longest Common Subsequence</h1>
+<p class="subtitle">DP table with traceback arrows — fill cell by cell</p>
+
+<div class="string-inputs">
+  <div>
+    <label>String X (rows)</label>
+    <input id="strX" type="text" maxlength="11" value="ABCBDAB">
+  </div>
+  <div>
+    <label>String Y (columns)</label>
+    <input id="strY" type="text" maxlength="11" value="BDCABA">
+  </div>
+  <button id="btnApply">Apply &amp; Rebuild</button>
+</div>
+
+<div class="controls">
+  <button id="btnPlay">&#9654; Play</button>
+  <button id="btnStep">Step &rarr;</button>
+  <button id="btnReset">&#8635; Reset</button>
+  <div class="speed-wrap">
+    <span>Speed</span>
+    <input type="range" id="speedSlider" min="1" max="10" value="5">
+    <span id="speedLabel">5</span>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-box" style="background:#0f2040;border:1px solid #60a5fa"></div> Current cell</div>
+  <div class="legend-item"><div class="legend-box" style="background:#0a2a1a;border:1px solid #4ade80"></div> Match ↖ +1</div>
+  <div class="legend-item"><div class="legend-box" style="background:#1a1030;border:1px solid #7c3aed"></div> No match ↑/←</div>
+  <div class="legend-item"><div class="legend-box" style="background:#1a2810;border:1px solid #86efac"></div> Source cell</div>
+  <div class="legend-item"><div class="legend-box" style="background:#052e18;border:1px solid #10b981"></div> LCS path</div>
+</div>
+
+<div id="strings-display"></div>
+<div id="table-wrap"><table id="dp-table"></table></div>
+
+<div id="formula-wrap">
+  <h3>Recurrence</h3>
+  <div id="formula-box"></div>
+</div>
+
+<div id="explanation">
+  <span class="step-label">Ready.</span> Press Play or Step to animate the DP table.
+</div>
+
+<div id="progress-wrap">
+  <div id="progress-bar-bg"><div id="progress-bar"></div></div>
+  <div id="step-counter">Step 0 / 0</div>
+</div>
+
+<div id="lcs-result">
+  <h3>Longest Common Subsequence</h3>
+  <div id="lcs-box">
+    <div id="lcs-string"></div>
+    <div id="lcs-length"></div>
+  </div>
+</div>
+
+<script>
+let X = 'ABCBDAB';
+let Y = 'BDCABA';
+let steps = [];
+let stepIdx = 0;
+let playing = false;
+let playTimer = null;
+
+// Arrow symbols
+const ARR_DIAG = '\u2196';   // ↖  match
+const ARR_UP   = '\u2191';   // ↑  from above
+const ARR_LEFT = '\u2190';   // ←  from left
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step generator
+// ─────────────────────────────────────────────────────────────────────────────
+function generateSteps(X, Y) {
+  const m = X.length, n = Y.length;
+  // dp values
+  const dp  = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(null));
+  // arrows per cell: array of arrow chars
+  const arrows = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(''));
+
+  const allSteps = [];
+
+  // snapshot: highlights map "i,j" -> CSS class, plus full dp/arrows state
+  function snap(highlights, message, formula, ai, aj, phase, lcsPath, lcsString) {
+    allSteps.push({
+      dp:       dp.map(r => [...r]),
+      arrows:   arrows.map(r => [...r]),
+      highlights: { ...highlights },
+      message, formula, activeI: ai, activeJ: aj, phase,
+      lcsPath: lcsPath ? [...lcsPath] : null,
+      lcsString: lcsString || null,
+    });
+  }
+
+  function filledHL() {
+    const h = {};
+    for (let i = 0; i <= m; i++)
+      for (let j = 0; j <= n; j++)
+        if (dp[i][j] !== null) h[`${i},${j}`] = 'filled';
+    return h;
+  }
+
+  // ── Intro ──
+  snap({}, `<span class="step-label">Start.</span> We build dp[i][j] = length of the LCS of X[0..i-1] and Y[0..j-1]. Arrows in each cell show where the value came from (traceback direction).`,
+    baseFormula(), -1, -1, 'fill', null);
+
+  // ── Base cases ──
+  for (let i = 0; i <= m; i++) dp[i][0] = 0;
+  for (let j = 0; j <= n; j++) dp[0][j] = 0;
+  const hBase = {};
+  for (let i = 0; i <= m; i++) hBase[`${i},0`] = 'filled';
+  for (let j = 0; j <= n; j++) hBase[`0,${j}`] = 'filled';
+  snap(hBase, `<span class="step-label">Base case.</span> dp[i][0] = 0 and dp[0][j] = 0 for all i, j. LCS with an empty string is always 0.`,
+    baseFormula(), 0, 0, 'fill', null);
+
+  // ── Fill ──
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const xi = X[i - 1], yj = Y[j - 1];
+      const isMatch = xi === yj;
+
+      // Show cell being computed
+      const hLook = filledHL();
+      hLook[`${i},${j}`] = 'computing';
+      snap(hLook,
+        `<span class="step-label">Cell dp[${i}][${j}].</span> X[${i-1}] = '<b>${xi}</b>'  vs  Y[${j-1}] = '<b>${yj}</b>'. ${isMatch ? 'They <b>match!</b>' : 'No match.'}`,
+        lookupFormula(xi, yj, i, j, isMatch), i, j, 'fill', null);
+
+      if (isMatch) {
+        dp[i][j] = dp[i-1][j-1] + 1;
+        arrows[i][j] = ARR_DIAG;
+        const hM = filledHL();
+        hM[`${i},${j}`]     = 'match';
+        hM[`${i-1},${j-1}`] = 'source';
+        snap(hM,
+          `<span class="step-label">Match ↖</span> X[${i-1}]='<b>${xi}</b>' = Y[${j-1}]='<b>${yj}</b>'. dp[${i}][${j}] = dp[${i-1}][${j-1}] + 1 = ${dp[i-1][j-1]} + 1 = <b>${dp[i][j]}</b>. Arrow: ↖`,
+          matchFormula(xi, yj, i, j, dp[i-1][j-1], dp[i][j]), i, j, 'fill', null);
+      } else {
+        const top  = dp[i-1][j];
+        const left = dp[i][j-1];
+        dp[i][j] = Math.max(top, left);
+
+        // Arrows: ↑ if top >= left, ← if left >= top (both if equal)
+        let arr = '';
+        if (top >= left)  arr += ARR_UP;
+        if (left >= top)  arr += ARR_LEFT;
+        arrows[i][j] = arr;
+
+        const hN = filledHL();
+        hN[`${i},${j}`]   = 'no-match';
+        hN[`${i-1},${j}`] = 'source';
+        hN[`${i},${j-1}`] = 'source';
+        const dirStr = top > left ? '↑ (up)' : left > top ? '← (left)' : '↑← (both equal)';
+        snap(hN,
+          `<span class="step-label">No match.</span> X[${i-1}]='<b>${xi}</b>' ≠ Y[${j-1}]='<b>${yj}</b>'. dp[${i}][${j}] = max(dp[${i-1}][${j}]=${top}, dp[${i}][${j-1}]=${left}) = <b>${dp[i][j]}</b>. Arrow: ${dirStr}`,
+          noMatchFormula(xi, yj, i, j, top, left, dp[i][j]), i, j, 'fill', null);
+      }
+    }
+  }
+
+  // ── Table filled ──
+  snap(filledHL(),
+    `<span class="step-label">Table complete!</span> dp[${m}][${n}] = <b>${dp[m][n]}</b>. Now traceback using the arrows ↖↑← to reconstruct the LCS string.`,
+    baseFormula(), m, n, 'traceback', null);
+
+  // ── Traceback ──
+  let ti = m, tj = n;
+  const lcsChars = [];
+  const path = [];
+
+  while (ti > 0 && tj > 0) {
+    path.push([ti, tj]);
+    const hTB = filledHL();
+    path.forEach(([r, c]) => hTB[`${r},${c}`] = 'lcs-path');
+    hTB[`${ti},${tj}`] = 'active';
+
+    if (X[ti-1] === Y[tj-1]) {
+      snap(hTB,
+        `<span class="step-label">Traceback ↖</span> Arrow at dp[${ti}][${tj}] is ↖. X[${ti-1}]='<b>${X[ti-1]}</b>' is in the LCS! Move diagonally to dp[${ti-1}][${tj-1}].`,
+        traceFormula(ti, tj, X[ti-1], Y[tj-1], true), ti, tj, 'traceback', [...path]);
+      lcsChars.unshift(X[ti-1]);
+      ti--; tj--;
+    } else if (dp[ti-1][tj] >= dp[ti][tj-1]) {
+      snap(hTB,
+        `<span class="step-label">Traceback ↑</span> Arrow is ↑. dp[${ti-1}][${tj}]=${dp[ti-1][tj]} ≥ dp[${ti}][${tj-1}]=${dp[ti][tj-1]} → move up.`,
+        traceFormula(ti, tj, X[ti-1], Y[tj-1], false), ti, tj, 'traceback', [...path]);
+      ti--;
+    } else {
+      snap(hTB,
+        `<span class="step-label">Traceback ←</span> Arrow is ←. dp[${ti}][${tj-1}]=${dp[ti][tj-1]} > dp[${ti-1}][${tj}]=${dp[ti-1][tj]} → move left.`,
+        traceFormula(ti, tj, X[ti-1], Y[tj-1], false), ti, tj, 'traceback', [...path]);
+      tj--;
+    }
+  }
+
+  // ── Done ──
+  const lcsStr = lcsChars.join('');
+  const hFinal = filledHL();
+  path.forEach(([r, c]) => hFinal[`${r},${c}`] = 'lcs-path');
+  allSteps.push({
+    dp: dp.map(r => [...r]),
+    arrows: arrows.map(r => [...r]),
+    highlights: hFinal,
+    message: `<span class="step-label">Done!</span> LCS of "<b>${X}</b>" and "<b>${Y}</b>" = "<b>${lcsStr}</b>" &nbsp;(length <b>${lcsStr.length}</b>).`,
+    formula: baseFormula(),
+    activeI: -1, activeJ: -1, phase: 'done',
+    lcsPath: [...path], lcsString: lcsStr,
+  });
+
+  return allSteps;
+}
+
+// ── Formula strings ────────────────────────────────────────────────────────
+function baseFormula() {
+  return `<span class="dim">if i=0 or j=0 :</span>  dp[i][j] = <span class="hi3">0</span><br>
+<span class="dim">if X[i-1] = Y[j-1] :</span>  dp[i][j] = dp[i-1][j-1] + <span class="hi3">1</span> &nbsp;<span class="dim">← diagonal ↖</span><br>
+<span class="dim">else :</span>  dp[i][j] = <span class="hi3">max</span>(dp[i-1][j], dp[i][j-1]) &nbsp;<span class="dim">← ↑ or ←</span>`;
+}
+function lookupFormula(xi, yj, i, j, match) {
+  return `Checking: X[${i-1}] = <span class="hi">'${xi}'</span> &nbsp;vs&nbsp; Y[${j-1}] = <span class="hi2">'${yj}'</span> &nbsp;→ ${match ? '<span class="hi3">MATCH → ↖ diagonal</span>' : 'no match → ↑ or ←'}`;
+}
+function matchFormula(xi, yj, i, j, prev, val) {
+  return `X[${i-1}]='<span class="hi">${xi}</span>' = Y[${j-1}]='<span class="hi2">${yj}</span>'<br>dp[${i}][${j}] = dp[${i-1}][${j-1}] + 1 = ${prev} + 1 = <span class="hi3">${val}</span> &nbsp; arrow: ↖`;
+}
+function noMatchFormula(xi, yj, i, j, top, left, val) {
+  return `X[${i-1}]='<span class="hi">${xi}</span>' ≠ Y[${j-1}]='<span class="hi2">${yj}</span>'<br>dp[${i}][${j}] = max(↑ dp[${i-1}][${j}]=${top},  ← dp[${i}][${j-1}]=${left}) = <span class="hi3">${val}</span>`;
+}
+function traceFormula(i, j, xi, yj, isMatch) {
+  if (isMatch)
+    return `dp[${i}][${j}] has ↖ &nbsp;→&nbsp; '<span class="hi3">${xi}</span>' is part of the LCS &nbsp;→ go to dp[${i-1}][${j-1}]`;
+  return `Follow arrow at dp[${i}][${j}] &nbsp;→ move to the larger neighbour`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build DOM
+// ─────────────────────────────────────────────────────────────────────────────
+function buildTable(X, Y) {
+  const m = X.length, n = Y.length;
+  const tbl = document.getElementById('dp-table');
+  tbl.innerHTML = '';
+
+  // ── Row 0: Y characters ──
+  const rowY = document.createElement('tr');
+  // spacer cells (for row-header cols)
+  for (let k = 0; k < 2; k++) {
+    const th = document.createElement('th');
+    th.className = 'hdr'; th.textContent = '';
+    rowY.appendChild(th);
+  }
+  // epsilon
+  const thEps = document.createElement('th');
+  thEps.className = 'hdr'; thEps.textContent = 'ε'; thEps.style.color = '#555';
+  rowY.appendChild(thEps);
+  // Y chars
+  Y.split('').forEach((c, j) => {
+    const th = document.createElement('th');
+    th.className = 'hdr char-y';
+    th.id = `hdr-col-${j+1}`;
+    th.textContent = c;
+    rowY.appendChild(th);
+  });
+  tbl.appendChild(rowY);
+
+  // ── Row 1: j indices ──
+  const rowJ = document.createElement('tr');
+  for (let k = 0; k < 2; k++) {
+    const th = document.createElement('th');
+    th.className = 'hdr'; th.textContent = k === 1 ? 'yⱼ' : '';
+    th.style.fontSize = '0.7rem'; th.style.color = '#444';
+    rowJ.appendChild(th);
+  }
+  for (let j = 0; j <= n; j++) {
+    const th = document.createElement('th');
+    th.className = 'hdr';
+    th.textContent = `j=${j}`;
+    th.style.fontSize = '0.68rem'; th.style.color = '#3a4460';
+    rowJ.appendChild(th);
+  }
+  tbl.appendChild(rowJ);
+
+  // ── Data rows ──
+  for (let i = 0; i <= m; i++) {
+    const tr = document.createElement('tr');
+
+    // X char header
+    const thX = document.createElement('th');
+    thX.className = 'hdr' + (i > 0 ? ' char-x' : '');
+    thX.id = `hdr-row-${i}`;
+    thX.textContent = i === 0 ? 'ε' : X[i-1];
+    tr.appendChild(thX);
+
+    // i index header
+    const thI = document.createElement('th');
+    thI.className = 'hdr';
+    thI.textContent = `i=${i}`;
+    thI.style.fontSize = '0.68rem'; thI.style.color = '#3a4460';
+    tr.appendChild(thI);
+
+    for (let j = 0; j <= n; j++) {
+      const td = document.createElement('td');
+      td.className = 'cell empty';
+      td.id = `cell-${i}-${j}`;
+
+      const arrowDiv = document.createElement('div');
+      arrowDiv.className = 'cell-arrow';
+      arrowDiv.id = `arrow-${i}-${j}`;
+
+      const valDiv = document.createElement('div');
+      valDiv.className = 'cell-val';
+      valDiv.id = `val-${i}-${j}`;
+
+      td.appendChild(arrowDiv);
+      td.appendChild(valDiv);
+      tr.appendChild(td);
+    }
+    tbl.appendChild(tr);
+  }
+}
+
+function buildStrDisplay(X, Y) {
+  const div = document.getElementById('strings-display');
+  div.innerHTML = '';
+  [['X', X], ['Y', Y]].forEach(([name, str]) => {
+    const row = document.createElement('div');
+    row.className = 'str-row';
+    const lbl = document.createElement('span');
+    lbl.className = 'str-label'; lbl.textContent = name + ':';
+    row.appendChild(lbl);
+    const chars = document.createElement('div');
+    chars.className = 'str-chars'; chars.id = `str-${name}`;
+    str.split('').forEach((c, k) => {
+      const el = document.createElement('div');
+      el.className = 'str-char'; el.id = `char-${name}-${k}`;
+      el.textContent = c;
+      chars.appendChild(el);
+    });
+    row.appendChild(chars);
+    div.appendChild(row);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Apply step to DOM
+// ─────────────────────────────────────────────────────────────────────────────
+function applyStep(step) {
+  const m = X.length, n = Y.length;
+
+  // Update every cell
+  for (let i = 0; i <= m; i++) {
+    for (let j = 0; j <= n; j++) {
+      const td  = document.getElementById(`cell-${i}-${j}`);
+      const vEl = document.getElementById(`val-${i}-${j}`);
+      const aEl = document.getElementById(`arrow-${i}-${j}`);
+      if (!td) continue;
+
+      const val = step.dp[i][j];
+      const arr = step.arrows[i][j];
+      const cls = step.highlights[`${i},${j}`] || (val !== null ? 'filled' : 'empty');
+
+      td.className  = `cell ${cls}`;
+      vEl.textContent = val !== null ? val : '';
+      aEl.textContent = arr || '';
+    }
+  }
+
+  // Header highlights
+  for (let j = 1; j <= n; j++) {
+    const th = document.getElementById(`hdr-col-${j}`);
+    if (th) th.className = 'hdr char-y' + (j === step.activeJ ? ' active-col' : '');
+  }
+  for (let i = 1; i <= m; i++) {
+    const th = document.getElementById(`hdr-row-${i}`);
+    if (th) th.className = 'hdr char-x' + (i === step.activeI ? ' active-row' : '');
+  }
+
+  // String char highlights
+  for (let k = 0; k < X.length; k++) {
+    const el = document.getElementById(`char-X-${k}`);
+    if (!el) continue;
+    el.className = 'str-char' + (k === step.activeI - 1 ? ' active-x' : '');
+  }
+  for (let k = 0; k < Y.length; k++) {
+    const el = document.getElementById(`char-Y-${k}`);
+    if (!el) continue;
+    el.className = 'str-char' + (k === step.activeJ - 1 ? ' active-y' : '');
+  }
+
+  // Formula + explanation
+  document.getElementById('formula-box').innerHTML   = step.formula;
+  document.getElementById('explanation').innerHTML   = step.message;
+
+  // LCS result
+  if (step.phase === 'done' && step.lcsString !== null) {
+    document.getElementById('lcs-result').style.display = 'block';
+    document.getElementById('lcs-string').textContent   = step.lcsString;
+    document.getElementById('lcs-length').textContent   = `Length: ${step.lcsString.length}`;
+    highlightLCSChars(step.lcsString);
+  } else {
+    document.getElementById('lcs-result').style.display = 'none';
+  }
+
+  // Progress
+  const pct = steps.length > 1 ? (stepIdx / (steps.length - 1)) * 100 : 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('step-counter').textContent = `Step ${stepIdx + 1} / ${steps.length}`;
+}
+
+function highlightLCSChars(lcs) {
+  let li = 0;
+  const xMatch = new Array(X.length).fill(false);
+  for (let xi = 0; xi < X.length && li < lcs.length; xi++) {
+    if (X[xi] === lcs[li]) { xMatch[xi] = true; li++; }
+  }
+  li = 0;
+  const yMatch = new Array(Y.length).fill(false);
+  for (let yi = 0; yi < Y.length && li < lcs.length; yi++) {
+    if (Y[yi] === lcs[li]) { yMatch[yi] = true; li++; }
+  }
+  xMatch.forEach((m, k) => {
+    const el = document.getElementById(`char-X-${k}`);
+    if (el) el.className = 'str-char' + (m ? ' lcs-char' : '');
+  });
+  yMatch.forEach((m, k) => {
+    const el = document.getElementById(`char-Y-${k}`);
+    if (el) el.className = 'str-char' + (m ? ' lcs-char' : '');
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Playback
+// ─────────────────────────────────────────────────────────────────────────────
+function getDelay() {
+  const speed = parseInt(document.getElementById('speedSlider').value);
+  return Math.round(1800 - (speed - 1) * (1650 / 9));
+}
+
+function stepForward() {
+  if (stepIdx >= steps.length - 1) { stopPlay(); return; }
+  stepIdx++;
+  applyStep(steps[stepIdx]);
+}
+
+function startPlay() {
+  playing = true;
+  document.getElementById('btnPlay').textContent = '\u23F8 Pause';
+  document.getElementById('btnStep').disabled = true;
+  function tick() {
+    if (!playing || stepIdx >= steps.length - 1) { stopPlay(); return; }
+    stepForward();
+    playTimer = setTimeout(tick, getDelay());
+  }
+  playTimer = setTimeout(tick, getDelay());
+}
+
+function stopPlay() {
+  playing = false;
+  clearTimeout(playTimer);
+  document.getElementById('btnPlay').textContent = '\u25B6 Play';
+  document.getElementById('btnStep').disabled = false;
+  if (stepIdx >= steps.length - 1) document.getElementById('btnPlay').disabled = true;
+}
+
+function resetAll() {
+  stopPlay();
+  stepIdx = 0;
+  applyStep(steps[0]);
+  document.getElementById('btnPlay').disabled  = false;
+  document.getElementById('btnStep').disabled  = false;
+}
+
+function rebuild() {
+  stopPlay();
+  X = document.getElementById('strX').value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 11) || 'ABCBDAB';
+  Y = document.getElementById('strY').value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 11) || 'BDCABA';
+  document.getElementById('strX').value = X;
+  document.getElementById('strY').value = Y;
+  buildTable(X, Y);
+  buildStrDisplay(X, Y);
+  steps   = generateSteps(X, Y);
+  stepIdx = 0;
+  applyStep(steps[0]);
+  document.getElementById('btnPlay').disabled  = false;
+  document.getElementById('btnStep').disabled  = false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────────────────────
+buildTable(X, Y);
+buildStrDisplay(X, Y);
+steps = generateSteps(X, Y);
+applyStep(steps[0]);
+
+document.getElementById('btnPlay').addEventListener('click', () => {
+  if (playing) stopPlay();
+  else if (stepIdx >= steps.length - 1) { resetAll(); startPlay(); }
+  else startPlay();
+});
+document.getElementById('btnStep').addEventListener('click', () => {
+  if (stepIdx >= steps.length - 1) return;
+  stepForward();
+  if (stepIdx >= steps.length - 1) document.getElementById('btnPlay').disabled = true;
+});
+document.getElementById('btnReset').addEventListener('click', resetAll);
+document.getElementById('btnApply').addEventListener('click', rebuild);
+document.getElementById('strX').addEventListener('keydown', e => { if (e.key === 'Enter') rebuild(); });
+document.getElementById('strY').addEventListener('keydown', e => { if (e.key === 'Enter') rebuild(); });
+document.getElementById('speedSlider').addEventListener('input', function () {
+  document.getElementById('speedLabel').textContent = this.value;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quick Sort Animation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+    }
+
+    h1 { font-size: 1.9rem; color: #c084fc; letter-spacing: 1px; margin-bottom: 4px; }
+    .subtitle { color: #6b7280; font-size: 0.9rem; margin-bottom: 20px; }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 18px;
+    }
+    button {
+      padding: 9px 20px; border: none; border-radius: 8px;
+      font-size: 0.9rem; cursor: pointer; font-weight: 600; transition: all 0.2s;
+    }
+    #btnPlay  { background: #7c3aed; color: white; }
+    #btnPlay:hover  { background: #6d28d9; }
+    #btnPlay:disabled { background: #374151; cursor: default; }
+    #btnStep  { background: #0e7490; color: white; }
+    #btnStep:hover  { background: #0c6378; }
+    #btnStep:disabled { background: #374151; cursor: default; }
+    #btnReset { background: #374151; color: #d1d5db; }
+    #btnReset:hover { background: #4b5563; }
+    .speed-wrap { display: flex; align-items: center; gap: 7px; font-size: 0.88rem; color: #9ca3af; }
+    input[type=range] { width: 90px; accent-color: #a78bfa; }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 18px; font-size: 0.8rem; color: #d1d5db;
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-box  { width: 14px; height: 14px; border-radius: 3px; }
+
+    /* ── Main layout ── */
+    .main-layout {
+      display: flex; gap: 16px; width: 100%;
+      max-width: 1160px; margin-bottom: 14px; flex-wrap: wrap; align-items: flex-start;
+    }
+
+    /* ── Left panel ── */
+    .left-panel { flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 12px; }
+
+    /* Bars */
+    #array-container {
+      display: flex; align-items: flex-end; justify-content: center;
+      gap: 5px; height: 250px; padding: 0 8px;
+      background: #12122a; border: 1px solid #252545; border-radius: 12px;
+    }
+    .bar {
+      flex: 1; max-width: 54px;
+      border-radius: 5px 5px 0 0;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding-top: 5px;
+      font-size: 0.75rem; font-weight: 700; color: #f3f4f6;
+      transition: height 0.32s ease, background 0.28s ease;
+    }
+    .bar.default      { background: #3b4268; }
+    .bar.pivot        { background: #d97706; box-shadow: 0 0 14px #d9770699; }
+    .bar.comparing    { background: #2563eb; box-shadow: 0 0 12px #2563eb88; }
+    .bar.swapping     { background: #dc2626; box-shadow: 0 0 12px #dc262688; }
+    .bar.sorted       { background: #059669; box-shadow: 0 0 10px #05966977; }
+    .bar.active-range { background: #4f46e5; }
+
+    /* Explanation */
+    #explanation {
+      background: #1c1c30; border: 1px solid #2d2d50;
+      border-radius: 10px; padding: 14px 18px;
+      font-size: 0.92rem; line-height: 1.7; color: #e2e8f0;
+      min-height: 72px;
+    }
+    #explanation .sl   { color: #a78bfa; font-weight: 700; margin-right: 6px; }
+    #explanation .val  { color: #fbbf24; font-weight: 700; }
+    #explanation .idx  { color: #67e8f9; font-weight: 600; }
+    #explanation b     { color: #f9fafb; }
+
+    /* Progress */
+    #progress-wrap { max-width: 1160px; width: 100%; }
+    #pb-bg { width: 100%; height: 5px; background: #1e1e38; border-radius: 3px; overflow: hidden; }
+    #pb    { height: 100%; background: linear-gradient(90deg,#7c3aed,#06b6d4); border-radius: 3px; transition: width 0.38s; width: 0%; }
+    #step-ctr { text-align: right; font-size: 0.73rem; color: #4b5563; margin-top: 4px; }
+
+    /* ── Right panel ── */
+    .right-panel {
+      width: 340px; min-width: 280px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    /* Call stack */
+    .stack-panel {
+      background: #1c1c30; border: 1px solid #2d2d50;
+      border-radius: 12px; padding: 12px 14px;
+    }
+    .stack-panel h3 {
+      font-size: 0.75rem; color: #6b7280; text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+    }
+    .stack-panel h3 .badge {
+      background: #312e81; color: #a5b4fc; font-size: 0.65rem;
+      padding: 2px 7px; border-radius: 99px; font-weight: 700; letter-spacing: 0.5px;
+    }
+
+    #stack-frames {
+      display: flex; flex-direction: column; gap: 5px;
+      max-height: 260px; overflow-y: auto;
+    }
+
+    /* Scrollbar style */
+    #stack-frames::-webkit-scrollbar { width: 4px; }
+    #stack-frames::-webkit-scrollbar-track { background: #12122a; }
+    #stack-frames::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
+
+    .frame {
+      border-radius: 7px; padding: 7px 11px;
+      border-left: 3px solid #374151;
+      background: #16162a;
+      transition: all 0.25s;
+    }
+    .frame.active {
+      background: #1a1f38; border-left-color: #f59e0b;
+      box-shadow: 0 0 8px #f59e0b22;
+    }
+    .frame-title {
+      font-family: monospace; font-size: 0.78rem;
+      color: #6b7280; display: flex; align-items: center; gap: 6px;
+    }
+    .frame.active .frame-title { color: #fcd34d; }
+    .frame-arrow { font-size: 0.65rem; color: #f59e0b; }
+    .frame-vals {
+      font-family: monospace; font-size: 0.72rem;
+      color: #4b5563; margin-top: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .frame.active .frame-vals { color: #9ca3af; }
+    .stack-empty { font-size: 0.78rem; color: #374151; font-style: italic; text-align: center; padding: 8px 0; }
+
+    /* Pseudocode */
+    .pseudo-panel {
+      background: #1c1c30; border: 1px solid #2d2d50;
+      border-radius: 12px; padding: 12px 14px; flex: 1;
+    }
+    .pseudo-panel h3 { font-size: 0.75rem; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .pseudo-hdr {
+      font-family: monospace; font-size: 0.8rem; font-weight: 700;
+      color: #7c3aed; margin-bottom: 3px; margin-top: 10px;
+    }
+    .pseudo-hdr:first-child { margin-top: 0; }
+
+    .pline {
+      display: flex; gap: 6px;
+      padding: 2px 5px; border-radius: 4px;
+      font-family: monospace; font-size: 0.77rem;
+      color: #374151; transition: background 0.2s, color 0.2s;
+      line-height: 1.6;
+    }
+    .pline .ln  { width: 16px; text-align: right; color: #1f2937; flex-shrink: 0; }
+    .pline .code { white-space: pre; }
+    .pline .kw  { color: #1f2937; }
+
+    .pline.active            { background: #1e1540; color: #c4b5fd; }
+    .pline.active .ln        { color: #a78bfa; }
+    .pline.active .kw        { color: #818cf8; }
+    .pline.partition-active  { background: #1a2010; color: #86efac; }
+    .pline.partition-active .ln  { color: #4ade80; }
+    .pline.partition-active .kw  { color: #34d399; }
+  </style>
+</head>
+<body>
+
+<h1>Quick Sort</h1>
+<p class="subtitle">Divide &amp; Conquer — average O(n log n)</p>
+
+<div class="controls">
+  <button id="btnPlay">&#9654; Play</button>
+  <button id="btnStep">Step &rarr;</button>
+  <button id="btnReset">&#8635; Reset</button>
+  <div class="speed-wrap">
+    Speed <input type="range" id="speedSlider" min="1" max="10" value="5">
+    <span id="speedLabel">5</span>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-box" style="background:#d97706"></div> Pivot</div>
+  <div class="legend-item"><div class="legend-box" style="background:#2563eb"></div> Comparing</div>
+  <div class="legend-item"><div class="legend-box" style="background:#dc2626"></div> Swapping</div>
+  <div class="legend-item"><div class="legend-box" style="background:#4f46e5"></div> Active partition</div>
+  <div class="legend-item"><div class="legend-box" style="background:#059669"></div> Sorted</div>
+  <div class="legend-item"><div class="legend-box" style="background:#3b4268"></div> Unsorted</div>
+</div>
+
+<div class="main-layout">
+
+  <!-- Left: bars + explanation -->
+  <div class="left-panel">
+    <div id="array-container"></div>
+    <div id="explanation"><span class="sl">Ready.</span> Press Play or Step to begin.</div>
+  </div>
+
+  <!-- Right: call stack + pseudocode -->
+  <div class="right-panel">
+
+    <div class="stack-panel">
+      <h3>Recursion Call Stack <span class="badge">LIFO</span></h3>
+      <div id="stack-frames"><span class="stack-empty">Stack is empty</span></div>
+    </div>
+
+    <div class="pseudo-panel">
+      <h3>Pseudocode</h3>
+      <div class="pseudo-hdr">QUICKSORT(A, lo, hi)</div>
+      <div id="qs-pseudo"></div>
+      <div class="pseudo-hdr" style="margin-top:10px">PARTITION(A, lo, hi)</div>
+      <div id="pt-pseudo"></div>
+    </div>
+
+  </div>
+</div>
+
+<div id="progress-wrap">
+  <div id="pb-bg"><div id="pb"></div></div>
+  <div id="step-ctr">Step 0 / 0</div>
+</div>
+
+<script>
+const INITIAL_ARRAY = [38, 27, 43, 3, 9, 82, 10, 55, 17, 61];
+
+// Pseudocode definitions
+const QS_LINES = [
+  [1, 'if lo < hi'],
+  [2, '    p \u2190 PARTITION(A, lo, hi)'],
+  [3, '    QUICKSORT(A, lo, p\u22121)'],
+  [4, '    QUICKSORT(A, p+1, hi)'],
+];
+const PT_LINES = [
+  [5,  'pivot \u2190 A[hi]'],
+  [6,  'i \u2190 lo \u2212 1'],
+  [7,  'for j \u2190 lo to hi\u22121'],
+  [8,  '    if A[j] \u2264 pivot'],
+  [9,  '        i \u2190 i + 1'],
+  [10, '        swap A[i] \u2194 A[j]'],
+  [11, 'swap A[i+1] \u2194 A[hi]'],
+  [12, 'return i + 1'],
+];
+
+let steps = [], stepIdx = 0, playing = false, playTimer = null;
+
+// ─── Step generator ────────────────────────────────────────────────────────
+function generateSteps(inputArr) {
+  const allSteps = [];
+  const n = inputArr.length;
+
+  function addStep(arr, highlights, message, callStack, sortedSet, activeLine) {
+    allSteps.push({
+      arr: [...arr],
+      highlights: { ...highlights },
+      message,
+      // snapshot call stack WITH current values for each range
+      callStack: callStack.map(f => ({
+        lo: f.lo, hi: f.hi,
+        values: arr.slice(f.lo, f.hi + 1),
+      })),
+      sortedSet: new Set(sortedSet),
+      activeLine,
+    });
+  }
+
+  function buildHL(lo, hi, overrides, sortedSet) {
+    const h = {};
+    for (let k = 0; k < n; k++) {
+      if (sortedSet.has(k)) h[k] = 'sorted';
+    }
+    for (let k = lo; k <= hi; k++) {
+      if (!h[k]) h[k] = 'active-range';
+    }
+    for (const [k, v] of Object.entries(overrides)) h[parseInt(k)] = v;
+    return h;
+  }
+
+  function partition(arr, lo, hi, callStack, sortedSet) {
+    const pivot = arr[hi];
+
+    // Line 5
+    addStep(arr, buildHL(lo, hi, { [hi]: 'pivot' }, sortedSet),
+      `<span class="sl">Partition [${lo}..${hi}]</span> Set <span class="val">pivot = A[${hi}] = ${pivot}</span>. We place smaller elements to the left.`,
+      callStack, sortedSet, 5);
+
+    let i = lo - 1;
+    // Line 6
+    addStep(arr, buildHL(lo, hi, { [hi]: 'pivot' }, sortedSet),
+      `<span class="sl">Init i</span> i = lo − 1 = <span class="val">${i}</span>. Pointer i marks the boundary of elements ≤ pivot.`,
+      callStack, sortedSet, 6);
+
+    for (let j = lo; j < hi; j++) {
+      const cmp = arr[j] <= pivot;
+      // Lines 7 & 8
+      addStep(arr, buildHL(lo, hi, { [hi]: 'pivot', [j]: 'comparing' }, sortedSet),
+        `<span class="sl">j = ${j}</span> Compare <span class="val">A[${j}] = ${arr[j]}</span> with pivot <span class="val">${pivot}</span>. ${cmp ? `<b>${arr[j]} ≤ ${pivot}</b> → i++ then swap.` : `<b>${arr[j]} > ${pivot}</b> → skip.`}`,
+        callStack, sortedSet, cmp ? 8 : 7);
+
+      if (cmp) {
+        i++;
+        if (i !== j) {
+          // Line 9 & 10
+          addStep(arr, buildHL(lo, hi, { [hi]: 'pivot', [i]: 'swapping', [j]: 'swapping' }, sortedSet),
+            `<span class="sl">Swap</span> i = ${i}. Swap <span class="val">A[${i}] = ${arr[i]}</span> ↔ <span class="val">A[${j}] = ${arr[j]}</span>.`,
+            callStack, sortedSet, 10);
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+      }
+    }
+
+    const pivotPos = i + 1;
+    // Line 11
+    if (pivotPos !== hi) {
+      addStep(arr, buildHL(lo, hi, { [hi]: 'swapping', [pivotPos]: 'swapping' }, sortedSet),
+        `<span class="sl">Place pivot</span> Swap pivot <span class="val">${pivot}</span> from index <span class="idx">${hi}</span> → final position <span class="idx">${pivotPos}</span>.`,
+        callStack, sortedSet, 11);
+      [arr[pivotPos], arr[hi]] = [arr[hi], arr[pivotPos]];
+    }
+
+    sortedSet.add(pivotPos);
+    // Line 12
+    addStep(arr, buildHL(lo, hi, { [pivotPos]: 'sorted' }, sortedSet),
+      `<span class="sl">Pivot placed!</span> <span class="val">${pivot}</span> is at its final position <span class="idx">${pivotPos}</span>. All left ≤ pivot, all right > pivot. Return p = ${pivotPos}.`,
+      callStack, sortedSet, 12);
+
+    return pivotPos;
+  }
+
+  function quickSort(arr, lo, hi, callStack, sortedSet) {
+    if (lo > hi) return;
+
+    if (lo === hi) {
+      sortedSet.add(lo);
+      addStep(arr, buildHL(lo, lo, { [lo]: 'sorted' }, sortedSet),
+        `<span class="sl">Base case</span> Subarray [${lo}..${hi}] has one element <span class="val">${arr[lo]}</span> — already sorted.`,
+        callStack, sortedSet, 1);
+      return;
+    }
+
+    // Push this frame onto the call stack
+    const frame = { lo, hi };
+    callStack.push(frame);
+
+    // Line 1: if lo < hi
+    addStep(arr, buildHL(lo, hi, {}, sortedSet),
+      `<span class="sl">quickSort(${lo}, ${hi})</span> Subarray: [<span class="val">${arr.slice(lo, hi+1).join(', ')}</span>]. lo < hi → proceed to partition.`,
+      callStack, sortedSet, 1);
+
+    // Line 2: call partition
+    addStep(arr, buildHL(lo, hi, {}, sortedSet),
+      `<span class="sl">Call PARTITION(${lo}, ${hi})</span> Selecting pivot and rearranging elements around it.`,
+      callStack, sortedSet, 2);
+
+    const p = partition(arr, lo, hi, callStack, sortedSet);
+
+    // Line 3: recurse left
+    addStep(arr, buildHL(lo, p - 1, {}, sortedSet),
+      `<span class="sl">Recurse left</span> quickSort(<span class="idx">${lo}</span>, <span class="idx">${p-1}</span>) on [<span class="val">${arr.slice(lo, p).join(', ')}</span>].`,
+      callStack, sortedSet, 3);
+    quickSort(arr, lo, p - 1, callStack, sortedSet);
+
+    // Line 4: recurse right
+    addStep(arr, buildHL(p + 1, hi, {}, sortedSet),
+      `<span class="sl">Recurse right</span> quickSort(<span class="idx">${p+1}</span>, <span class="idx">${hi}</span>) on [<span class="val">${arr.slice(p+1, hi+1).join(', ')}</span>].`,
+      callStack, sortedSet, 4);
+    quickSort(arr, p + 1, hi, callStack, sortedSet);
+
+    // Pop frame when this call is complete
+    callStack.pop();
+  }
+
+  const workArr = [...inputArr];
+  const sortedSet = new Set();
+  const callStack = [];
+
+  addStep(workArr, {},
+    `<span class="sl">Start.</span> Input: [<span class="val">${workArr.join(', ')}</span>]. Quick Sort picks a <b>pivot</b>, partitions elements around it, then recurses on each half.`,
+    callStack, sortedSet, -1);
+
+  quickSort(workArr, 0, workArr.length - 1, callStack, sortedSet);
+
+  // Final
+  const allSorted = {};
+  for (let i = 0; i < n; i++) allSorted[i] = 'sorted';
+  allSteps.push({
+    arr: [...workArr],
+    highlights: allSorted,
+    message: `<span class="sl">Done!</span> Sorted: [<span class="val">${workArr.join(', ')}</span>]. Quick Sort complete in ${allSteps.length} steps.`,
+    callStack: [],
+    sortedSet: new Set([...Array(n).keys()]),
+    activeLine: -1,
+  });
+
+  return allSteps;
+}
+
+// ─── DOM build ─────────────────────────────────────────────────────────────
+let maxVal = Math.max(...INITIAL_ARRAY);
+
+function buildBars(arr) {
+  const c = document.getElementById('array-container');
+  c.innerHTML = '';
+  maxVal = Math.max(...arr);
+  arr.forEach(val => {
+    const bar = document.createElement('div');
+    bar.className = 'bar default';
+    bar.style.height = Math.max(18, (val / maxVal) * 220) + 'px';
+    bar.textContent = val;
+    c.appendChild(bar);
+  });
+}
+
+function buildPseudo() {
+  function renderLines(lines, containerId) {
+    const el = document.getElementById(containerId);
+    lines.forEach(([ln, code]) => {
+      const d = document.createElement('div');
+      d.className = 'pline';
+      d.id = `pl-${ln}`;
+      d.innerHTML = `<span class="ln">${ln}</span><span class="code">${
+        code.replace(/\b(if|for|return)\b/g, '<span class="kw">$1</span>')
+      }</span>`;
+      el.appendChild(d);
+    });
+  }
+  renderLines(QS_LINES, 'qs-pseudo');
+  renderLines(PT_LINES, 'pt-pseudo');
+}
+
+// ─── Apply step ─────────────────────────────────────────────────────────────
+function applyStep(step) {
+  // Bars
+  const bars = document.querySelectorAll('#array-container .bar');
+  step.arr.forEach((val, i) => {
+    bars[i].style.height = Math.max(18, (val / maxVal) * 220) + 'px';
+    bars[i].textContent = val;
+    bars[i].className = 'bar ' + (step.highlights[i] || 'default');
+  });
+
+  // Explanation
+  document.getElementById('explanation').innerHTML = step.message;
+
+  // Call stack — show frames from bottom (oldest) to top (newest, active)
+  const sf = document.getElementById('stack-frames');
+  if (step.callStack.length === 0) {
+    sf.innerHTML = '<span class="stack-empty">Stack is empty</span>';
+  } else {
+    sf.innerHTML = '';
+    // Reverse so active (top of stack) appears first in the visual
+    [...step.callStack].reverse().forEach((frame, idx) => {
+      const isActive = idx === 0;
+      const d = document.createElement('div');
+      d.className = 'frame' + (isActive ? ' active' : '');
+      d.innerHTML = `
+        <div class="frame-title">
+          ${isActive ? '<span class="frame-arrow">▶</span>' : '<span class="frame-arrow" style="color:#374151">·</span>'}
+          quickSort(lo=<b>${frame.lo}</b>, hi=<b>${frame.hi}</b>)
+        </div>
+        <div class="frame-vals">[${frame.values.join(', ')}]</div>`;
+      sf.appendChild(d);
+    });
+  }
+
+  // Pseudocode
+  const isPartitionLine = step.activeLine >= 5;
+  const allLines = [...QS_LINES, ...PT_LINES];
+  allLines.forEach(([ln]) => {
+    const el = document.getElementById(`pl-${ln}`);
+    if (!el) return;
+    el.className = 'pline';
+    if (ln === step.activeLine) {
+      el.classList.add(isPartitionLine ? 'partition-active' : 'active');
+    }
+  });
+
+  // Progress
+  const pct = steps.length > 1 ? (stepIdx / (steps.length - 1)) * 100 : 100;
+  document.getElementById('pb').style.width = pct + '%';
+  document.getElementById('step-ctr').textContent = `Step ${stepIdx + 1} / ${steps.length}`;
+}
+
+// ─── Playback ───────────────────────────────────────────────────────────────
+function getDelay() {
+  const s = parseInt(document.getElementById('speedSlider').value);
+  return Math.round(2000 - (s - 1) * (1850 / 9));
+}
+
+function stepForward() {
+  if (stepIdx >= steps.length - 1) { stopPlay(); return; }
+  stepIdx++;
+  applyStep(steps[stepIdx]);
+}
+
+function startPlay() {
+  playing = true;
+  document.getElementById('btnPlay').textContent = '\u23F8 Pause';
+  document.getElementById('btnStep').disabled = true;
+  function tick() {
+    if (!playing || stepIdx >= steps.length - 1) { stopPlay(); return; }
+    stepForward();
+    playTimer = setTimeout(tick, getDelay());
+  }
+  playTimer = setTimeout(tick, getDelay());
+}
+
+function stopPlay() {
+  playing = false;
+  clearTimeout(playTimer);
+  document.getElementById('btnPlay').textContent = '\u25B6 Play';
+  document.getElementById('btnStep').disabled = false;
+  if (stepIdx >= steps.length - 1) document.getElementById('btnPlay').disabled = true;
+}
+
+function resetAll() {
+  stopPlay();
+  stepIdx = 0;
+  buildBars(INITIAL_ARRAY);
+  applyStep(steps[0]);
+  document.getElementById('btnPlay').disabled = false;
+  document.getElementById('btnStep').disabled = false;
+}
+
+// ─── Init ───────────────────────────────────────────────────────────────────
+buildPseudo();
+steps = generateSteps(INITIAL_ARRAY);
+buildBars(INITIAL_ARRAY);
+applyStep(steps[0]);
+
+document.getElementById('btnPlay').addEventListener('click', () => {
+  if (playing) stopPlay();
+  else if (stepIdx >= steps.length - 1) { resetAll(); startPlay(); }
+  else startPlay();
+});
+document.getElementById('btnStep').addEventListener('click', () => {
+  if (stepIdx >= steps.length - 1) return;
+  stepForward();
+  if (stepIdx >= steps.length - 1) document.getElementById('btnPlay').disabled = true;
+});
+document.getElementById('btnReset').addEventListener('click', resetAll);
+document.getElementById('speedSlider').addEventListener('input', function () {
+  document.getElementById('speedLabel').textContent = this.value;
+});
+</script>
+</body>
+</html>

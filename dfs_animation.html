@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Depth-First Search Animation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 24px 14px 40px;
+    }
+
+    h1 { font-size: 1.85rem; color: #a78bfa; letter-spacing: 1px; margin-bottom: 4px; }
+    .subtitle { color: #64748b; font-size: 0.88rem; margin-bottom: 18px; text-align: center; }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 18px; align-items: center;
+    }
+    button {
+      padding: 8px 18px; border: none; border-radius: 8px;
+      font-size: 0.88rem; cursor: pointer; font-weight: 600; transition: all 0.2s;
+    }
+    #btnPlay  { background: #6d28d9; color: white; }
+    #btnPlay:hover  { background: #5b21b6; }
+    #btnPlay:disabled { background: #374151; cursor: default; }
+    #btnStep  { background: #0e7490; color: white; }
+    #btnStep:hover  { background: #0c6378; }
+    #btnStep:disabled { background: #374151; cursor: default; }
+    #btnReset { background: #374151; color: #d1d5db; }
+    #btnReset:hover { background: #4b5563; }
+    .speed-wrap { display: flex; align-items: center; gap: 7px; font-size: 0.85rem; color: #94a3b8; }
+    input[type=range] { width: 80px; accent-color: #a78bfa; }
+    .src-wrap { display: flex; align-items: center; gap: 7px; font-size: 0.85rem; color: #94a3b8; }
+    select {
+      background: #1e1e2e; border: 1px solid #3d3d5c; border-radius: 6px;
+      color: #e0e0e0; padding: 5px 9px; font-size: 0.88rem; cursor: pointer;
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex; gap: 14px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 16px; font-size: 0.79rem; color: #cbd5e1;
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-dot  { width: 17px; height: 17px; border-radius: 50%; border: 2px solid transparent; }
+    .legend-line { width: 26px; height: 3px; border-radius: 2px; }
+
+    /* ── Main layout ── */
+    .main-layout {
+      display: flex; gap: 16px; width: 100%; max-width: 1160px;
+      margin-bottom: 14px; flex-wrap: wrap; align-items: flex-start;
+    }
+
+    /* ── Graph ── */
+    .graph-panel {
+      flex: 1; min-width: 300px;
+      background: #12122a; border: 1px solid #252545;
+      border-radius: 14px; overflow: hidden;
+    }
+    #graph-svg { width: 100%; display: block; }
+
+    /* SVG edges */
+    .bg-edge   { stroke: #252545; stroke-width: 2.5; stroke-linecap: round; }
+    .tree-edge { stroke: #10b981; stroke-width: 3; marker-end: url(#arrGreen); opacity: 0; transition: opacity 0.35s; }
+    .tree-edge.visible  { opacity: 1; }
+    .back-edge { stroke: #f472b6; stroke-width: 2.5; stroke-dasharray: 6 3; marker-end: url(#arrPink); opacity: 0; transition: opacity 0.35s; }
+    .back-edge.visible  { opacity: 1; }
+    .fwd-edge  { stroke: #64748b; stroke-width: 2; stroke-dasharray: 4 4; opacity: 0; transition: opacity 0.35s; }
+    .fwd-edge.visible   { opacity: 1; }
+    .scan-line { stroke: #60a5fa; stroke-width: 3; stroke-dasharray: 7 4; opacity: 0; transition: opacity 0.25s; }
+    .scan-line.visible  { opacity: 1; }
+
+    /* Nodes */
+    .node circle { transition: fill 0.32s, stroke 0.32s, filter 0.32s; stroke-width: 2.5; }
+    .node text   { pointer-events: none; }
+
+    .nWHITE circle { fill: #1e2540; stroke: #3b4a6b; }
+    .nWHITE .lbl   { fill: #8492a6; }
+    .nWHITE .info  { fill: #3b4a6b; }
+
+    .nGRAY  circle { fill: #4c1d95; stroke: #a78bfa; filter: drop-shadow(0 0 7px #a78bfa77); }
+    .nGRAY  .lbl   { fill: #ede9fe; }
+    .nGRAY  .info  { fill: #c4b5fd; }
+
+    .nBLACK circle { fill: #0c2a35; stroke: #0e7490; filter: drop-shadow(0 0 5px #0e749055); }
+    .nBLACK .lbl   { fill: #22d3ee; }
+    .nBLACK .info  { fill: #0891b2; }
+
+    .node.active-u circle { stroke: #f472b6 !important; stroke-width: 4 !important; filter: drop-shadow(0 0 11px #f472b6bb) !important; }
+    .node.active-v circle { stroke: #60a5fa !important; stroke-width: 4 !important; filter: drop-shadow(0 0 11px #60a5fabb) !important; }
+
+    /* ── Side panel ── */
+    .side-panel { width: 340px; min-width: 280px; display: flex; flex-direction: column; gap: 12px; }
+
+    /* Stack */
+    .stack-box {
+      background: #1a1a2e; border: 1px solid #2d2d50;
+      border-radius: 12px; padding: 12px 14px;
+    }
+    .stack-box h3 {
+      font-size: 0.75rem; color: #64748b; text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+    }
+    .stack-box h3 .badge {
+      background: #2e1065; color: #a78bfa; font-size: 0.65rem;
+      padding: 2px 7px; border-radius: 99px; font-weight: 700; letter-spacing: 0.5px;
+    }
+
+    /* Stack frames — vertical, TOP first */
+    #stack-frames {
+      display: flex; flex-direction: column; gap: 4px;
+      max-height: 230px; overflow-y: auto;
+    }
+    #stack-frames::-webkit-scrollbar { width: 4px; }
+    #stack-frames::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
+
+    .sf {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 11px; border-radius: 7px;
+      border-left: 3px solid #2d2d50; background: #16162a;
+      transition: all 0.25s;
+    }
+    .sf.active { background: #1e1040; border-left-color: #a78bfa; box-shadow: 0 0 8px #a78bfa22; }
+
+    /* Node badge inside stack frame */
+    .sf-node {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: monospace; font-weight: bold; flex-shrink: 0;
+      background: #4c1d95; border: 2px solid #7c3aed; color: #ede9fe;
+      transition: all 0.25s;
+    }
+    .sf.active .sf-node { background: #5b21b6; border-color: #a78bfa; box-shadow: 0 0 8px #a78bfa55; }
+    .sf-node .sf-letter { font-size: 1rem; line-height: 1; }
+    .sf-node .sf-d      { font-size: 0.58rem; color: #c4b5fd; }
+
+    .sf-info { flex: 1; }
+    .sf-title { font-family: monospace; font-size: 0.77rem; color: #6b7280; }
+    .sf.active .sf-title { color: #c4b5fd; }
+    .sf-times { font-family: monospace; font-size: 0.7rem; color: #4b5563; margin-top: 2px; }
+    .sf.active .sf-times { color: #7c3aed; }
+
+    .stack-empty { font-size: 0.8rem; color: #475569; font-style: italic; text-align: center; padding: 8px 0; }
+    .stack-top-label  { font-size: 0.62rem; color: #6d28d9; text-align: center; margin-bottom: 4px; font-weight: 700; letter-spacing: 1px; }
+    .stack-bot-label  { font-size: 0.62rem; color: #374151; text-align: center; margin-top: 6px; letter-spacing: 1px; }
+
+    /* Pseudocode */
+    .pseudo-box {
+      background: #1a1a2e; border: 1px solid #2d2d50;
+      border-radius: 12px; padding: 12px 14px; flex: 1;
+    }
+    .pseudo-box h3 { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .pseudo-hdr    { font-family: monospace; font-size: 0.82rem; font-weight: 700; color: #818cf8; margin-bottom: 3px; margin-top: 10px; }
+    .pseudo-hdr:first-child { margin-top: 0; }
+
+    .pline {
+      display: flex; gap: 6px;
+      padding: 2px 5px; border-radius: 4px;
+      font-family: monospace; font-size: 0.77rem; color: #94a3b8;
+      transition: background 0.2s, color 0.2s; line-height: 1.65;
+    }
+    .pline .ln  { width: 18px; text-align: right; color: #475569; flex-shrink: 0; }
+    .pline .code { white-space: pre; }
+    .pline .kw  { color: #64748b; }
+    .pline.active          { background: #1e1040; color: #c4b5fd; }
+    .pline.active .ln      { color: #a78bfa; font-weight: 700; }
+    .pline.active .kw      { color: #818cf8; font-weight: 700; }
+    .pline.visit-active    { background: #0a2a1a; color: #86efac; }
+    .pline.visit-active .ln{ color: #4ade80; font-weight: 700; }
+    .pline.visit-active .kw{ color: #34d399; font-weight: 700; }
+
+    /* Node state table */
+    .node-state-box {
+      background: #1a1a2e; border: 1px solid #2d2d50;
+      border-radius: 12px; padding: 10px 14px;
+    }
+    .node-state-box h3 { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    #node-table { width: 100%; border-collapse: collapse; font-family: monospace; font-size: 0.77rem; }
+    #node-table th { color: #64748b; font-weight: 600; text-align: left; padding: 3px 7px; border-bottom: 1px solid #1e293b; }
+    #node-table td { padding: 3px 7px; color: #94a3b8; transition: color 0.25s; }
+    #node-table tr.active-u td { color: #f9a8d4; font-weight: 600; }
+    #node-table tr.active-v td { color: #93c5fd; font-weight: 600; }
+    .c-WHITE { color: #64748b !important; }
+    .c-GRAY  { color: #a78bfa !important; font-weight: 700 !important; }
+    .c-BLACK { color: #22d3ee !important; }
+
+    /* ── Explanation ── */
+    #explanation {
+      background: #1a1a2e; border: 1px solid #2d2d50; border-radius: 12px;
+      padding: 14px 20px; max-width: 1160px; width: 100%;
+      min-height: 66px; margin-bottom: 14px;
+      font-size: 0.92rem; line-height: 1.7; color: #e2e8f0;
+    }
+    #explanation .sl  { color: #a78bfa; font-weight: 700; margin-right: 6px; }
+    #explanation b    { color: #f9fafb; }
+    #explanation .val { color: #fbbf24; font-weight: 700; }
+    #explanation .nd  { color: #a78bfa; font-weight: 700; }
+    #explanation .tm  { color: #34d399; font-weight: 700; }
+
+    /* ── Progress ── */
+    #progress-wrap { max-width: 1160px; width: 100%; }
+    #pb-bg { width: 100%; height: 5px; background: #1e1e38; border-radius: 3px; overflow: hidden; }
+    #pb    { height: 100%; background: linear-gradient(90deg,#6d28d9,#06b6d4); border-radius: 3px; transition: width 0.35s; width: 0%; }
+    #step-ctr { text-align: right; font-size: 0.73rem; color: #64748b; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<h1>Depth-First Search</h1>
+<p class="subtitle">CLRS Algorithm — recursive traversal with discovery / finish timestamps</p>
+
+<div class="controls">
+  <button id="btnPlay">&#9654; Play</button>
+  <button id="btnStep">Step &rarr;</button>
+  <button id="btnReset">&#8635; Reset</button>
+  <div class="speed-wrap">
+    Speed <input type="range" id="speedSlider" min="1" max="10" value="5">
+    <span id="speedLabel">5</span>
+  </div>
+  <div class="src-wrap">
+    Start vertex:
+    <select id="startSelect">
+      <option value="r" selected>r</option>
+      <option value="s">s</option>
+      <option value="t">t</option>
+      <option value="u">u</option>
+      <option value="v">v</option>
+      <option value="w">w</option>
+      <option value="x">x</option>
+      <option value="y">y</option>
+    </select>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#1e2540;border-color:#3b4a6b"></div> WHITE (undiscovered)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4c1d95;border-color:#a78bfa"></div> GRAY (on stack)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#0c2a35;border-color:#0e7490"></div> TEAL (finished)</div>
+  <div class="legend-item"><div class="legend-line" style="background:#10b981"></div> Tree edge</div>
+  <div class="legend-item"><div class="legend-line" style="background:#f472b6"></div> Back edge</div>
+  <div class="legend-item"><div class="legend-line" style="background:#64748b"></div> Fwd/cross edge</div>
+</div>
+
+<div class="main-layout">
+
+  <!-- Graph -->
+  <div class="graph-panel">
+    <svg id="graph-svg" viewBox="0 0 730 510">
+      <defs>
+        <marker id="arrGreen" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0,9 3.5,0 7" fill="#10b981"/>
+        </marker>
+        <marker id="arrPink" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0,9 3.5,0 7" fill="#f472b6"/>
+        </marker>
+      </defs>
+
+      <!-- Background undirected edges -->
+      <g id="bg-edges">
+        <line class="bg-edge" x1="100" y1="150" x2="272" y2="150"/>
+        <line class="bg-edge" x1="100" y1="182" x2="100" y2="288"/>
+        <line class="bg-edge" x1="132" y1="150" x2="428" y2="150"/>
+        <line class="bg-edge" x1="472" y1="150" x2="598" y2="150"/>
+        <line class="bg-edge" x1="440" y1="182" x2="440" y2="288"/>
+        <line class="bg-edge" x1="592" y1="172" x2="462" y2="293"/>
+        <line class="bg-edge" x1="630" y1="182" x2="630" y2="288"/>
+        <line class="bg-edge" x1="472" y1="320" x2="598" y2="320"/>
+        <line class="bg-edge" x1="440" y1="352" x2="440" y2="418"/>
+        <line class="bg-edge" x1="608" y1="344" x2="462" y2="423"/>
+      </g>
+
+      <!-- DFS classified edges (revealed dynamically) -->
+      <g id="classified-edges"></g>
+
+      <!-- Scan edge (current edge being examined) -->
+      <line id="scan-edge" class="scan-line" x1="0" y1="0" x2="0" y2="0"/>
+
+      <!-- Nodes -->
+      <g id="nodes">
+        <g id="node-r" class="node nWHITE" transform="translate(100,150)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="17" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">r</text>
+          <text class="info" id="info-r" font-family="monospace" font-size="10" text-anchor="middle" dominant-baseline="central" dy="11"> </text>
+        </g>
+        <g id="node-s" class="node nWHITE" transform="translate(280,150)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="17" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">s</text>
+          <text class="info" id="info-s" font-family="monospace" font-size="10" text-anchor="middle" dominant-baseline="central" dy="11"> </text>
+        </g>
+        <g id="node-w" class="node nWHITE" transform="translate(440,150)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="17" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">w</text>
+          <text class="info" id="info-w" font-family="monospace" font-size="10" text-anchor="middle" dominant-baseline="central" dy="11"> </text>
+        </g>
+        <g id="node-t" class="node nWHITE" transform="translate(630,150)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="17" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">t</text>
+          <text class="info" id="info-t" font-family="monospace" font-size="10" text-anchor="middle" dominant-baseline="central" dy="11"> </text>
+        </g>
+        <g id="node-v" class="node nWHITE" transform="translate(100,320)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="17" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">v</text>
+          <text class="info" id="info-v" font-family="monospace" font-size="10" text-anchor="middle" dominant-baseline="central" dy="11"> </text>
+        </g>
+        <g id="node-x" class="node nWHITE" transform="translate(440,320)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="17" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">x</text>
+          <text class="info" id="info-x" font-family="monospace" font-size="10" text-anchor="middle" dominant-baseline="central" dy="11"> </text>
+        </g>
+        <g id="node-u" class="node nWHITE" transform="translate(630,320)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="17" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">u</text>
+          <text class="info" id="info-u" font-family="monospace" font-size="10" text-anchor="middle" dominant-baseline="central" dy="11"> </text>
+        </g>
+        <g id="node-y" class="node nWHITE" transform="translate(440,450)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="17" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">y</text>
+          <text class="info" id="info-y" font-family="monospace" font-size="10" text-anchor="middle" dominant-baseline="central" dy="11"> </text>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <!-- Side panel -->
+  <div class="side-panel">
+
+    <!-- Stack -->
+    <div class="stack-box">
+      <h3>Call Stack <span class="badge">LIFO</span></h3>
+      <div class="stack-top-label">▲ TOP (active DFS-VISIT)</div>
+      <div id="stack-frames"><span class="stack-empty">Stack is empty</span></div>
+      <div class="stack-bot-label">▼ BOTTOM (oldest frame)</div>
+    </div>
+
+    <!-- Pseudocode -->
+    <div class="pseudo-box">
+      <h3>Pseudocode</h3>
+      <div class="pseudo-hdr">DFS(G)</div>
+      <div id="dfs-pseudo"></div>
+      <div class="pseudo-hdr">DFS-VISIT(G, u)</div>
+      <div id="visit-pseudo"></div>
+    </div>
+
+    <!-- Node state table -->
+    <div class="node-state-box">
+      <h3>Node States</h3>
+      <table id="node-table">
+        <thead><tr><th>v</th><th>color</th><th>d</th><th>f</th><th>&pi;</th></tr></thead>
+        <tbody id="node-tbody"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<div id="explanation"><span class="sl">Ready.</span> Press Play or Step to start DFS.</div>
+
+<div id="progress-wrap">
+  <div id="pb-bg"><div id="pb"></div></div>
+  <div id="step-ctr">Step 0 / 0</div>
+</div>
+
+<script>
+// ─── Graph definition ──────────────────────────────────────────────────────
+const NODE_POS = {
+  r:[100,150], s:[280,150], w:[440,150], t:[630,150],
+  v:[100,320], x:[440,320], u:[630,320], y:[440,450],
+};
+const ALL_NODES = ['r','s','t','u','v','w','x','y'];
+// DFS outer-loop order (alphabetical)
+const G_V_ORDER = ['r','s','t','u','v','w','x','y'];
+const ADJ = {
+  r:['s','v'], s:['r','w'],
+  t:['w','x','u'], u:['t','x','y'],
+  v:['r'], w:['s','t','x'],
+  x:['w','t','u','y'], y:['x','u'],
+};
+
+// Pseudocode
+const DFS_LINES = [
+  [1, 'for each vertex u \u2208 G.V'],
+  [2, '    u.color \u2190 WHITE'],
+  [3, '    u.\u03c0 \u2190 NIL'],
+  [4, 'time \u2190 0'],
+  [5, 'for each vertex u \u2208 G.V'],
+  [6, '    if u.color == WHITE'],
+  [7, '        DFS-VISIT(G, u)'],
+];
+const VISIT_LINES = [
+  [8,  'time \u2190 time + 1'],
+  [9,  'u.d \u2190 time'],
+  [10, 'u.color \u2190 GRAY'],
+  [11, 'for each v \u2208 G.Adj[u]'],
+  [12, '    if v.color == WHITE'],
+  [13, '        v.\u03c0 \u2190 u'],
+  [14, '        DFS-VISIT(G, v)'],
+  [15, 'u.color \u2190 BLACK'],
+  [16, 'time \u2190 time + 1'],
+  [17, 'u.f \u2190 time'],
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function edgeOffset(aId, bId, r) {
+  const [x1,y1] = NODE_POS[aId], [x2,y2] = NODE_POS[bId];
+  const dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy);
+  const ux=dx/len, uy=dy/len;
+  return { x1:x1+ux*r, y1:y1+uy*r, x2:x2-ux*(r+9), y2:y2-uy*(r+9) };
+}
+
+// ─── Step generator ────────────────────────────────────────────────────────
+function generateSteps(startVertex) {
+  const steps = [];
+
+  const st = {
+    nodes: {},      // id → { color, d, f, pi }
+    stack: [],      // [{node, d}] bottom→top
+    classEdges: [], // [{a,b,type:'tree'|'back'|'fwd'}]
+    scanEdge: null, // [a,b] or null
+    activeLine: -1,
+    currentU: null,
+    currentV: null,
+    time: 0,
+    message: '',
+  };
+
+  ALL_NODES.forEach(id => {
+    st.nodes[id] = { color:'WHITE', d:null, f:null, pi:null };
+  });
+
+  function snap() { steps.push(clone(st)); }
+
+  // ── Init (lines 1-4)
+  st.activeLine = 1;
+  st.message = `<span class="sl">Lines 1-4.</span> Initialize all vertices: color = WHITE, &pi; = NIL, time = 0.`;
+  snap();
+
+  // ── Outer loop (lines 5-7)
+  // Put startVertex first so DFS begins there
+  const order = [startVertex, ...G_V_ORDER.filter(v => v !== startVertex)];
+
+  for (const u of order) {
+    st.activeLine = 5; st.currentU = u; st.currentV = null; st.scanEdge = null;
+    st.message = `<span class="sl">Line 5.</span> Outer loop: check vertex <span class="nd">${u}</span>.`;
+    snap();
+
+    st.activeLine = 6;
+    if (st.nodes[u].color === 'WHITE') {
+      st.message = `<span class="sl">Line 6.</span> <span class="nd">${u}</span>.color = WHITE &rarr; call DFS-VISIT.`;
+      snap();
+      st.activeLine = 7;
+      st.message = `<span class="sl">Line 7.</span> DFS-VISIT(G, <span class="nd">${u}</span>).`;
+      snap();
+      dfsVisit(u);
+      st.currentU = null; st.currentV = null; st.scanEdge = null;
+    } else {
+      st.message = `<span class="sl">Line 6.</span> <span class="nd">${u}</span>.color = ${st.nodes[u].color} &ne; WHITE &rarr; skip.`;
+      snap();
+    }
+  }
+
+  // Done
+  st.activeLine = -1; st.currentU = null; st.currentV = null; st.scanEdge = null;
+  st.message = `<span class="sl">Done!</span> DFS complete. All reachable vertices discovered with discovery/finish times.`;
+  snap();
+
+  // ── DFS-VISIT recursive ──
+  function dfsVisit(u) {
+    // Line 8: time++
+    st.time++;
+    st.activeLine = 8; st.currentU = u;
+    st.message = `<span class="sl">Line 8.</span> DFS-VISIT(<span class="nd">${u}</span>): time = time + 1 = <span class="tm">${st.time}</span>.`;
+    snap();
+
+    // Line 9: u.d = time
+    st.nodes[u].d = st.time;
+    st.activeLine = 9;
+    st.message = `<span class="sl">Line 9.</span> <span class="nd">${u}</span>.d = <span class="tm">${st.time}</span> (discovery time stamped).`;
+    snap();
+
+    // Line 10: u.color = GRAY, push stack
+    st.nodes[u].color = 'GRAY';
+    st.stack.push({ node:u, d:st.time });
+    st.activeLine = 10;
+    st.message = `<span class="sl">Line 10.</span> <span class="nd">${u}</span>.color &larr; GRAY. Push onto stack. Stack depth: ${st.stack.length}.`;
+    snap();
+
+    // Line 11: for each neighbor
+    const neighbors = ADJ[u];
+    for (const v of neighbors) {
+      st.currentV = v;
+      st.scanEdge = [u, v];
+      st.activeLine = 11;
+      st.message = `<span class="sl">Line 11.</span> Examining neighbor <span class="nd">${v}</span> of <span class="nd">${u}</span>. Adj[${u}] = [${neighbors.join(', ')}].`;
+      snap();
+
+      // Line 12
+      st.activeLine = 12;
+      const vColor = st.nodes[v].color;
+
+      if (vColor === 'WHITE') {
+        st.message = `<span class="sl">Line 12.</span> <span class="nd">${v}</span>.color = WHITE &rarr; undiscovered! Tree edge.`;
+        snap();
+
+        // Line 13: v.π = u
+        st.nodes[v].pi = u;
+        st.classEdges.push({ a:u, b:v, type:'tree' });
+        st.activeLine = 13;
+        st.message = `<span class="sl">Line 13.</span> <span class="nd">${v}</span>.&pi; &larr; <span class="nd">${u}</span>. Tree edge <span class="nd">${u}</span> &rarr; <span class="nd">${v}</span> added.`;
+        snap();
+
+        // Line 14: recurse
+        st.activeLine = 14;
+        st.message = `<span class="sl">Line 14.</span> Recurse: DFS-VISIT(G, <span class="nd">${v}</span>).`;
+        snap();
+
+        dfsVisit(v);
+
+        // restore context
+        st.currentU = u; st.scanEdge = [u, v];
+
+      } else if (vColor === 'GRAY') {
+        // Back edge — v is ancestor (still on stack)
+        st.classEdges.push({ a:u, b:v, type:'back' });
+        st.message = `<span class="sl">Line 12.</span> <span class="nd">${v}</span>.color = GRAY (ancestor on stack) &rarr; <b>back edge</b> — indicates a cycle.`;
+        snap();
+      } else {
+        // BLACK — forward or cross edge
+        st.classEdges.push({ a:u, b:v, type:'fwd' });
+        st.message = `<span class="sl">Line 12.</span> <span class="nd">${v}</span>.color = BLACK (already finished) &rarr; <b>forward/cross edge</b>, skip.`;
+        snap();
+      }
+    }
+
+    st.currentV = null; st.scanEdge = null;
+
+    // Line 15: u.color = BLACK
+    st.nodes[u].color = 'BLACK';
+    st.activeLine = 15;
+    st.message = `<span class="sl">Line 15.</span> <span class="nd">${u}</span>.color &larr; BLACK (backtrack — all neighbors explored).`;
+    snap();
+
+    // Line 16: time++
+    st.time++;
+    st.activeLine = 16;
+    st.message = `<span class="sl">Line 16.</span> time = time + 1 = <span class="tm">${st.time}</span>.`;
+    snap();
+
+    // Line 17: u.f = time, pop stack
+    st.nodes[u].f = st.time;
+    st.stack.pop();
+    st.activeLine = 17;
+    st.message = `<span class="sl">Line 17.</span> <span class="nd">${u}</span>.f = <span class="tm">${st.time}</span>. Pop <span class="nd">${u}</span> from stack. Interval: [<span class="tm">${st.nodes[u].d}</span>/<span class="tm">${st.time}</span>].`;
+    snap();
+  }
+
+  return steps;
+}
+
+// ─── DOM build ─────────────────────────────────────────────────────────────
+let START = 'r';
+let steps = [], stepIdx = 0, playing = false, playTimer = null;
+
+function buildPseudo() {
+  function render(lines, id) {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    lines.forEach(([ln, code]) => {
+      const d = document.createElement('div');
+      d.className = 'pline'; d.id = `pl-${ln}`;
+      d.innerHTML = `<span class="ln">${ln}</span><span class="code">${
+        code.replace(/\b(for|each|if|return)\b/g,'<span class="kw">$1</span>')
+      }</span>`;
+      el.appendChild(d);
+    });
+  }
+  render(DFS_LINES,   'dfs-pseudo');
+  render(VISIT_LINES, 'visit-pseudo');
+}
+
+function buildNodeTable() {
+  const tb = document.getElementById('node-tbody');
+  tb.innerHTML = '';
+  ALL_NODES.forEach(id => {
+    const tr = document.createElement('tr');
+    tr.id = `nrow-${id}`;
+    tr.innerHTML = `<td><b>${id}</b></td>
+      <td id="nt-c-${id}" class="c-WHITE">WHITE</td>
+      <td id="nt-d-${id}">&mdash;</td>
+      <td id="nt-f-${id}">&mdash;</td>
+      <td id="nt-p-${id}">NIL</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+// ─── Apply step ────────────────────────────────────────────────────────────
+function applyStep(step) {
+  // 1. Node colors + info labels
+  ALL_NODES.forEach(id => {
+    const g  = document.getElementById(`node-${id}`);
+    const ns = step.nodes[id];
+    g.className.baseVal = `node n${ns.color}`;
+    if (id === step.currentU) g.classList.add('active-u');
+    else if (id === step.currentV) g.classList.add('active-v');
+
+    // d/f label inside circle
+    const infoEl = document.getElementById(`info-${id}`);
+    if (ns.d !== null && ns.f !== null) infoEl.textContent = `${ns.d}/${ns.f}`;
+    else if (ns.d !== null)             infoEl.textContent = `d=${ns.d}`;
+    else                                infoEl.textContent = ' ';
+  });
+
+  // 2. Classified edges
+  const ce = document.getElementById('classified-edges');
+  ce.innerHTML = '';
+  const seen = new Set();
+  step.classEdges.forEach(({ a, b, type }) => {
+    const key = `${a}-${b}`;
+    if (seen.has(key)) return; seen.add(key);
+    const { x1,y1,x2,y2 } = edgeOffset(a, b, 32);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    const cls = type === 'tree' ? 'tree-edge visible'
+              : type === 'back' ? 'back-edge visible'
+              : 'fwd-edge visible';
+    line.setAttribute('class', cls);
+    ce.appendChild(line);
+  });
+
+  // 3. Scan edge
+  const se = document.getElementById('scan-edge');
+  if (step.scanEdge) {
+    const [a,b] = step.scanEdge;
+    const {x1,y1,x2,y2} = edgeOffset(a, b, 34);
+    se.setAttribute('x1',x1); se.setAttribute('y1',y1);
+    se.setAttribute('x2',x2); se.setAttribute('y2',y2);
+    se.classList.add('visible');
+  } else {
+    se.classList.remove('visible');
+    se.setAttribute('x1',0); se.setAttribute('y1',0);
+    se.setAttribute('x2',0); se.setAttribute('y2',0);
+  }
+
+  // 4. Pseudocode highlight
+  const isVisitLine = step.activeLine >= 8;
+  [...DFS_LINES, ...VISIT_LINES].forEach(([ln]) => {
+    const el = document.getElementById(`pl-${ln}`);
+    if (!el) return;
+    el.className = 'pline';
+    if (ln === step.activeLine)
+      el.classList.add(isVisitLine ? 'visit-active' : 'active');
+  });
+
+  // 5. Call stack — show top (active) first
+  const sf = document.getElementById('stack-frames');
+  if (step.stack.length === 0) {
+    sf.innerHTML = '<span class="stack-empty">Stack is empty</span>';
+  } else {
+    sf.innerHTML = '';
+    [...step.stack].reverse().forEach((frame, idx) => {
+      const isActive = idx === 0;
+      const ns = step.nodes[frame.node];
+      const dStr = ns.d !== null ? ns.d : '?';
+      const fStr = ns.f !== null ? ns.f : '…';
+      const div = document.createElement('div');
+      div.className = 'sf' + (isActive ? ' active' : '');
+      div.innerHTML = `
+        <div class="sf-node">
+          <span class="sf-letter">${frame.node}</span>
+          <span class="sf-d">d=${dStr}</span>
+        </div>
+        <div class="sf-info">
+          <div class="sf-title">${isActive ? '▶ ' : '· '}DFS-VISIT(${frame.node})</div>
+          <div class="sf-times">d=${dStr} &nbsp; f=${fStr}</div>
+        </div>`;
+      sf.appendChild(div);
+    });
+  }
+
+  // 6. Node state table
+  ALL_NODES.forEach(id => {
+    const ns  = step.nodes[id];
+    const row = document.getElementById(`nrow-${id}`);
+    row.className = id === step.currentU ? 'active-u' : id === step.currentV ? 'active-v' : '';
+    const cEl = document.getElementById(`nt-c-${id}`);
+    cEl.textContent = ns.color; cEl.className = `c-${ns.color}`;
+    document.getElementById(`nt-d-${id}`).textContent = ns.d ?? '—';
+    document.getElementById(`nt-f-${id}`).textContent = ns.f ?? '—';
+    document.getElementById(`nt-p-${id}`).textContent = ns.pi ?? 'NIL';
+  });
+
+  // 7. Explanation + progress
+  document.getElementById('explanation').innerHTML = step.message;
+  const pct = steps.length > 1 ? (stepIdx / (steps.length - 1)) * 100 : 100;
+  document.getElementById('pb').style.width = pct + '%';
+  document.getElementById('step-ctr').textContent = `Step ${stepIdx + 1} / ${steps.length}`;
+}
+
+// ─── Playback ───────────────────────────────────────────────────────────────
+function getDelay() {
+  const s = parseInt(document.getElementById('speedSlider').value);
+  return Math.round(1800 - (s - 1) * (1650 / 9));
+}
+function stepForward() {
+  if (stepIdx >= steps.length - 1) { stopPlay(); return; }
+  stepIdx++; applyStep(steps[stepIdx]);
+}
+function startPlay() {
+  playing = true;
+  document.getElementById('btnPlay').textContent = '\u23F8 Pause';
+  document.getElementById('btnStep').disabled = true;
+  function tick() {
+    if (!playing || stepIdx >= steps.length - 1) { stopPlay(); return; }
+    stepForward(); playTimer = setTimeout(tick, getDelay());
+  }
+  playTimer = setTimeout(tick, getDelay());
+}
+function stopPlay() {
+  playing = false; clearTimeout(playTimer);
+  document.getElementById('btnPlay').textContent = '\u25B6 Play';
+  document.getElementById('btnStep').disabled = false;
+  if (stepIdx >= steps.length - 1) document.getElementById('btnPlay').disabled = true;
+}
+function resetAll() {
+  stopPlay(); stepIdx = 0; applyStep(steps[0]);
+  document.getElementById('btnPlay').disabled = false;
+  document.getElementById('btnStep').disabled = false;
+}
+function rebuild() {
+  stopPlay();
+  START = document.getElementById('startSelect').value;
+  steps = generateSteps(START);
+  stepIdx = 0; applyStep(steps[0]);
+  document.getElementById('btnPlay').disabled = false;
+  document.getElementById('btnStep').disabled = false;
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────
+buildPseudo();
+buildNodeTable();
+steps = generateSteps(START);
+applyStep(steps[0]);
+
+document.getElementById('btnPlay').addEventListener('click', () => {
+  if (playing) stopPlay();
+  else if (stepIdx >= steps.length - 1) { resetAll(); startPlay(); }
+  else startPlay();
+});
+document.getElementById('btnStep').addEventListener('click', () => {
+  if (stepIdx >= steps.length - 1) return;
+  stepForward();
+  if (stepIdx >= steps.length - 1) document.getElementById('btnPlay').disabled = true;
+});
+document.getElementById('btnReset').addEventListener('click', resetAll);
+document.getElementById('startSelect').addEventListener('change', rebuild);
+document.getElementById('speedSlider').addEventListener('input', function() {
+  document.getElementById('speedLabel').textContent = this.value;
+});
+</script>
+</body>
+</html>

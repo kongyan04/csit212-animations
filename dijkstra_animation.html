@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dijkstra's Algorithm – Animation</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f1117; color: #e2e8f0; font-family: 'Courier New', monospace; }
+
+  header { background: #1a1f2e; padding: 14px 24px; border-bottom: 1px solid #2d3748; }
+  header h1 { font-size: 1.15rem; color: #93c5fd; }
+  header p  { font-size: 0.78rem; color: #64748b; margin-top: 2px; }
+
+  .controls { display: flex; align-items: center; gap: 8px; padding: 10px 20px;
+              background: #1a1f2e; border-bottom: 1px solid #2d3748; flex-wrap: wrap; }
+  button { background: #1e3a5f; color: #93c5fd; border: 1px solid #2563eb;
+           border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 0.83rem;
+           font-family: inherit; transition: background 0.2s; }
+  button:hover { background: #2563eb; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  select, label { background: #1e2536; color: #e2e8f0; border: 1px solid #374151;
+                  border-radius: 5px; padding: 5px 8px; font-size: 0.82rem; font-family: inherit; }
+  label { background: none; border: none; color: #94a3b8; }
+  #step-counter { color: #64748b; font-size: 0.82rem; margin-left: auto; }
+
+  .layout { display: grid; grid-template-columns: 1fr 370px; height: calc(100vh - 110px); }
+
+  /* ── LEFT ── */
+  .left { display: flex; flex-direction: column; padding: 14px; gap: 12px; overflow-y: auto; }
+
+  #graph-svg { width: 100%; background: #141824; border-radius: 10px; border: 1px solid #2d3748; }
+
+  #explanation { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px;
+                 padding: 10px 14px; font-size: 0.84rem; min-height: 46px; line-height: 1.6;
+                 color: #e2e8f0; }
+  .sl  { color: #60a5fa; font-weight: bold; }
+  .val { color: #34d399; font-weight: bold; }
+  .edg { color: #fbbf24; font-weight: bold; }
+  .upd { color: #c084fc; font-weight: bold; }
+
+  #state-wrap { background: #141824; border: 1px solid #2d3748; border-radius: 8px; overflow: hidden; }
+  #state-wrap table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  #state-wrap th { background: #1e2536; color: #94a3b8; padding: 6px 10px;
+                   text-align: center; border-bottom: 1px solid #2d3748; }
+  #state-wrap td { padding: 5px 10px; text-align: center; border-bottom: 1px solid #1e2536; }
+  .s-done     { color: #34d399; }
+  .s-frontier { color: #fbbf24; }
+  .s-unvis    { color: #64748b; }
+  .row-cur    { background: #1e1040 !important; }
+
+  /* ── RIGHT ── */
+  .right { background: #141824; border-left: 1px solid #2d3748; display: flex;
+           flex-direction: column; overflow-y: auto; }
+
+  /* Pseudocode */
+  #pseudo-wrap { padding: 14px 14px 6px; }
+  #pseudo-wrap h3 { font-size: 0.72rem; color: #64748b; letter-spacing: .1em;
+                    text-transform: uppercase; margin-bottom: 8px; }
+  .pline { font-size: 0.78rem; padding: 3px 8px; border-radius: 3px;
+           color: #94a3b8; line-height: 1.75; white-space: pre; }
+  .pline.active       { background: #0d2540; color: #bfdbfe; font-weight: bold; }
+  .pline.relax-active { background: #1a2010; color: #86efac; font-weight: bold; }
+  .pline.section-hdr  { color: #475569; font-style: italic; font-size: 0.72rem; margin-top: 6px; }
+
+  /* Priority Queue */
+  #pq-wrap { padding: 6px 14px 12px; }
+  #pq-wrap h3 { font-size: 0.72rem; color: #64748b; letter-spacing: .1em;
+                text-transform: uppercase; margin-bottom: 8px; }
+  #pq-box { display: flex; flex-direction: column; gap: 5px; min-height: 40px; }
+  .pq-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+             border-radius: 6px; border: 1px solid #2d3748; background: #1a1f2e;
+             font-size: 0.82rem; transition: all 0.3s; }
+  .pq-min      { border-color: #34d399; background: #0a2a1a; }
+  .pq-frontier { border-color: #f59e0b; background: #1a160a; }
+  .pq-dot  { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+  .dot-min      { background: #34d399; }
+  .dot-frontier { background: #f59e0b; }
+  .dot-unvis    { background: #475569; }
+  .pq-lbl  { flex: 1; font-weight: bold; color: #e2e8f0; }
+  .pq-next { font-size: 0.64rem; background: #166534; color: #4ade80;
+             border-radius: 3px; padding: 1px 5px; font-weight: bold; }
+  .pq-dist { margin-left: auto; color: #94a3b8; }
+  .pq-pi   { color: #64748b; font-size: 0.74rem; }
+  .pq-empty { color: #4b5563; font-style: italic; font-size: 0.82rem; }
+
+  /* Legend */
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; padding: 8px 14px;
+            border-top: 1px solid #2d3748; }
+  .leg-i { display: flex; align-items: center; gap: 5px; color: #94a3b8; font-size: 0.72rem; }
+  .leg-d { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* SP summary */
+  #sp-summary { display: none; margin: 4px 14px 14px; background: #0a1f0a;
+                border: 1px solid #166534; border-radius: 8px; padding: 10px 12px; }
+  #sp-summary h4 { color: #4ade80; font-size: 0.82rem; margin-bottom: 6px; }
+  .sp-row { font-size: 0.78rem; color: #a7f3d0; padding: 2px 0; }
+
+  /* SVG styles (set via JS) */
+  .edge-base { stroke: #374151; stroke-width: 2; }
+  .node-text { font-size: 14px; font-weight: bold; font-family: 'Courier New', monospace; }
+  .node-dist { font-size: 10px; font-family: 'Courier New', monospace; }
+  .wt-text   { fill: #94a3b8; font-size: 11px; font-family: 'Courier New', monospace;
+                text-anchor: middle; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Dijkstra's Single-Source Shortest Paths</h1>
+  <p>Step through EXTRACT-MIN operations and RELAX calls on the priority queue</p>
+</header>
+
+<div class="controls">
+  <label>Source:</label>
+  <select id="src-sel">
+    <option>S</option><option>A</option><option>B</option>
+    <option>C</option><option>D</option><option>E</option>
+  </select>
+  <button id="btn-apply">Apply</button>
+  <button id="btn-prev">◀ Prev</button>
+  <button id="btn-next">Next ▶</button>
+  <button id="btn-play">▶ Play</button>
+  <button id="btn-reset">Reset</button>
+  <span id="step-counter">Step 1 / 1</span>
+</div>
+
+<div class="layout">
+  <!-- LEFT -->
+  <div class="left">
+    <svg id="graph-svg" viewBox="0 0 750 440"></svg>
+    <div id="explanation">Initializing…</div>
+    <div id="state-wrap">
+      <table>
+        <thead><tr><th>Node</th><th>d</th><th>π</th><th>Status</th></tr></thead>
+        <tbody id="state-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right">
+    <div id="pseudo-wrap">
+      <h3>Pseudocode</h3>
+      <div class="pline section-hdr">DIJKSTRA(G, w, s)</div>
+      <div class="pline" data-line="1"> 1  <b>for each</b> vertex v ∈ G.V</div>
+      <div class="pline" data-line="2"> 2      v.d = ∞</div>
+      <div class="pline" data-line="3"> 3      v.π = NIL</div>
+      <div class="pline" data-line="4"> 4  s.d = 0</div>
+      <div class="pline" data-line="5"> 5  Q = G.V</div>
+      <div class="pline" data-line="6"> 6  <b>while</b> Q ≠ ∅</div>
+      <div class="pline" data-line="7"> 7      u = EXTRACT-MIN(Q)</div>
+      <div class="pline" data-line="8"> 8      <b>for each</b> v ∈ G.Adj[u]</div>
+      <div class="pline" data-line="9"> 9          RELAX(u, v, w)</div>
+      <div class="pline section-hdr">RELAX(u, v, w)</div>
+      <div class="pline" data-line="10">10  <b>if</b> v.d > u.d + w(u,v)</div>
+      <div class="pline" data-line="11">11      v.d = u.d + w(u,v)</div>
+      <div class="pline" data-line="12">12      v.π = u</div>
+    </div>
+
+    <div id="pq-wrap">
+      <h3>Priority Queue Q (min-heap by d)</h3>
+      <div id="pq-box"></div>
+    </div>
+
+    <div id="sp-summary"></div>
+
+    <div class="legend">
+      <div class="leg-i"><div class="leg-d" style="background:#475569"></div> Unvisited (∞)</div>
+      <div class="leg-i"><div class="leg-d" style="background:#fbbf24"></div> In Queue (d &lt; ∞)</div>
+      <div class="leg-i"><div class="leg-d" style="background:#34d399"></div> Finalized</div>
+      <div class="leg-i"><div class="leg-d" style="background:#818cf8"></div> Current u</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════ Graph Data ═══════════════ */
+const NODES = ['S','A','B','C','D','E'];
+const NODE_POS = {
+  S:[85,220], A:[285,90], B:[500,90],
+  C:[285,360], D:[500,360], E:[660,220]
+};
+const EDGES = [
+  ['S','A',4], ['S','C',2],
+  ['A','B',3], ['A','C',1],
+  ['B','D',2], ['B','E',7],
+  ['C','D',5],
+  ['D','E',1]
+];
+// build adjacency
+const ADJ = {};
+NODES.forEach(n => ADJ[n] = []);
+EDGES.forEach(([u,v,w]) => { ADJ[u].push([v,w]); ADJ[v].push([u,w]); });
+
+/* ═══════════════ Step Generation ═══════════════ */
+let steps = [], stepIdx = 0, playTimer = null;
+
+function snap(nodes) { return JSON.parse(JSON.stringify(nodes)); }
+
+function qSnap(inQ, nodes) {
+  return inQ
+    .map(id => ({ id, d: nodes[id].d, pi: nodes[id].pi, status: nodes[id].status }))
+    .sort((a,b) => (a.d === Infinity ? 1e15 : a.d) - (b.d === Infinity ? 1e15 : b.d));
+}
+
+function genSteps(source) {
+  steps = [];
+  const nodes = {};
+  NODES.forEach(n => nodes[n] = {
+    d: n === source ? 0 : Infinity,
+    pi: null,
+    status: n === source ? 'frontier' : 'unvisited'
+  });
+  let inQ = [...NODES];
+  const spEdges = [];
+
+  const push = (extra) => steps.push({
+    nodes: snap(nodes),
+    queue: qSnap(inQ, nodes),
+    spEdges: [...spEdges],
+    currentU: null, scanEdge: null,
+    activeLine: [],
+    ...extra
+  });
+
+  // Initialization
+  push({
+    activeLine: [1,2,3,4,5],
+    message: `Initialize: d[v] = ∞ for all v, d[<span class="sl">${source}</span>] = <span class="val">0</span>, Q = G.V`
+  });
+
+  while (inQ.length > 0) {
+    // find min
+    const u = inQ.reduce((a,b) =>
+      (nodes[a].d === Infinity ? 1e15 : nodes[a].d) <=
+      (nodes[b].d === Infinity ? 1e15 : nodes[b].d) ? a : b
+    );
+    if (nodes[u].d === Infinity) break; // all remaining unreachable
+
+    // line 6: while Q ≠ ∅
+    push({
+      activeLine: [6],
+      currentU: null,
+      message: `Q ≠ ∅ — continue. Minimum in Q: <span class="sl">${u}</span> with d = <span class="val">${nodes[u].d}</span>`
+    });
+
+    // Extract min
+    nodes[u].status = 'done';
+    inQ = inQ.filter(x => x !== u);
+    if (nodes[u].pi) spEdges.push({ u: nodes[u].pi, v: u });
+
+    push({
+      activeLine: [7],
+      currentU: u,
+      message: `EXTRACT-MIN: remove <span class="sl">${u}</span> from Q (d = <span class="val">${nodes[u].d}</span>, π = <span class="val">${nodes[u].pi || 'NIL'}</span>). Shortest path to <span class="sl">${u}</span> is finalized.`
+    });
+
+    // Relax neighbors
+    for (const [v, w] of ADJ[u]) {
+      if (nodes[v].status === 'done') continue;
+
+      // line 8: for each neighbor
+      push({
+        activeLine: [8],
+        currentU: u, scanEdge: {u,v,w},
+        message: `Examine neighbor <span class="sl">${v}</span> via edge (<span class="sl">${u}</span>, <span class="sl">${v}</span>), weight = <span class="edg">${w}</span>`
+      });
+
+      // line 10: RELAX check
+      const newD = nodes[u].d + w;
+      const oldD = nodes[v].d;
+      const dStr = oldD === Infinity ? '∞' : oldD;
+      push({
+        activeLine: [9, 10],
+        currentU: u, scanEdge: {u,v,w},
+        message: `RELAX: d[<span class="sl">${v}</span>] = ${dStr} > d[<span class="sl">${u}</span>] + w = ${nodes[u].d} + ${w} = <span class="val">${newD}</span>? → <span class="val">${oldD > newD ? 'YES — update!' : 'NO — skip'}</span>`
+      });
+
+      if (oldD > newD) {
+        nodes[v].d = newD;
+        nodes[v].pi = u;
+        nodes[v].status = 'frontier';
+        push({
+          activeLine: [11, 12],
+          currentU: u, scanEdge: {u,v,w},
+          message: `Update: d[<span class="sl">${v}</span>] = <span class="upd">${newD}</span>, π[<span class="sl">${v}</span>] = <span class="upd">${u}</span>`
+        });
+      }
+    }
+  }
+
+  // Done
+  push({
+    activeLine: [],
+    done: true,
+    finalNodes: snap(nodes),
+    message: `Dijkstra complete! All shortest distances from <span class="sl">${source}</span> have been computed.`
+  });
+}
+
+/* ═══════════════ SVG ═══════════════ */
+const svg = document.getElementById('graph-svg');
+const NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k,v] of Object.entries(attrs)) e.setAttribute(k, v);
+  return e;
+}
+
+function buildSVG() {
+  svg.innerHTML = '';
+
+  // Base edges
+  const gBase = svgEl('g', {id:'g-base'});
+  EDGES.forEach(([u,v,w]) => {
+    const [x1,y1] = NODE_POS[u], [x2,y2] = NODE_POS[v];
+    gBase.appendChild(svgEl('line', {x1,y1,x2,y2, stroke:'#374151', 'stroke-width':2}));
+    const mx=(x1+x2)/2, my=(y1+y2)/2;
+    gBase.appendChild(svgEl('rect', {x:mx-9, y:my-9, width:18, height:16, rx:2, fill:'#0f1117'}));
+    const wt = svgEl('text', {x:mx, y:my+3, 'text-anchor':'middle',
+      fill:'#94a3b8', 'font-size':'11', 'font-family':'Courier New,monospace'});
+    wt.textContent = w;
+    gBase.appendChild(wt);
+  });
+  svg.appendChild(gBase);
+
+  // SP tree edges (revealed progressively)
+  svg.appendChild(svgEl('g', {id:'g-sp'}));
+  // Scan edge highlight
+  svg.appendChild(svgEl('g', {id:'g-scan'}));
+
+  // Nodes
+  const gNodes = svgEl('g', {id:'g-nodes'});
+  NODES.forEach(id => {
+    const [x,y] = NODE_POS[id];
+    const g = svgEl('g', {id:`nd-${id}`});
+    const circle = svgEl('circle', {cx:x, cy:y, r:22, id:`nc-${id}`,
+      fill:'#1e2536', stroke:'#475569', 'stroke-width':2});
+    const lt = svgEl('text', {x, y:y+5, 'text-anchor':'middle', id:`nt-${id}`,
+      fill:'#94a3b8', 'font-size':'14', 'font-weight':'bold', 'font-family':'Courier New,monospace'});
+    lt.textContent = id;
+    const dt = svgEl('text', {x, y:y+38, 'text-anchor':'middle', id:`ndt-${id}`,
+      fill:'#4b5563', 'font-size':'10', 'font-family':'Courier New,monospace'});
+    dt.textContent = 'd=∞';
+    g.appendChild(circle); g.appendChild(lt); g.appendChild(dt);
+    gNodes.appendChild(g);
+  });
+  svg.appendChild(gNodes);
+}
+
+/* ═══════════════ Render Step ═══════════════ */
+function applyStep(idx) {
+  const st = steps[idx];
+
+  // Nodes
+  NODES.forEach(id => {
+    const nc  = document.getElementById(`nc-${id}`);
+    const nt  = document.getElementById(`nt-${id}`);
+    const ndt = document.getElementById(`ndt-${id}`);
+    const n   = st.nodes[id];
+    const isCur = id === st.currentU;
+
+    // circle style
+    if (isCur) {
+      nc.setAttribute('fill','#1e1040'); nc.setAttribute('stroke','#818cf8');
+      nc.setAttribute('filter','drop-shadow(0 0 8px #818cf8aa)');
+      nt.setAttribute('fill','#c7d2fe');
+    } else if (n.status === 'done') {
+      nc.setAttribute('fill','#0a2a1a'); nc.setAttribute('stroke','#34d399');
+      nc.setAttribute('filter','drop-shadow(0 0 6px #34d39966)');
+      nt.setAttribute('fill','#34d399');
+    } else if (n.status === 'frontier') {
+      nc.setAttribute('fill','#1a160a'); nc.setAttribute('stroke','#f59e0b');
+      nc.setAttribute('filter','drop-shadow(0 0 5px #f59e0b66)');
+      nt.setAttribute('fill','#fbbf24');
+    } else {
+      nc.setAttribute('fill','#1e2536'); nc.setAttribute('stroke','#475569');
+      nc.removeAttribute('filter');
+      nt.setAttribute('fill','#94a3b8');
+    }
+
+    const dStr = n.d === Infinity ? '∞' : n.d;
+    ndt.textContent = `d=${dStr}`;
+    ndt.setAttribute('fill', isCur ? '#c7d2fe' : n.status==='done' ? '#34d399' : n.status==='frontier' ? '#fbbf24' : '#4b5563');
+  });
+
+  // SP tree edges
+  const gSP = document.getElementById('g-sp');
+  gSP.innerHTML = '';
+  (st.spEdges || []).forEach(({u,v}) => {
+    const [x1,y1]=NODE_POS[u], [x2,y2]=NODE_POS[v];
+    gSP.appendChild(svgEl('line',{x1,y1,x2,y2,
+      stroke:'#34d399','stroke-width':4,'stroke-linecap':'round',
+      style:'filter:drop-shadow(0 0 4px #34d39988)'}));
+  });
+
+  // Scan edge
+  const gScan = document.getElementById('g-scan');
+  gScan.innerHTML = '';
+  if (st.scanEdge) {
+    const {u,v} = st.scanEdge;
+    const [x1,y1]=NODE_POS[u], [x2,y2]=NODE_POS[v];
+    gScan.appendChild(svgEl('line',{x1,y1,x2,y2,
+      stroke:'#fbbf24','stroke-width':4,'stroke-dasharray':'8,4',
+      style:'filter:drop-shadow(0 0 6px #fbbf2488)'}));
+  }
+
+  // Pseudocode
+  document.querySelectorAll('.pline[data-line]').forEach(el => {
+    el.classList.remove('active','relax-active');
+    const l = parseInt(el.dataset.line);
+    if (st.activeLine.includes(l))
+      el.classList.add(l >= 10 ? 'relax-active' : 'active');
+  });
+
+  // Priority Queue
+  const pqBox = document.getElementById('pq-box');
+  pqBox.innerHTML = '';
+  if (!st.queue.length) {
+    pqBox.innerHTML = '<div class="pq-empty">Queue is empty — algorithm complete</div>';
+  } else {
+    st.queue.forEach((item, i) => {
+      const isMin = i === 0 && item.d !== Infinity;
+      const div = document.createElement('div');
+      div.className = 'pq-item' + (isMin ? ' pq-min' : item.status==='frontier' ? ' pq-frontier' : '');
+      const dotCls = isMin ? 'dot-min' : item.status==='frontier' ? 'dot-frontier' : 'dot-unvis';
+      const dStr = item.d === Infinity ? '∞' : item.d;
+      const piStr = item.pi || 'NIL';
+      div.innerHTML =
+        `<div class="pq-dot ${dotCls}"></div>` +
+        `<span class="pq-lbl">${item.id}</span>` +
+        (isMin ? `<span class="pq-next">NEXT</span>` : '') +
+        `<span class="pq-dist">d=${dStr}</span>` +
+        `<span class="pq-pi">π=${piStr}</span>`;
+      pqBox.appendChild(div);
+    });
+  }
+
+  // State table
+  const tbody = document.getElementById('state-body');
+  tbody.innerHTML = '';
+  NODES.forEach(id => {
+    const n = st.nodes[id];
+    const tr = document.createElement('tr');
+    if (id === st.currentU) tr.className = 'row-cur';
+    const dStr = n.d === Infinity ? '∞' : n.d;
+    const piStr = n.pi || '—';
+    const cls = n.status==='done' ? 's-done' : n.status==='frontier' ? 's-frontier' : 's-unvis';
+    const statLabel = n.status==='done' ? 'Finalized' : n.status==='frontier' ? 'In Q*' : 'In Q';
+    tr.innerHTML = `<td class="${cls}">${id}</td><td>${dStr}</td><td>${piStr}</td><td class="${cls}">${statLabel}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Explanation
+  document.getElementById('explanation').innerHTML = st.message;
+
+  // SP summary (final step)
+  const sumDiv = document.getElementById('sp-summary');
+  if (st.done && st.finalNodes) {
+    sumDiv.style.display = 'block';
+    const rows = NODES.map(id => {
+      const n = st.finalNodes[id];
+      const dStr = n.d === Infinity ? '∞' : n.d;
+      return `<div class="sp-row"><b>${id}</b>: d = ${dStr}, π = ${n.pi||'NIL'}</div>`;
+    }).join('');
+    sumDiv.innerHTML = `<h4>Shortest Path Results</h4>${rows}`;
+  } else {
+    sumDiv.style.display = 'none';
+  }
+
+  // Counter
+  document.getElementById('step-counter').textContent = `Step ${idx+1} / ${steps.length}`;
+}
+
+/* ═══════════════ Controls ═══════════════ */
+function rebuild() {
+  genSteps(document.getElementById('src-sel').value);
+  stepIdx = 0;
+  buildSVG();
+  applyStep(0);
+}
+
+function stopPlay() {
+  if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  document.getElementById('btn-play').textContent = '▶ Play';
+}
+
+document.getElementById('btn-apply').onclick = rebuild;
+document.getElementById('btn-reset').onclick = () => { stopPlay(); stepIdx = 0; applyStep(0); };
+document.getElementById('btn-prev').onclick  = () => { stopPlay(); stepIdx = Math.max(0, stepIdx-1); applyStep(stepIdx); };
+document.getElementById('btn-next').onclick  = () => { stopPlay(); stepIdx = Math.min(steps.length-1, stepIdx+1); applyStep(stepIdx); };
+document.getElementById('btn-play').onclick  = () => {
+  if (playTimer) { stopPlay(); return; }
+  document.getElementById('btn-play').textContent = '⏸ Pause';
+  playTimer = setInterval(() => {
+    if (stepIdx >= steps.length - 1) { stopPlay(); return; }
+    stepIdx++;
+    applyStep(stepIdx);
+  }, 950);
+};
+
+/* ═══════════════ Init ═══════════════ */
+genSteps('S');
+buildSVG();
+applyStep(0);
+</script>
+</body>
+</html>

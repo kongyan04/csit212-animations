@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breadth-First Search Animation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 14px 40px;
+    }
+
+    h1 { font-size: 1.85rem; color: #60a5fa; letter-spacing: 1px; margin-bottom: 4px; }
+    .subtitle { color: #666; font-size: 0.88rem; margin-bottom: 18px; text-align: center; }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 18px; align-items: center;
+    }
+    button {
+      padding: 8px 18px; border: none; border-radius: 8px;
+      font-size: 0.88rem; cursor: pointer; font-weight: 600; transition: all 0.2s;
+    }
+    #btnPlay  { background: #1d4ed8; color: white; }
+    #btnPlay:hover  { background: #1e40af; }
+    #btnPlay:disabled { background: #374151; cursor: default; }
+    #btnStep  { background: #0e7490; color: white; }
+    #btnStep:hover  { background: #0c6378; }
+    #btnStep:disabled { background: #374151; cursor: default; }
+    #btnReset { background: #374151; color: #e0e0e0; }
+    #btnReset:hover { background: #4b5563; }
+    .speed-wrap { display: flex; align-items: center; gap: 7px; font-size: 0.85rem; color: #888; }
+    input[type=range] { width: 80px; accent-color: #60a5fa; }
+    .src-wrap { display: flex; align-items: center; gap: 7px; font-size: 0.85rem; color: #888; }
+    select {
+      background: #1e1e2e; border: 1px solid #3d3d5c; border-radius: 6px;
+      color: #e0e0e0; padding: 5px 9px; font-size: 0.88rem; cursor: pointer;
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 16px; font-size: 0.8rem;
+    }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-dot {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid transparent;
+    }
+
+    /* ── Main layout ── */
+    .main-layout {
+      display: flex; gap: 16px; width: 100%; max-width: 1160px;
+      margin-bottom: 16px; flex-wrap: wrap; align-items: flex-start;
+    }
+
+    /* ── Graph SVG ── */
+    .graph-panel {
+      flex: 1; min-width: 300px;
+      background: #12122a;
+      border: 1px solid #252545;
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    #graph-svg { width: 100%; display: block; }
+
+    /* SVG element styles */
+    .bg-edge { stroke: #252545; stroke-width: 2.5; stroke-linecap: round; }
+    .bg-edge.scanning { stroke: #3b4a6b; stroke-width: 2.5; }
+    .tree-edge { stroke: #10b981; stroke-width: 3; marker-end: url(#arrowGreen); opacity: 0; transition: opacity 0.4s; }
+    .tree-edge.visible { opacity: 1; }
+    .scan-edge { stroke: #60a5fa; stroke-width: 3; stroke-dasharray: 7 4; opacity: 0; transition: opacity 0.3s; }
+    .scan-edge.visible { opacity: 1; }
+    .skip-edge { stroke: #ef4444; stroke-width: 2; stroke-dasharray: 5 4; opacity: 0; transition: opacity 0.3s; }
+    .skip-edge.visible { opacity: 1; }
+
+    .node circle {
+      transition: fill 0.35s, stroke 0.35s, filter 0.35s;
+      stroke-width: 2.5;
+    }
+    .node text { pointer-events: none; }
+
+    /* Node color states */
+    .nWHITE circle { fill: #1e2540; stroke: #3b4a6b; }
+    .nWHITE .lbl   { fill: #8492a6; }
+    .nWHITE .dist  { fill: #4b5563; }
+
+    .nGRAY circle  { fill: #92400e; stroke: #f59e0b; filter: drop-shadow(0 0 6px #f59e0b77); }
+    .nGRAY .lbl    { fill: #fef3c7; }
+    .nGRAY .dist   { fill: #fde68a; }
+
+    .nBLACK circle { fill: #0d1117; stroke: #1e293b; }
+    .nBLACK .lbl   { fill: #2d3748; }
+    .nBLACK .dist  { fill: #1f2937; }
+
+    /* Active overlays */
+    .node.active-u circle { stroke: #f472b6 !important; stroke-width: 4 !important; filter: drop-shadow(0 0 10px #f472b6aa) !important; }
+    .node.active-v circle { stroke: #60a5fa !important; stroke-width: 4 !important; filter: drop-shadow(0 0 10px #60a5faaa) !important; }
+
+    /* ── Side panel ── */
+    .side-panel {
+      width: 340px; min-width: 280px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    /* Queue */
+    .queue-box {
+      background: #1a1a2e; border: 1px solid #2d2d50;
+      border-radius: 12px; padding: 12px 14px;
+    }
+    .queue-box h3 {
+      font-size: 0.75rem; color: #64748b; text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+    }
+    .queue-box h3 .badge {
+      background: #1e3a5f; color: #60a5fa; font-size: 0.65rem;
+      padding: 2px 7px; border-radius: 99px; font-weight: 700; letter-spacing: 0.5px;
+    }
+    .queue-track {
+      display: flex; align-items: center; gap: 6px; min-height: 64px;
+    }
+    .queue-end-label {
+      font-size: 0.65rem; color: #64748b; white-space: nowrap;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+    }
+    .queue-end-label .arr { font-size: 1.1rem; color: #94a3b8; }
+    .queue-end-label .end-op {
+      font-size: 0.6rem; color: #475569;
+      background: #1e293b; padding: 1px 5px; border-radius: 4px;
+    }
+    #queue-items {
+      display: flex; gap: 6px; flex-wrap: wrap; flex: 1; min-height: 60px;
+      align-items: center;
+    }
+    .q-item {
+      width: 50px; min-height: 60px; border-radius: 8px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px;
+      font-family: monospace; font-weight: bold;
+      color: #fef3c7; background: #78350f; border: 2px solid #f59e0b;
+      transition: all 0.3s;
+    }
+    .q-item .q-node { font-size: 1.2rem; line-height: 1; }
+    .q-item .q-dist { font-size: 0.65rem; color: #fde68a; font-weight: 600; }
+    .q-item .q-pi   { font-size: 0.6rem;  color: #d97706; }
+    .q-item.front {
+      border-color: #f472b6; background: #6b1f3e;
+      box-shadow: 0 0 10px #f472b644;
+    }
+    .q-item.front .q-dist { color: #fbcfe8; }
+    .q-item.front .q-pi   { color: #f9a8d4; }
+    .q-empty { color: #475569; font-size: 0.8rem; font-style: italic; }
+
+    /* Pseudocode */
+    .pseudo-box {
+      background: #1e1e2e; border: 1px solid #2d2d44;
+      border-radius: 12px; padding: 12px 14px; flex: 1;
+    }
+    .pseudo-box h3 {
+      font-size: 0.75rem; color: #64748b; text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 8px;
+    }
+    .pseudo-header {
+      font-family: monospace; font-size: 0.83rem;
+      color: #818cf8; font-weight: bold; margin-bottom: 4px;
+    }
+    .pline {
+      display: flex; gap: 6px;
+      padding: 2px 6px; border-radius: 4px;
+      font-family: monospace; font-size: 0.78rem; color: #94a3b8;
+      transition: background 0.2s, color 0.2s;
+      line-height: 1.65;
+    }
+    .pline .ln { width: 18px; text-align: right; flex-shrink: 0; color: #475569; }
+    .pline .code { white-space: pre; }
+    .pline.active { background: #0d2540; color: #bfdbfe; }
+    .pline.active .ln { color: #60a5fa; font-weight: 700; }
+    .pline.active .kw { color: #38bdf8; font-weight: 700; }
+    .pline .kw { color: #64748b; }
+
+    /* Node state table */
+    .node-state-box {
+      background: #1e1e2e; border: 1px solid #2d2d44;
+      border-radius: 12px; padding: 10px 14px;
+    }
+    .node-state-box h3 {
+      font-size: 0.75rem; color: #64748b; text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 8px;
+    }
+    #node-table {
+      width: 100%; border-collapse: collapse; font-family: monospace; font-size: 0.78rem;
+    }
+    #node-table th {
+      color: #64748b; font-weight: 600; text-align: left;
+      padding: 4px 8px; border-bottom: 1px solid #252540;
+    }
+    #node-table td {
+      padding: 4px 8px; color: #94a3b8; transition: color 0.3s;
+    }
+    #node-table tr.active-u td { color: #f9a8d4; font-weight: 600; }
+    #node-table tr.active-v td { color: #93c5fd; font-weight: 600; }
+    #node-table .c-WHITE { color: #64748b; }
+    #node-table .c-GRAY  { color: #fbbf24; font-weight: 700; }
+    #node-table .c-BLACK { color: #475569; }
+
+    /* ── Explanation ── */
+    #explanation {
+      background: #1a1a2e; border: 1px solid #2d2d50; border-radius: 12px;
+      padding: 14px 20px; max-width: 1160px; width: 100%;
+      min-height: 66px; margin-bottom: 16px;
+      font-size: 0.92rem; line-height: 1.7; color: #e2e8f0;
+    }
+    #explanation .sl  { color: #60a5fa; font-weight: 700; margin-right: 6px; }
+    #explanation b    { color: #f9fafb; }
+    #explanation .val { color: #fbbf24; font-weight: 700; }
+    #explanation .nd  { color: #34d399; font-weight: 700; }
+
+    /* ── Progress ── */
+    #progress-wrap { max-width: 1160px; width: 100%; }
+    #pb-bg { width: 100%; height: 5px; background: #1e1e2e; border-radius: 3px; overflow: hidden; }
+    #pb    { height: 100%; background: linear-gradient(90deg,#1d4ed8,#06b6d4); border-radius: 3px; transition: width 0.35s; width: 0%; }
+    #step-ctr { text-align: right; font-size: 0.73rem; color: #64748b; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<h1>Breadth-First Search</h1>
+<p class="subtitle">CLRS Algorithm — queue-based level-by-level graph traversal</p>
+
+<div class="controls">
+  <button id="btnPlay">&#9654; Play</button>
+  <button id="btnStep">Step &rarr;</button>
+  <button id="btnReset">&#8635; Reset</button>
+  <div class="speed-wrap">
+    Speed <input type="range" id="speedSlider" min="1" max="10" value="5">
+    <span id="speedLabel">5</span>
+  </div>
+  <div class="src-wrap">
+    Source:
+    <select id="sourceSelect">
+      <option value="s" selected>s</option>
+      <option value="r">r</option>
+      <option value="t">t</option>
+      <option value="u">u</option>
+      <option value="v">v</option>
+      <option value="w">w</option>
+      <option value="x">x</option>
+      <option value="y">y</option>
+    </select>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#1e2540;border-color:#3b4a6b"></div> WHITE (undiscovered)
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#92400e;border-color:#f59e0b"></div> GRAY (in queue)
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#0d1117;border-color:#1e293b"></div> BLACK (processed)
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#7c2d4e;border-color:#f472b6"></div> Dequeued (u)
+  </div>
+  <div class="legend-item" style="display:flex;align-items:center;gap:5px">
+    <div style="width:28px;height:3px;background:#10b981;border-radius:2px"></div> BFS tree edge
+  </div>
+</div>
+
+<div class="main-layout">
+
+  <!-- Graph -->
+  <div class="graph-panel">
+    <svg id="graph-svg" viewBox="0 0 730 510">
+      <defs>
+        <marker id="arrowGreen" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 9 3.5, 0 7" fill="#10b981"/>
+        </marker>
+        <marker id="arrowBlue" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 9 3.5, 0 7" fill="#60a5fa"/>
+        </marker>
+      </defs>
+
+      <!-- Background edges (undirected) -->
+      <g id="bg-edges">
+        <line id="bg-r-s" class="bg-edge" x1="100" y1="150" x2="272" y2="150"/>
+        <line id="bg-r-v" class="bg-edge" x1="100" y1="182" x2="100" y2="288"/>
+        <line id="bg-s-w" class="bg-edge" x1="132" y1="150" x2="428" y2="150"/>
+        <line id="bg-w-t" class="bg-edge" x1="472" y1="150" x2="598" y2="150"/>
+        <line id="bg-w-x" class="bg-edge" x1="440" y1="182" x2="440" y2="288"/>
+        <line id="bg-t-x" class="bg-edge" x1="592" y1="172" x2="462" y2="293"/>
+        <line id="bg-t-u" class="bg-edge" x1="630" y1="182" x2="630" y2="288"/>
+        <line id="bg-x-u" class="bg-edge" x1="472" y1="320" x2="598" y2="320"/>
+        <line id="bg-x-y" class="bg-edge" x1="440" y1="352" x2="440" y2="418"/>
+        <line id="bg-u-y" class="bg-edge" x1="608" y1="344" x2="462" y2="423"/>
+      </g>
+
+      <!-- BFS tree edges (drawn as directed, revealed during animation) -->
+      <g id="tree-edges"></g>
+
+      <!-- Scan edge (current edge being examined) -->
+      <line id="scan-edge" class="scan-edge" x1="0" y1="0" x2="0" y2="0"/>
+
+      <!-- Nodes -->
+      <g id="nodes">
+        <!-- r -->
+        <g id="node-r" class="node nWHITE" transform="translate(100,150)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="18" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">r</text>
+          <text class="dist" id="dist-r" font-family="monospace" font-size="11" text-anchor="middle" dominant-baseline="central" dy="11">∞</text>
+        </g>
+        <!-- s -->
+        <g id="node-s" class="node nWHITE" transform="translate(280,150)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="18" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">s</text>
+          <text class="dist" id="dist-s" font-family="monospace" font-size="11" text-anchor="middle" dominant-baseline="central" dy="11">∞</text>
+        </g>
+        <!-- w -->
+        <g id="node-w" class="node nWHITE" transform="translate(440,150)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="18" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">w</text>
+          <text class="dist" id="dist-w" font-family="monospace" font-size="11" text-anchor="middle" dominant-baseline="central" dy="11">∞</text>
+        </g>
+        <!-- t -->
+        <g id="node-t" class="node nWHITE" transform="translate(630,150)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="18" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">t</text>
+          <text class="dist" id="dist-t" font-family="monospace" font-size="11" text-anchor="middle" dominant-baseline="central" dy="11">∞</text>
+        </g>
+        <!-- v -->
+        <g id="node-v" class="node nWHITE" transform="translate(100,320)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="18" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">v</text>
+          <text class="dist" id="dist-v" font-family="monospace" font-size="11" text-anchor="middle" dominant-baseline="central" dy="11">∞</text>
+        </g>
+        <!-- x -->
+        <g id="node-x" class="node nWHITE" transform="translate(440,320)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="18" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">x</text>
+          <text class="dist" id="dist-x" font-family="monospace" font-size="11" text-anchor="middle" dominant-baseline="central" dy="11">∞</text>
+        </g>
+        <!-- u -->
+        <g id="node-u" class="node nWHITE" transform="translate(630,320)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="18" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">u</text>
+          <text class="dist" id="dist-u" font-family="monospace" font-size="11" text-anchor="middle" dominant-baseline="central" dy="11">∞</text>
+        </g>
+        <!-- y -->
+        <g id="node-y" class="node nWHITE" transform="translate(440,450)">
+          <circle r="32"/>
+          <text class="lbl" font-family="monospace" font-size="18" font-weight="bold" text-anchor="middle" dominant-baseline="central" dy="-7">y</text>
+          <text class="dist" id="dist-y" font-family="monospace" font-size="11" text-anchor="middle" dominant-baseline="central" dy="11">∞</text>
+        </g>
+      </g>
+
+      <!-- Source label -->
+      <text id="src-badge" x="280" y="100" font-family="monospace" font-size="11"
+        fill="#60a5fa" text-anchor="middle">source</text>
+    </svg>
+  </div>
+
+  <!-- Side panel -->
+  <div class="side-panel">
+
+    <!-- Queue -->
+    <div class="queue-box">
+      <h3>Queue Q <span class="badge">FIFO</span></h3>
+      <div class="queue-track">
+        <div class="queue-end-label">
+          <span class="arr">&#8592;</span>
+          <span>FRONT</span>
+          <span class="end-op">DEQUEUE</span>
+        </div>
+        <div id="queue-items"><span class="q-empty">empty &mdash; &empty;</span></div>
+        <div class="queue-end-label">
+          <span class="arr">&#8592;</span>
+          <span>REAR</span>
+          <span class="end-op">ENQUEUE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pseudocode -->
+    <div class="pseudo-box">
+      <h3>Pseudocode</h3>
+      <div class="pseudo-header">BFS(G, s)</div>
+      <div id="pseudocode"></div>
+    </div>
+
+    <!-- Node state table -->
+    <div class="node-state-box">
+      <h3>Node States</h3>
+      <table id="node-table">
+        <thead>
+          <tr><th>v</th><th>color</th><th>d</th><th>&pi;</th></tr>
+        </thead>
+        <tbody id="node-tbody"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- Explanation -->
+<div id="explanation"><span class="sl">Ready.</span> Press Play or Step to start BFS.</div>
+
+<!-- Progress -->
+<div id="progress-wrap">
+  <div id="pb-bg"><div id="pb"></div></div>
+  <div id="step-ctr">Step 0 / 0</div>
+</div>
+
+<script>
+// ─── Graph definition ──────────────────────────────────────────────────────
+const NODE_POS = {
+  r: [100, 150], s: [280, 150], w: [440, 150], t: [630, 150],
+  v: [100, 320], x: [440, 320], u: [630, 320], y: [440, 450],
+};
+const ALL_NODES = ['r','s','t','u','v','w','x','y'];
+const ADJ = {
+  r: ['s','v'], s: ['r','w'],
+  t: ['w','x','u'], u: ['t','x','y'],
+  v: ['r'], w: ['s','t','x'],
+  x: ['w','t','u','y'], y: ['x','u'],
+};
+
+// Pseudocode lines
+const PSEUDO = [
+  [1,  'for each vertex u \u2208 G.V \u2212 {s}'],
+  [2,  '    u.color \u2190 WHITE'],
+  [3,  '    u.d \u2190 \u221e'],
+  [4,  '    u.\u03c0 \u2190 NIL'],
+  [5,  's.color \u2190 GRAY'],
+  [6,  's.d \u2190 0'],
+  [7,  's.\u03c0 \u2190 NIL'],
+  [8,  'Q \u2190 \u2205'],
+  [9,  'ENQUEUE(Q, s)'],
+  [10, 'while Q \u2260 \u2205'],
+  [11, '    u \u2190 DEQUEUE(Q)'],
+  [12, '    for each v \u2208 G.Adj[u]'],
+  [13, '        if v.color == WHITE'],
+  [14, '            v.color \u2190 GRAY'],
+  [15, '            v.d \u2190 u.d + 1'],
+  [16, '            v.\u03c0 \u2190 u'],
+  [17, '            ENQUEUE(Q, v)'],
+  [18, '    u.color \u2190 BLACK'],
+];
+
+// ─── Step generator ────────────────────────────────────────────────────────
+function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+function edgeKey(a, b) { return [a,b].sort().join('-'); }
+
+function nodeEdgeOffset(fromId, toId, r) {
+  const [x1,y1] = NODE_POS[fromId];
+  const [x2,y2] = NODE_POS[toId];
+  const dx = x2-x1, dy = y2-y1;
+  const len = Math.sqrt(dx*dx + dy*dy);
+  const ux = dx/len, uy = dy/len;
+  return {
+    x1: x1 + ux*r, y1: y1 + uy*r,
+    x2: x2 - ux*(r+9), y2: y2 - uy*(r+9),
+  };
+}
+
+function generateSteps(source) {
+  const steps = [];
+  const R = 32; // node radius
+
+  function snap(state) { steps.push(deepClone(state)); }
+
+  // state object
+  const st = {
+    nodes: {},    // id -> { color, d, pi }
+    queue: [],
+    treeEdges: [],  // [[from,to],...]
+    scanEdge: null, // [from,to] or null
+    skipEdge: null,
+    activeLine: -1,
+    currentU: null,
+    currentV: null,
+    message: '',
+  };
+
+  // ── Init all nodes
+  ALL_NODES.forEach(id => {
+    st.nodes[id] = { color: 'WHITE', d: Infinity, pi: null };
+  });
+
+  st.activeLine = -1;
+  st.message = `<span class="sl">BFS(G, ${source})</span> Graph has 8 vertices and 10 edges. We will explore level by level starting from source <b>${source}</b>.`;
+  snap(st);
+
+  // Lines 1-4
+  st.activeLine = 1;
+  st.message = `<span class="sl">Lines 1-4.</span> Initialize every vertex <b>except ${source}</b>: color = WHITE (undiscovered), d = &infin;, &pi; = NIL.`;
+  snap(st);
+
+  // Lines 5-7: source
+  st.nodes[source].color = 'GRAY';
+  st.nodes[source].d = 0;
+  st.nodes[source].pi = null;
+  st.currentV = source;
+  st.activeLine = 5;
+  st.message = `<span class="sl">Lines 5-7.</span> Source <b>${source}</b>.color = GRAY, ${source}.d = 0, ${source}.&pi; = NIL.`;
+  snap(st);
+
+  // Line 8: Q = ∅
+  st.activeLine = 8;
+  st.message = `<span class="sl">Line 8.</span> Create empty queue Q = &empty;.`;
+  snap(st);
+
+  // Line 9: ENQUEUE source
+  st.queue.push(source);
+  st.activeLine = 9;
+  st.currentU = null; st.currentV = source;
+  st.message = `<span class="sl">Line 9.</span> ENQUEUE(Q, <b>${source}</b>). Queue: [<b>${st.queue.join(', ')}</b>].`;
+  snap(st);
+
+  // ── BFS loop ──
+  while (st.queue.length > 0) {
+    // Line 10: check queue
+    st.activeLine = 10;
+    st.currentU = null; st.currentV = null; st.scanEdge = null; st.skipEdge = null;
+    st.message = `<span class="sl">Line 10.</span> Queue is <b>not empty</b>: [${st.queue.join(', ')}]. Enter loop.`;
+    snap(st);
+
+    // Line 11: dequeue
+    const u = st.queue.shift();
+    st.currentU = u; st.currentV = null; st.scanEdge = null;
+    st.activeLine = 11;
+    st.message = `<span class="sl">Line 11.</span> DEQUEUE → u = <b>${u}</b>. Remaining queue: [${st.queue.join(', ') || '&empty;'}].`;
+    snap(st);
+
+    // Line 12: scan neighbors
+    const neighbors = ADJ[u];
+    for (const v of neighbors) {
+      st.currentV = v;
+      st.activeLine = 12;
+      const [ux,uy] = NODE_POS[u], [vx,vy] = NODE_POS[v];
+      st.scanEdge = [u, v];
+      st.message = `<span class="sl">Line 12.</span> Examining neighbor <b>${v}</b> of u = <b>${u}</b>. Adj[${u}] = [${neighbors.join(', ')}].`;
+      snap(st);
+
+      // Line 13
+      st.activeLine = 13;
+      if (st.nodes[v].color === 'WHITE') {
+        st.message = `<span class="sl">Line 13.</span> <b>${v}</b>.color = WHITE &rarr; <b>undiscovered!</b> Process it.`;
+        snap(st);
+
+        // Line 14
+        st.nodes[v].color = 'GRAY';
+        st.activeLine = 14;
+        st.message = `<span class="sl">Line 14.</span> <b>${v}</b>.color &larr; GRAY (discovered, now in queue).`;
+        snap(st);
+
+        // Line 15
+        st.nodes[v].d = st.nodes[u].d + 1;
+        st.activeLine = 15;
+        st.message = `<span class="sl">Line 15.</span> <b>${v}</b>.d &larr; ${u}.d + 1 = ${st.nodes[u].d} + 1 = <b>${st.nodes[v].d}</b>.`;
+        snap(st);
+
+        // Line 16
+        st.nodes[v].pi = u;
+        st.activeLine = 16;
+        st.message = `<span class="sl">Line 16.</span> <b>${v}</b>.&pi; &larr; <b>${u}</b> (parent in BFS tree).`;
+        snap(st);
+
+        // Line 17
+        st.queue.push(v);
+        st.treeEdges.push([u, v]);
+        st.activeLine = 17;
+        st.message = `<span class="sl">Line 17.</span> ENQUEUE(Q, <b>${v}</b>). Queue: [<b>${st.queue.join(', ')}</b>].`;
+        snap(st);
+
+      } else {
+        st.message = `<span class="sl">Line 13.</span> <b>${v}</b>.color = ${st.nodes[v].color} &ne; WHITE &rarr; already discovered, <b>skip</b>.`;
+        snap(st);
+      }
+    }
+
+    // Line 18: color black
+    st.nodes[u].color = 'BLACK';
+    st.scanEdge = null; st.currentV = null;
+    st.activeLine = 18;
+    st.message = `<span class="sl">Line 18.</span> <b>${u}</b>.color &larr; BLACK (fully processed). All neighbors of ${u} have been examined.`;
+    snap(st);
+  }
+
+  // Done
+  st.activeLine = -1; st.currentU = null; st.currentV = null;
+  st.message = `<span class="sl">Done!</span> BFS complete. All reachable vertices discovered. BFS tree shows shortest paths from <b>${source}</b>.`;
+  snap(st);
+
+  return steps;
+}
+
+// ─── DOM rendering ─────────────────────────────────────────────────────────
+let SOURCE = 's';
+let steps = [], stepIdx = 0, playing = false, playTimer = null;
+
+function buildPseudo() {
+  const div = document.getElementById('pseudocode');
+  div.innerHTML = '';
+  PSEUDO.forEach(([ln, code]) => {
+    const row = document.createElement('div');
+    row.className = 'pline';
+    row.id = `pl-${ln}`;
+    row.innerHTML = `<span class="ln">${ln}</span><span class="code">${code.replace(/\b(for|each|while|if|in)\b/g, '<span class="kw">$1</span>')}</span>`;
+    div.appendChild(row);
+  });
+}
+
+function buildNodeTable() {
+  const tbody = document.getElementById('node-tbody');
+  tbody.innerHTML = '';
+  ALL_NODES.forEach(id => {
+    const tr = document.createElement('tr');
+    tr.id = `nrow-${id}`;
+    tr.innerHTML = `<td><b>${id}</b></td><td id="nt-color-${id}" class="c-WHITE">WHITE</td><td id="nt-d-${id}">&infin;</td><td id="nt-pi-${id}">NIL</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function applyStep(step) {
+  // 1. Node SVG colors + dist labels
+  ALL_NODES.forEach(id => {
+    const g = document.getElementById(`node-${id}`);
+    const ns = step.nodes[id];
+    g.className.baseVal = `node n${ns.color}`;
+    if (id === step.currentU) g.classList.add('active-u');
+    else if (id === step.currentV) g.classList.add('active-v');
+    document.getElementById(`dist-${id}`).textContent =
+      ns.d === Infinity ? '∞' : `d=${ns.d}`;
+  });
+
+  // 2. BFS tree edges
+  const teGroup = document.getElementById('tree-edges');
+  teGroup.innerHTML = '';
+  (step.treeEdges || []).forEach(([a,b]) => {
+    const {x1,y1,x2,y2} = nodeEdgeOffset(a, b, 32);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('class','tree-edge visible');
+    teGroup.appendChild(line);
+  });
+
+  // 3. Scan edge
+  const se = document.getElementById('scan-edge');
+  if (step.scanEdge) {
+    const [a,b] = step.scanEdge;
+    const {x1,y1,x2,y2} = nodeEdgeOffset(a, b, 33);
+    se.setAttribute('x1',x1); se.setAttribute('y1',y1);
+    se.setAttribute('x2',x2); se.setAttribute('y2',y2);
+    se.classList.add('visible');
+    // color: blue if examining, red if skipping
+    const vColor = step.nodes[b].color;
+    se.setAttribute('stroke', vColor === 'WHITE' ? '#60a5fa' : '#ef4444');
+  } else {
+    se.classList.remove('visible');
+    se.setAttribute('x1',0); se.setAttribute('y1',0);
+    se.setAttribute('x2',0); se.setAttribute('y2',0);
+  }
+
+  // 4. Pseudocode
+  PSEUDO.forEach(([ln]) => {
+    const el = document.getElementById(`pl-${ln}`);
+    if (el) el.classList.toggle('active', ln === step.activeLine);
+  });
+
+  // 5. Queue — show node letter + d value + π inside each item
+  const qi = document.getElementById('queue-items');
+  if (step.queue.length === 0) {
+    qi.innerHTML = '<span class="q-empty">empty &mdash; &empty;</span>';
+  } else {
+    qi.innerHTML = '';
+    step.queue.forEach((id, idx) => {
+      const ns = step.nodes[id];
+      const d  = ns.d === Infinity ? '∞' : ns.d;
+      const pi = ns.pi || '—';
+      const box = document.createElement('div');
+      box.className = 'q-item' + (idx === 0 ? ' front' : '');
+      box.innerHTML = `<span class="q-node">${id}</span><span class="q-dist">d=${d}</span><span class="q-pi">&pi;=${pi}</span>`;
+      qi.appendChild(box);
+    });
+  }
+
+  // 6. Node state table
+  ALL_NODES.forEach(id => {
+    const ns = step.nodes[id];
+    const row = document.getElementById(`nrow-${id}`);
+    row.className = id === step.currentU ? 'active-u' : id === step.currentV ? 'active-v' : '';
+    const cEl = document.getElementById(`nt-color-${id}`);
+    cEl.textContent = ns.color;
+    cEl.className = `c-${ns.color}`;
+    document.getElementById(`nt-d-${id}`).textContent = ns.d === Infinity ? '∞' : ns.d;
+    document.getElementById(`nt-pi-${id}`).textContent = ns.pi || 'NIL';
+  });
+
+  // 7. Source badge
+  const badge = document.getElementById('src-badge');
+  const [sx,sy] = NODE_POS[SOURCE];
+  badge.setAttribute('x', sx);
+  badge.setAttribute('y', sy - 44);
+
+  // 8. Explanation + progress
+  document.getElementById('explanation').innerHTML = step.message;
+  const pct = steps.length > 1 ? (stepIdx / (steps.length - 1)) * 100 : 100;
+  document.getElementById('pb').style.width = pct + '%';
+  document.getElementById('step-ctr').textContent = `Step ${stepIdx + 1} / ${steps.length}`;
+}
+
+// ─── Playback ───────────────────────────────────────────────────────────────
+function getDelay() {
+  const s = parseInt(document.getElementById('speedSlider').value);
+  return Math.round(1800 - (s - 1) * (1650 / 9));
+}
+
+function stepForward() {
+  if (stepIdx >= steps.length - 1) { stopPlay(); return; }
+  stepIdx++;
+  applyStep(steps[stepIdx]);
+}
+
+function startPlay() {
+  playing = true;
+  document.getElementById('btnPlay').textContent = '\u23F8 Pause';
+  document.getElementById('btnStep').disabled = true;
+  function tick() {
+    if (!playing || stepIdx >= steps.length - 1) { stopPlay(); return; }
+    stepForward();
+    playTimer = setTimeout(tick, getDelay());
+  }
+  playTimer = setTimeout(tick, getDelay());
+}
+
+function stopPlay() {
+  playing = false;
+  clearTimeout(playTimer);
+  document.getElementById('btnPlay').textContent = '\u25B6 Play';
+  document.getElementById('btnStep').disabled = false;
+  if (stepIdx >= steps.length - 1) document.getElementById('btnPlay').disabled = true;
+}
+
+function resetAll() {
+  stopPlay();
+  stepIdx = 0;
+  applyStep(steps[0]);
+  document.getElementById('btnPlay').disabled = false;
+  document.getElementById('btnStep').disabled = false;
+}
+
+function rebuild() {
+  stopPlay();
+  SOURCE = document.getElementById('sourceSelect').value;
+  steps = generateSteps(SOURCE);
+  stepIdx = 0;
+  applyStep(steps[0]);
+  document.getElementById('btnPlay').disabled = false;
+  document.getElementById('btnStep').disabled = false;
+}
+
+// ─── Init ───────────────────────────────────────────────────────────────────
+buildPseudo();
+buildNodeTable();
+steps = generateSteps(SOURCE);
+applyStep(steps[0]);
+
+document.getElementById('btnPlay').addEventListener('click', () => {
+  if (playing) stopPlay();
+  else if (stepIdx >= steps.length - 1) { resetAll(); startPlay(); }
+  else startPlay();
+});
+document.getElementById('btnStep').addEventListener('click', () => {
+  if (stepIdx >= steps.length - 1) return;
+  stepForward();
+  if (stepIdx >= steps.length - 1) document.getElementById('btnPlay').disabled = true;
+});
+document.getElementById('btnReset').addEventListener('click', resetAll);
+document.getElementById('sourceSelect').addEventListener('change', rebuild);
+document.getElementById('speedSlider').addEventListener('input', function() {
+  document.getElementById('speedLabel').textContent = this.value;
+});
+</script>
+</body>
+</html>

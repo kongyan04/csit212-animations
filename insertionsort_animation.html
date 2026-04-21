@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insertion Sort Animation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 20px;
+    }
+
+    h1 { font-size: 2rem; margin-bottom: 6px; color: #34d399; letter-spacing: 1px; }
+    .subtitle { color: #888; margin-bottom: 30px; font-size: 0.95rem; }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+
+    button {
+      padding: 10px 22px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 600;
+    }
+
+    #btnPlay { background: #059669; color: white; }
+    #btnPlay:hover { background: #047857; }
+    #btnPlay:disabled { background: #444; cursor: default; }
+
+    #btnStep { background: #0e7490; color: white; }
+    #btnStep:hover { background: #0c6378; }
+    #btnStep:disabled { background: #444; cursor: default; }
+
+    #btnReset { background: #374151; color: #e0e0e0; }
+    #btnReset:hover { background: #4b5563; }
+
+    .speed-wrap {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.9rem; color: #aaa;
+    }
+    input[type=range] { width: 100px; accent-color: #059669; }
+
+    .legend {
+      display: flex; gap: 20px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 24px; font-size: 0.85rem;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-box { width: 16px; height: 16px; border-radius: 3px; }
+
+    /* Array container */
+    #array-container {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 6px;
+      height: 280px;
+      margin-bottom: 16px;
+      padding: 0 10px;
+      width: 100%;
+      max-width: 860px;
+      position: relative;
+    }
+
+    .bar-wrap {
+      flex: 1;
+      max-width: 56px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      height: 100%;
+    }
+
+    .bar {
+      width: 100%;
+      border-radius: 6px 6px 0 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.85);
+      transition: height 0.3s ease, background 0.25s ease, transform 0.3s ease;
+    }
+
+    .bar.default      { background: #4c5680; }
+    .bar.key          { background: #f59e0b; box-shadow: 0 0 16px #f59e0baa; }
+    .bar.comparing    { background: #3b82f6; box-shadow: 0 0 12px #3b82f688; }
+    .bar.shifting     { background: #ef4444; box-shadow: 0 0 12px #ef444488; }
+    .bar.inserted     { background: #a78bfa; box-shadow: 0 0 14px #a78bfa88; }
+    .bar.sorted       { background: #10b981; box-shadow: 0 0 10px #10b98168; }
+
+    /* Index labels */
+    .index-labels {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      max-width: 860px;
+      padding: 0 10px;
+      margin-bottom: 20px;
+    }
+    .idx-label {
+      flex: 1;
+      max-width: 56px;
+      text-align: center;
+      font-size: 0.7rem;
+      color: #555;
+    }
+
+    /* Explanation */
+    #explanation {
+      background: #1e1e2e;
+      border: 1px solid #2d2d44;
+      border-radius: 12px;
+      padding: 18px 24px;
+      max-width: 860px;
+      width: 100%;
+      min-height: 80px;
+      margin-bottom: 24px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: #c9c9d8;
+    }
+    #explanation .step-label {
+      color: #34d399;
+      font-weight: 700;
+      margin-right: 8px;
+    }
+
+    /* Pseudocode panel */
+    #pseudo-wrap {
+      max-width: 860px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    #pseudo-wrap h3 {
+      font-size: 0.85rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    #pseudocode {
+      background: #1e1e2e;
+      border: 1px solid #2d2d44;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      line-height: 2;
+    }
+    .pseudo-line { color: #6b7280; padding: 0 6px; border-radius: 4px; }
+    .pseudo-line.highlight { background: #2d3a1e; color: #86efac; }
+    .pseudo-line .kw  { color: #c084fc; }
+    .pseudo-line .cm  { color: #4b5563; font-style: italic; }
+
+    /* Progress */
+    #progress-wrap { max-width: 860px; width: 100%; margin-bottom: 8px; }
+    #progress-bar-bg {
+      width: 100%; height: 6px;
+      background: #2d2d44; border-radius: 3px; overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #059669, #06b6d4);
+      border-radius: 3px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+    #step-counter {
+      text-align: right; font-size: 0.78rem; color: #666; margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Insertion Sort</h1>
+<p class="subtitle">Builds a sorted subarray one element at a time &mdash; O(n&sup2;) worst case</p>
+
+<div class="controls">
+  <button id="btnPlay">&#9654; Play</button>
+  <button id="btnStep">Step &rarr;</button>
+  <button id="btnReset">&#8635; Reset</button>
+  <div class="speed-wrap">
+    <span>Speed</span>
+    <input type="range" id="speedSlider" min="1" max="10" value="5">
+    <span id="speedLabel">5</span>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-box" style="background:#f59e0b"></div> Current key</div>
+  <div class="legend-item"><div class="legend-box" style="background:#3b82f6"></div> Comparing</div>
+  <div class="legend-item"><div class="legend-box" style="background:#ef4444"></div> Shifting right</div>
+  <div class="legend-item"><div class="legend-box" style="background:#a78bfa"></div> Inserted</div>
+  <div class="legend-item"><div class="legend-box" style="background:#10b981"></div> Sorted region</div>
+  <div class="legend-item"><div class="legend-box" style="background:#4c5680"></div> Unsorted</div>
+</div>
+
+<div id="array-container"></div>
+<div class="index-labels" id="index-labels"></div>
+
+<div id="explanation">
+  <span class="step-label">Ready.</span> Press Play or Step to start the Insertion Sort animation.
+</div>
+
+<div id="progress-wrap">
+  <div id="progress-bar-bg"><div id="progress-bar"></div></div>
+  <div id="step-counter">Step 0 / 0</div>
+</div>
+
+<div id="pseudo-wrap">
+  <h3>Pseudocode</h3>
+  <div id="pseudocode">
+    <div class="pseudo-line" id="pl0"><span class="kw">for</span> i = 1 <span class="kw">to</span> n-1:</div>
+    <div class="pseudo-line" id="pl1">&nbsp;&nbsp;&nbsp;&nbsp;key = arr[i]</div>
+    <div class="pseudo-line" id="pl2">&nbsp;&nbsp;&nbsp;&nbsp;j = i - 1</div>
+    <div class="pseudo-line" id="pl3">&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">while</span> j &ge; 0 <span class="kw">and</span> arr[j] &gt; key:</div>
+    <div class="pseudo-line" id="pl4">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;arr[j+1] = arr[j] &nbsp;<span class="cm">// shift right</span></div>
+    <div class="pseudo-line" id="pl5">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;j = j - 1</div>
+    <div class="pseudo-line" id="pl6">&nbsp;&nbsp;&nbsp;&nbsp;arr[j+1] = key &nbsp;<span class="cm">// insert key</span></div>
+  </div>
+</div>
+
+<script>
+const INITIAL_ARRAY = [38, 27, 43, 3, 9, 82, 10, 55, 17, 61];
+
+let steps = [];
+let stepIdx = 0;
+let playing = false;
+let playTimer = null;
+
+// ── Pre-compute all steps ──────────────────────────────────────────────────
+function generateSteps(inputArr) {
+  const allSteps = [];
+  const n = inputArr.length;
+  const arr = [...inputArr];
+
+  function push(highlights, message, pseudoLine, sortedUpTo) {
+    allSteps.push({
+      arr: [...arr],
+      highlights: { ...highlights },
+      message,
+      pseudoLine,   // which pseudocode line to highlight (-1 = none)
+      sortedUpTo,   // indices 0..sortedUpTo are sorted
+    });
+  }
+
+  // Build highlight map
+  function hl(overrides, sortedUpTo, n) {
+    const h = {};
+    for (let k = 0; k < n; k++) {
+      if (k <= sortedUpTo) h[k] = 'sorted';
+      else h[k] = 'default';
+    }
+    for (const [k, v] of Object.entries(overrides)) h[parseInt(k)] = v;
+    return h;
+  }
+
+  // Start
+  push(hl({}, -1, n),
+    `<span class="step-label">Start.</span> Input: [${arr.join(', ')}]. Insertion sort maintains a sorted subarray (green) on the left. One by one it picks the next element and <b>inserts</b> it into the correct position.`,
+    -1, -1);
+
+  for (let i = 1; i < n; i++) {
+    const key = arr[i];
+
+    // Pick key
+    push(hl({ [i]: 'key' }, i - 1, n),
+      `<span class="step-label">Pick key.</span> i = ${i}. Key = <b>${key}</b> (index ${i}). The sorted region is [${arr.slice(0, i).join(', ')}]. We need to find where ${key} belongs.`,
+      1, i - 1);
+
+    // j = i - 1
+    push(hl({ [i]: 'key' }, i - 1, n),
+      `<span class="step-label">Set j.</span> j = i - 1 = <b>${i - 1}</b>. Start comparing leftward from index ${i - 1}.`,
+      2, i - 1);
+
+    let j = i - 1;
+
+    if (j < 0 || arr[j] <= key) {
+      // No shifting needed
+      push(hl({ [i]: 'inserted' }, i - 1, n),
+        `<span class="step-label">No shift needed.</span> arr[${j}] = <b>${arr[j]}</b> &le; key <b>${key}</b>. Key stays at index ${i}.`,
+        3, i - 1);
+    } else {
+      while (j >= 0 && arr[j] > key) {
+        // Compare
+        push(hl({ [i]: 'key', [j]: 'comparing' }, i - 1, n),
+          `<span class="step-label">Compare.</span> arr[${j}] = <b>${arr[j]}</b> &gt; key <b>${key}</b> &rarr; shift arr[${j}] one position right.`,
+          3, i - 1);
+
+        // Shift
+        arr[j + 1] = arr[j];
+        push(hl({ [j + 1]: 'shifting', [j]: 'key' }, i - 1, n),
+          `<span class="step-label">Shift.</span> arr[${j + 1}] &larr; arr[${j}] = <b>${arr[j]}</b>. Slot ${j} is now open.`,
+          4, i - 1);
+
+        j--;
+
+        if (j >= 0) {
+          push(hl({ [j + 1]: 'key' }, i - 1, n),
+            `<span class="step-label">Move j left.</span> j = <b>${j}</b>. Continue comparing leftward.`,
+            5, i - 1);
+        }
+      }
+
+      // Insert key
+      arr[j + 1] = key;
+      push(hl({ [j + 1]: 'inserted' }, i, n),
+        `<span class="step-label">Insert!</span> Place key <b>${key}</b> at index ${j + 1}. Sorted region grows to [${arr.slice(0, i + 1).join(', ')}].`,
+        6, i);
+    }
+
+    // Sorted region updated
+    push(hl({}, i, n),
+      `<span class="step-label">Pass ${i} complete.</span> Sorted region (green): [${arr.slice(0, i + 1).join(', ')}]. Remaining: [${arr.slice(i + 1).join(', ')}].`,
+      0, i);
+  }
+
+  // Done
+  const allGreen = {};
+  for (let k = 0; k < n; k++) allGreen[k] = 'sorted';
+  allSteps.push({
+    arr: [...arr],
+    highlights: allGreen,
+    message: `<span class="step-label">Done!</span> Sorted: [${arr.join(', ')}]. Insertion sort complete in ${allSteps.length} steps.`,
+    pseudoLine: -1,
+    sortedUpTo: n - 1,
+  });
+
+  return allSteps;
+}
+
+// ── DOM ────────────────────────────────────────────────────────────────────
+let maxVal = Math.max(...INITIAL_ARRAY);
+
+function buildBars(arr) {
+  const container = document.getElementById('array-container');
+  const labels    = document.getElementById('index-labels');
+  container.innerHTML = '';
+  labels.innerHTML = '';
+  maxVal = Math.max(...arr);
+
+  arr.forEach((val, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'bar-wrap';
+
+    const bar = document.createElement('div');
+    bar.className = 'bar default';
+    bar.style.height = Math.max(18, (val / maxVal) * 240) + 'px';
+    bar.textContent = val;
+    wrap.appendChild(bar);
+    container.appendChild(wrap);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'idx-label';
+    lbl.textContent = i;
+    labels.appendChild(lbl);
+  });
+}
+
+const pseudoLines = 7;
+function applyStep(step) {
+  const wraps = document.querySelectorAll('#array-container .bar-wrap');
+
+  step.arr.forEach((val, i) => {
+    const bar = wraps[i].querySelector('.bar');
+    bar.style.height = Math.max(18, (val / maxVal) * 240) + 'px';
+    bar.textContent = val;
+    bar.className = 'bar ' + (step.highlights[i] || 'default');
+  });
+
+  document.getElementById('explanation').innerHTML = step.message;
+
+  // Pseudocode highlight
+  for (let k = 0; k < pseudoLines; k++) {
+    const el = document.getElementById('pl' + k);
+    if (el) el.classList.toggle('highlight', k === step.pseudoLine);
+  }
+
+  const pct = steps.length > 1 ? (stepIdx / (steps.length - 1)) * 100 : 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('step-counter').textContent =
+    `Step ${stepIdx + 1} / ${steps.length}`;
+}
+
+// ── Playback ───────────────────────────────────────────────────────────────
+function getDelay() {
+  const speed = parseInt(document.getElementById('speedSlider').value);
+  return Math.round(2000 - (speed - 1) * (1850 / 9));
+}
+
+function stepForward() {
+  if (stepIdx >= steps.length - 1) { stopPlay(); return; }
+  stepIdx++;
+  applyStep(steps[stepIdx]);
+}
+
+function startPlay() {
+  playing = true;
+  document.getElementById('btnPlay').textContent = '\u23F8 Pause';
+  document.getElementById('btnStep').disabled = true;
+
+  function tick() {
+    if (!playing || stepIdx >= steps.length - 1) { stopPlay(); return; }
+    stepForward();
+    playTimer = setTimeout(tick, getDelay());
+  }
+  playTimer = setTimeout(tick, getDelay());
+}
+
+function stopPlay() {
+  playing = false;
+  clearTimeout(playTimer);
+  document.getElementById('btnPlay').textContent = '\u25B6 Play';
+  document.getElementById('btnStep').disabled = false;
+  if (stepIdx >= steps.length - 1) {
+    document.getElementById('btnPlay').disabled = true;
+  }
+}
+
+function resetAll() {
+  stopPlay();
+  stepIdx = 0;
+  buildBars(INITIAL_ARRAY);
+  applyStep(steps[0]);
+  document.getElementById('btnPlay').disabled = false;
+  document.getElementById('btnStep').disabled = false;
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+steps = generateSteps(INITIAL_ARRAY);
+buildBars(INITIAL_ARRAY);
+applyStep(steps[0]);
+
+document.getElementById('btnPlay').addEventListener('click', () => {
+  if (playing) stopPlay();
+  else if (stepIdx >= steps.length - 1) { resetAll(); startPlay(); }
+  else startPlay();
+});
+
+document.getElementById('btnStep').addEventListener('click', () => {
+  if (stepIdx >= steps.length - 1) return;
+  stepForward();
+  if (stepIdx >= steps.length - 1) document.getElementById('btnPlay').disabled = true;
+});
+
+document.getElementById('btnReset').addEventListener('click', resetAll);
+
+document.getElementById('speedSlider').addEventListener('input', function () {
+  document.getElementById('speedLabel').textContent = this.value;
+});
+</script>
+</body>
+</html>

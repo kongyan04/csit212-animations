@@ -6,73 +6,115 @@
 <title>Algorithm Animations – CSIT 212</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f1117; color: #e2e8f0; font-family: 'Courier New', monospace; min-height: 100vh; }
+  body {
+    background: #f0f4f8;
+    color: #1a202c;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    min-height: 100vh;
+  }
 
   header {
-    background: #1a1f2e;
-    border-bottom: 1px solid #2d3748;
-    padding: 32px 40px 28px;
+    background: #1e40af;
+    padding: 36px 40px 30px;
     text-align: center;
   }
-  header h1 { font-size: 1.8rem; color: #93c5fd; letter-spacing: 0.02em; }
-  header p  { color: #64748b; font-size: 0.88rem; margin-top: 6px; }
+  header h1 {
+    font-size: 2.2rem;
+    color: #ffffff;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+  }
+  header p {
+    color: #bfdbfe;
+    font-size: 1rem;
+    margin-top: 8px;
+  }
 
-  main { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+  main { max-width: 980px; margin: 0 auto; padding: 40px 24px 60px; }
 
   .section-title {
-    font-size: 0.72rem; color: #475569; letter-spacing: 0.15em;
-    text-transform: uppercase; margin-bottom: 16px; padding-bottom: 8px;
-    border-bottom: 1px solid #1e2536;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1e40af;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid #1e40af;
   }
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 16px;
-    margin-bottom: 40px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 48px;
   }
 
   .card {
-    background: #1a1f2e;
-    border: 1px solid #2d3748;
-    border-radius: 10px;
-    padding: 20px;
+    background: #ffffff;
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 24px 22px;
     text-decoration: none;
     color: inherit;
     transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   }
   .card:hover {
-    border-color: #3b82f6;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px #3b82f622;
+    border-color: #1e40af;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(30,64,175,0.15);
   }
 
   .card-tag {
-    font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
-    padding: 2px 8px; border-radius: 99px; display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 99px;
+    display: inline-block;
     width: fit-content;
   }
-  .tag-sort   { background: #1e2a4a; color: #93c5fd; }
-  .tag-graph  { background: #1a2a1a; color: #4ade80; }
-  .tag-dp     { background: #2a1a2e; color: #c084fc; }
+  .tag-sort  { background: #dbeafe; color: #1e40af; }
+  .tag-graph { background: #dcfce7; color: #166534; }
+  .tag-dp    { background: #f3e8ff; color: #6b21a8; }
 
-  .card-title { font-size: 1rem; font-weight: bold; color: #e2e8f0; }
-  .card-desc  { font-size: 0.78rem; color: #64748b; line-height: 1.5; }
+  .card-icon { font-size: 2rem; line-height: 1; }
+
+  .card-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #1a202c;
+  }
+  .card-desc {
+    font-size: 0.88rem;
+    color: #4a5568;
+    line-height: 1.6;
+  }
 
   .card-features {
-    display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px;
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;
   }
   .feat {
-    font-size: 0.66rem; background: #0f1117; border: 1px solid #2d3748;
-    color: #94a3b8; border-radius: 4px; padding: 2px 7px;
+    font-size: 0.72rem;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    border-radius: 5px;
+    padding: 3px 8px;
+    font-weight: 600;
   }
 
   footer {
-    text-align: center; color: #374151; font-size: 0.75rem;
-    padding: 24px; border-top: 1px solid #1e2536;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.82rem;
+    padding: 24px;
+    border-top: 1px solid #e2e8f0;
   }
 </style>
 </head>
@@ -80,7 +122,7 @@
 
 <header>
   <h1>Algorithm Animations</h1>
-  <p>Interactive step-by-step visualizations for CSIT 212</p>
+  <p>Interactive step-by-step visualizations — CSIT 212</p>
 </header>
 
 <main>
@@ -89,6 +131,7 @@
   <div class="grid">
 
     <a class="card" href="insertionsort_animation.html">
+      <div class="card-icon">📊</div>
       <span class="card-tag tag-sort">Sorting</span>
       <div class="card-title">Insertion Sort</div>
       <div class="card-desc">Step through comparisons and shifts with a bar chart and pseudocode highlighting.</div>
@@ -100,6 +143,7 @@
     </a>
 
     <a class="card" href="mergesort_animation.html">
+      <div class="card-icon">🌲</div>
       <span class="card-tag tag-sort">Sorting</span>
       <div class="card-title">Merge Sort</div>
       <div class="card-desc">Visualize divide-and-conquer with a recursive tree and merge panel.</div>
@@ -111,6 +155,7 @@
     </a>
 
     <a class="card" href="quicksort_animation.html">
+      <div class="card-icon">⚡</div>
       <span class="card-tag tag-sort">Sorting</span>
       <div class="card-title">Quick Sort</div>
       <div class="card-desc">Watch partition and pivot selection with a live recursion call stack.</div>
@@ -127,6 +172,7 @@
   <div class="grid">
 
     <a class="card" href="bfs_animation.html">
+      <div class="card-icon">🔵</div>
       <span class="card-tag tag-graph">Graph</span>
       <div class="card-title">Breadth-First Search</div>
       <div class="card-desc">BFS with a live queue panel showing d and π values for each node.</div>
@@ -138,6 +184,7 @@
     </a>
 
     <a class="card" href="dfs_animation.html">
+      <div class="card-icon">🟣</div>
       <span class="card-tag tag-graph">Graph</span>
       <div class="card-title">Depth-First Search</div>
       <div class="card-desc">DFS with call stack, timestamps, and edge classification (tree, back, forward/cross).</div>
@@ -149,6 +196,7 @@
     </a>
 
     <a class="card" href="prim_animation.html">
+      <div class="card-icon">🌿</div>
       <span class="card-tag tag-graph">Graph · MST</span>
       <div class="card-title">Prim's Algorithm</div>
       <div class="card-desc">Minimum spanning tree construction with a priority queue sorted by key value.</div>
@@ -160,6 +208,7 @@
     </a>
 
     <a class="card" href="dijkstra_animation.html">
+      <div class="card-icon">🗺️</div>
       <span class="card-tag tag-graph">Graph · SSSP</span>
       <div class="card-title">Dijkstra's Algorithm</div>
       <div class="card-desc">Single-source shortest paths with RELAX operations and a live priority queue.</div>
@@ -176,6 +225,7 @@
   <div class="grid">
 
     <a class="card" href="lcs_animation.html">
+      <div class="card-icon">📐</div>
       <span class="card-tag tag-dp">Dynamic Programming</span>
       <div class="card-title">Longest Common Subsequence</div>
       <div class="card-desc">Fill a DP table step by step and trace back the optimal solution with directional arrows.</div>

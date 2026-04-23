@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HW Grades – CSIT 212</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #ffffff;
+    color: #333333;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    min-height: 100vh;
+  }
+
+  header {
+    background: #007acc;
+    padding: 36px 40px 30px;
+    text-align: center;
+  }
+  header h1 { font-size: 2.2rem; color: #ffffff; font-weight: 800; letter-spacing: 0.01em; }
+  header p  { color: #cce7ff; font-size: 1rem; margin-top: 8px; }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 60px; }
+
+  .section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #007acc;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid #007acc;
+  }
+
+  .meta {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 20px;
+  }
+
+  /* Search */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .toolbar input {
+    padding: 8px 14px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    width: 240px;
+    outline: none;
+  }
+  .toolbar input:focus { border-color: #007acc; box-shadow: 0 0 0 2px rgba(0,122,204,0.15); }
+  .toolbar label { font-size: 0.85rem; color: #555; }
+
+  /* Table wrapper */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+
+  thead th {
+    background: #007acc;
+    color: #fff;
+    font-weight: 700;
+    padding: 12px 14px;
+    text-align: center;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+  }
+  thead th:first-child { text-align: left; min-width: 180px; }
+
+  tbody tr { border-bottom: 1px solid #f0f0f0; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #f0f7ff; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  tbody tr:nth-child(even):hover { background: #f0f7ff; }
+
+  td {
+    padding: 10px 14px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  td:first-child { text-align: left; font-weight: 600; }
+
+  /* Score coloring */
+  .score-full    { color: #166534; font-weight: 700; }
+  .score-extra   { color: #0369a1; font-weight: 700; }
+  .score-partial { color: #92400e; }
+  .score-zero    { color: #dc2626; font-weight: 700; }
+  .score-missing { color: #aaa; font-style: italic; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+    font-size: 0.8rem;
+    color: #555;
+    align-items: center;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot {
+    width: 12px; height: 12px; border-radius: 50%; display: inline-block;
+  }
+
+  /* Max row */
+  .max-row td { color: #888; font-size: 0.8rem; font-style: italic; background: #f5f5f5; }
+  .max-row td:first-child { font-style: normal; color: #555; font-weight: 600; }
+
+  footer {
+    text-align: center;
+    color: #888888;
+    font-size: 0.82rem;
+    padding: 24px;
+    border-top: 1px solid #e0e0e0;
+    margin-top: 40px;
+  }
+
+  .back-link {
+    display: inline-block;
+    margin-bottom: 28px;
+    font-size: 0.88rem;
+    color: #007acc;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .back-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Homework Grades</h1>
+  <p>CSIT 212 · Spring 2026 · Course 212604</p>
+</header>
+
+<main>
+<div class="section-title">HW1 – HW10 Scores</div>
+  <p class="meta">30 students &nbsp;·&nbsp; Last updated: April 23, 2026 &nbsp;·&nbsp; HW6–HW10 not yet graded</p>
+
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Search student name…" oninput="filterTable()">
+    <label>Showing <strong id="count">30</strong> of 30 students</label>
+  </div>
+
+  <div class="table-wrap">
+    <table id="gradesTable">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>HW1<br><span style="font-weight:400;font-size:0.75rem">/100</span></th>
+          <th>HW2<br><span style="font-weight:400;font-size:0.75rem">/100</span></th>
+          <th>HW3<br><span style="font-weight:400;font-size:0.75rem">/120</span></th>
+          <th>HW4<br><span style="font-weight:400;font-size:0.75rem">/100</span></th>
+          <th>HW5<br><span style="font-weight:400;font-size:0.75rem">/100</span></th>
+          <th>HW6</th>
+          <th>HW7</th>
+          <th>HW8</th>
+          <th>HW9</th>
+          <th>HW10</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <!-- max pts row -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="legend">
+    <span style="color:#555;font-weight:600;">Legend:</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#166534"></span> Full / 100%</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#0369a1"></span> Extra credit</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#92400e"></span> Partial</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span> Zero</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#ccc"></span> Not graded</span>
+  </div>
+</main>
+
+<footer>CSIT 212 · Algorithm Animations</footer>
+
+<script>
+const MAX = { HW1:100, HW2:100, HW3:120, HW4:100, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null };
+
+const students = [
+  { name: "Alexander Giraldo",           HW1:100, HW2:100, HW3:140, HW4:130, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Ariel Godoy",                 HW1:100, HW2:100, HW3:140, HW4:100, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Armando Garcia",              HW1: 80, HW2:100, HW3:140, HW4:100, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Armani Lopez",                HW1:100, HW2: 90, HW3:130, HW4:100, HW5:110, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Ben Loya",                    HW1:100, HW2:100, HW3:140, HW4: 50, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Cristian Amaya Peña",         HW1:100, HW2:100, HW3:140, HW4:130, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "David Truscott",              HW1:100, HW2:100, HW3:140, HW4:130, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Erick Pena",                  HW1: 90, HW2:100, HW3:100, HW4:100, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Erzana Topciu",               HW1:100, HW2:100, HW3:140, HW4:130, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Gianna Rosario",              HW1: 80, HW2: 80, HW3:140, HW4:100, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Harsh Patel",                 HW1:100, HW2:100, HW3:100, HW4:130, HW5: 90, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Jason Badripersaud",          HW1:100, HW2:100, HW3:120, HW4:130, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Jay Patel",                   HW1:100, HW2:100, HW3:120, HW4:130, HW5: 35, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Jesus Candia Gonzalez",       HW1:  0, HW2:  0, HW3:  0, HW4:  0, HW5:  0, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Jonathan Giles",              HW1:100, HW2: 60, HW3:120, HW4:130, HW5:  0, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Jose Priego",                 HW1:100, HW2:100, HW3:120, HW4:100, HW5: 70, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Joseph Moreno",               HW1: 50, HW2:100, HW3:110, HW4:100, HW5: 70, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Juan Piedra",                 HW1:100, HW2: 85, HW3:100, HW4:130, HW5:  0, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Khaled Rasslan",              HW1:100, HW2:100, HW3:140, HW4:130, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Kush Patel",                  HW1:100, HW2:100, HW3:140, HW4:100, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Mahdi Chowdhury",             HW1:100, HW2:100, HW3:140, HW4:100, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Marie Malakhov",              HW1:100, HW2:100, HW3:140, HW4:100, HW5:110, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Matt Vinanzaca",              HW1: 80, HW2:100, HW3:140, HW4:100, HW5:110, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Onur Genc",                   HW1: 70, HW2:100, HW3:140, HW4:130, HW5:110, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Ricardo Avila Flores",        HW1:100, HW2:100, HW3:140, HW4:130, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Sara Patel",                  HW1:100, HW2:100, HW3:140, HW4:  0, HW5:  0, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Sean Daniel",                 HW1: 80, HW2:  0, HW3:  0, HW4:  0, HW5: 75, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Svitha Selvakannan",          HW1:100, HW2:100, HW3:140, HW4:130, HW5:100, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Utsav Lamgade",               HW1:100, HW2:100, HW3:140, HW4:130, HW5:110, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+  { name: "Victor Manuel Alvarez Reyes", HW1:100, HW2:100, HW3:140, HW4:130, HW5:110, HW6:null, HW7:null, HW8:null, HW9:null, HW10:null },
+];
+
+const hws = ['HW1','HW2','HW3','HW4','HW5','HW6','HW7','HW8','HW9','HW10'];
+
+function scoreClass(val, hw) {
+  if (val === null) return 'score-missing';
+  const max = MAX[hw];
+  if (val === 0) return 'score-zero';
+  if (max && val > max) return 'score-extra';
+  if (max && val >= max) return 'score-full';
+  return 'score-partial';
+}
+
+function scoreText(val, hw) {
+  if (val === null) return '—';
+  return val;
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  data.forEach(s => {
+    const tr = document.createElement('tr');
+    let cells = `<td>${s.name}</td>`;
+    hws.forEach(hw => {
+      const cls = scoreClass(s[hw], hw);
+      cells += `<td class="${cls}">${scoreText(s[hw], hw)}</td>`;
+    });
+    tr.innerHTML = cells;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('count').textContent = data.length;
+}
+
+function filterTable() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const filtered = students.filter(s => s.name.toLowerCase().includes(q));
+  renderTable(filtered);
+}
+
+renderTable(students);
+</script>
+</body>
+</html>

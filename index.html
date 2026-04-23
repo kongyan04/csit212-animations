@@ -7,14 +7,14 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: #f0f4f8;
-    color: #1a202c;
+    background: #ffffff;
+    color: #333333;
     font-family: 'Segoe UI', Arial, sans-serif;
     min-height: 100vh;
   }
 
   header {
-    background: #1e40af;
+    background: #007acc;
     padding: 36px 40px 30px;
     text-align: center;
   }
@@ -25,7 +25,7 @@
     letter-spacing: 0.01em;
   }
   header p {
-    color: #bfdbfe;
+    color: #cce7ff;
     font-size: 1rem;
     margin-top: 8px;
   }
@@ -35,12 +35,12 @@
   .section-title {
     font-size: 1rem;
     font-weight: 700;
-    color: #1e40af;
+    color: #007acc;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     margin-bottom: 16px;
     padding-bottom: 10px;
-    border-bottom: 3px solid #1e40af;
+    border-bottom: 3px solid #007acc;
   }
 
   .grid {
@@ -51,8 +51,8 @@
   }
 
   .card {
-    background: #ffffff;
-    border: 2px solid #e2e8f0;
+    background: #f3f3f3;
+    border: 1px solid #e0e0e0;
     border-radius: 14px;
     padding: 24px 22px;
     text-decoration: none;
@@ -61,12 +61,12 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   }
   .card:hover {
-    border-color: #1e40af;
+    border-color: #007acc;
     transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(30,64,175,0.15);
+    box-shadow: 0 6px 20px rgba(0,122,204,0.15);
   }
 
   .card-tag {
@@ -79,7 +79,7 @@
     display: inline-block;
     width: fit-content;
   }
-  .tag-sort  { background: #dbeafe; color: #1e40af; }
+  .tag-sort  { background: #dbeafe; color: #005fb8; }
   .tag-graph { background: #dcfce7; color: #166534; }
   .tag-dp    { background: #f3e8ff; color: #6b21a8; }
 
@@ -88,11 +88,11 @@
   .card-title {
     font-size: 1.15rem;
     font-weight: 700;
-    color: #1a202c;
+    color: #1e1e1e;
   }
   .card-desc {
     font-size: 0.88rem;
-    color: #4a5568;
+    color: #555555;
     line-height: 1.6;
   }
 
@@ -101,9 +101,9 @@
   }
   .feat {
     font-size: 0.72rem;
-    background: #f1f5f9;
-    border: 1px solid #cbd5e1;
-    color: #334155;
+    background: #e8e8e8;
+    border: 1px solid #cccccc;
+    color: #444444;
     border-radius: 5px;
     padding: 3px 8px;
     font-weight: 600;
@@ -111,10 +111,10 @@
 
   footer {
     text-align: center;
-    color: #94a3b8;
+    color: #888888;
     font-size: 0.82rem;
     padding: 24px;
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid #e0e0e0;
   }
 </style>
 </head>
@@ -216,6 +216,49 @@
         <span class="feat">Priority queue</span>
         <span class="feat">RELAX</span>
         <span class="feat">SP tree</span>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="section-title">Grades</div>
+  <div class="grid" style="margin-bottom:48px;">
+    <a class="card" href="grades.html">
+      <div class="card-icon">📋</div>
+      <span class="card-tag" style="background:#dbeafe;color:#005fb8;">Grades</span>
+      <div class="card-title">HW Grades – Spring 2026</div>
+      <div class="card-desc">Homework 1–10 scores for all 30 students in course 212604. Color-coded by performance.</div>
+      <div class="card-features">
+        <span class="feat">30 students</span>
+        <span class="feat">HW1–HW10</span>
+        <span class="feat">Search</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="section-title">Games &amp; Tools</div>
+  <div class="grid">
+
+    <a class="card" href="tictactoe.html">
+      <div class="card-icon">⭕</div>
+      <span class="card-tag" style="background:#fce7f3;color:#be185d;">Game</span>
+      <div class="card-title">Tic-Tac-Toe</div>
+      <div class="card-desc">Play against a friend or challenge the computer powered by a minimax AI. Tracks scores across rounds.</div>
+      <div class="card-features">
+        <span class="feat">2-player</span>
+        <span class="feat">Minimax AI</span>
+        <span class="feat">Score board</span>
+      </div>
+    </a>
+
+    <a class="card" href="prompts.html">
+      <div class="card-icon">💬</div>
+      <span class="card-tag" style="background:#ede9fe;color:#5b21b6;">Meta</span>
+      <div class="card-title">Prompt Gallery</div>
+      <div class="card-desc">A live log of every prompt used in this session, each with a brief description of what it produced.</div>
+      <div class="card-features">
+        <span class="feat">Session log</span>
+        <span class="feat">AI-generated</span>
       </div>
     </a>
 

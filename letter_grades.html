@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSIT 212 — Final Letter Grades</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #f0f4f8;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #2d3748;
+  min-height: 100vh;
+  padding: 0 0 60px;
+}
+header {
+  background: linear-gradient(135deg, #1a365d, #2b6cb0);
+  padding: 32px 24px;
+  text-align: center;
+  color: #fff;
+}
+header h1 { font-size: 1.8rem; font-weight: 800; margin-bottom: 6px; }
+header p { color: #bee3f8; font-size: 0.9rem; }
+.scale {
+  max-width: 900px; margin: 20px auto; padding: 16px 24px;
+  background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  font-size: 0.8rem; color: #555; line-height: 1.8;
+}
+.scale strong { color: #2b6cb0; }
+main { max-width: 900px; margin: 0 auto; padding: 20px 16px; }
+.section-block { margin-bottom: 36px; }
+.section-header {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 8px; padding: 0 4px;
+}
+.section-header h2 { font-size: 1.1rem; color: #1a365d; font-weight: 700; }
+.count { font-size: 0.8rem; color: #a0aec0; }
+.summary { margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px; }
+.pill {
+  display: inline-block; padding: 3px 10px; border-radius: 12px;
+  font-size: 0.75rem; font-weight: 700;
+}
+.table-wrap {
+  background: #fff; border-radius: 10px; overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+}
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  background: #edf2f7; color: #4a5568; font-size: 0.75rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 14px; text-align: left;
+}
+tbody tr { border-top: 1px solid #f0f0f0; transition: background 0.1s; }
+tbody tr:hover { background: #f7fafc; }
+td { padding: 9px 14px; font-size: 0.88rem; }
+td.num { color: #a0aec0; font-size: 0.8rem; width: 36px; }
+td.name { font-weight: 600; }
+td.pct { color: #4a5568; }
+td.rounded { color: #2b6cb0; font-size: 0.82rem; font-weight: 600; }
+.grade-pill {
+  display: inline-block; padding: 2px 10px; border-radius: 10px;
+  font-size: 0.78rem; font-weight: 700;
+}
+footer {
+  text-align: center; padding: 20px; color: #a0aec0; font-size: 0.75rem;
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>CSIT 212 — Final Letter Grades</h1>
+  <p>Spring 2026 &middot; All Sections &middot; Rounded up for &gt; .5</p>
+</header>
+
+<div class="scale">
+  <strong>Grading Scale:</strong>
+  A &ge; 94% &nbsp;|&nbsp; A- &ge; 90% &nbsp;|&nbsp; B+ &ge; 84% &nbsp;|&nbsp; B &ge; 80% &nbsp;|&nbsp;
+  B- &ge; 75% &nbsp;|&nbsp; C+ &ge; 70% &nbsp;|&nbsp; C &ge; 65% &nbsp;|&nbsp; C- &ge; 60% &nbsp;|&nbsp; F &lt; 60%
+</div>
+
+<main>
+
+    <div class="section-block">
+      <div class="section-header">
+        <h2>CSIT212_15SP26</h2>
+        <span class="count">30 students</span>
+      </div>
+      <div class="summary"><span class="pill" style="background:#c6f6d5;color:#276749">A: 18</span> <span class="pill" style="background:#c6f6d5;color:#276749">A-: 5</span> <span class="pill" style="background:#bee3f8;color:#2a69ac">B+: 3</span> <span class="pill" style="background:#bee3f8;color:#2a69ac">B-: 1</span> <span class="pill" style="background:#fefcbf;color:#975a16">C+: 2</span> <span class="pill" style="background:#fed7d7;color:#9b2c2c">F: 1</span> </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Student</th><th>Grade %</th><th>Rounded</th><th>Letter</th></tr></thead>
+          <tbody><tr>
+          <td class="num">1</td>
+          <td class="name">Femi Adekunle</td>
+          <td class="pct">73.4%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#fefcbf;color:#975a16">C+</span></td>
+        </tr>
+<tr>
+          <td class="num">2</td>
+          <td class="name">Audric Alvarez</td>
+          <td class="pct">99.2%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">3</td>
+          <td class="name">Manny Yancy Aragon</td>
+          <td class="pct">98.8%</td>
+          <td class="rounded">99%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">4</td>
+          <td class="name">Jason Bayona</td>
+          <td class="pct">86.3%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B+</span></td>
+        </tr>
+<tr>
+          <td class="num">5</td>
+          <td class="name">Daniel Cabrera</td>
+          <td class="pct">89.3%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B+</span></td>
+        </tr>
+<tr>
+          <td class="num">6</td>
+          <td class="name">Geon Choi</td>
+          <td class="pct">101.0%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">7</td>
+          <td class="name">Josh Custode</td>
+          <td class="pct">100.3%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">8</td>
+          <td class="name">Kaiden Escobar</td>
+          <td class="pct">89.5%</td>
+          <td class="rounded">90%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A-</span></td>
+        </tr>
+<tr>
+          <td class="num">9</td>
+          <td class="name">Gabriel Espitia</td>
+          <td class="pct">97.7%</td>
+          <td class="rounded">98%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">10</td>
+          <td class="name">Stefan Filipovic</td>
+          <td class="pct">69.6%</td>
+          <td class="rounded">70%</td>
+          <td><span class="grade-pill" style="background:#fefcbf;color:#975a16">C+</span></td>
+        </tr>
+<tr>
+          <td class="num">11</td>
+          <td class="name">Fernand Gbodjo</td>
+          <td class="pct">86.0%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B+</span></td>
+        </tr>
+<tr>
+          <td class="num">12</td>
+          <td class="name">Emanuel Guevara</td>
+          <td class="pct">90.4%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A-</span></td>
+        </tr>
+<tr>
+          <td class="num">13</td>
+          <td class="name">Jafar Harb</td>
+          <td class="pct">102.0%</td>
+          <td class="rounded">102%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">14</td>
+          <td class="name">Jeffrey Harraka</td>
+          <td class="pct">97.0%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">15</td>
+          <td class="name">Jerrell Harris</td>
+          <td class="pct">98.5%</td>
+          <td class="rounded">99%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">16</td>
+          <td class="name">Anthony Hidalgo</td>
+          <td class="pct">76.5%</td>
+          <td class="rounded">77%</td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B-</span></td>
+        </tr>
+<tr>
+          <td class="num">17</td>
+          <td class="name">Kabir Hossain</td>
+          <td class="pct">95.2%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">18</td>
+          <td class="name">Jonathan Jean</td>
+          <td class="pct">32.8%</td>
+          <td class="rounded">33%</td>
+          <td><span class="grade-pill" style="background:#fed7d7;color:#9b2c2c">F</span></td>
+        </tr>
+<tr>
+          <td class="num">19</td>
+          <td class="name">Saadet Koc</td>
+          <td class="pct">90.0%</td>
+          <td class="rounded">90%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A-</span></td>
+        </tr>
+<tr>
+          <td class="num">20</td>
+          <td class="name">Derin Kurt</td>
+          <td class="pct">91.6%</td>
+          <td class="rounded">92%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A-</span></td>
+        </tr>
+<tr>
+          <td class="num">21</td>
+          <td class="name">Omer Levent</td>
+          <td class="pct">95.7%</td>
+          <td class="rounded">96%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">22</td>
+          <td class="name">Anthony Minaya</td>
+          <td class="pct">97.4%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">23</td>
+          <td class="name">Luciana Ochoa</td>
+          <td class="pct">102.4%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">24</td>
+          <td class="name">Henry Otero</td>
+          <td class="pct">100.7%</td>
+          <td class="rounded">101%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">25</td>
+          <td class="name">Eneda Rata</td>
+          <td class="pct">97.2%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">26</td>
+          <td class="name">Katie Serrano</td>
+          <td class="pct">101.5%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">27</td>
+          <td class="name">Mohammad Shaif</td>
+          <td class="pct">102.2%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">28</td>
+          <td class="name">Ketchell Terzakis</td>
+          <td class="pct">89.7%</td>
+          <td class="rounded">90%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A-</span></td>
+        </tr>
+<tr>
+          <td class="num">29</td>
+          <td class="name">Soraya Walden</td>
+          <td class="pct">96.0%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">30</td>
+          <td class="name">Camila Zhagui</td>
+          <td class="pct">98.2%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-header">
+        <h2>CSIT212_04SP26</h2>
+        <span class="count">30 students</span>
+      </div>
+      <div class="summary"><span class="pill" style="background:#c6f6d5;color:#276749">A: 9</span> <span class="pill" style="background:#c6f6d5;color:#276749">A-: 6</span> <span class="pill" style="background:#bee3f8;color:#2a69ac">B+: 7</span> <span class="pill" style="background:#bee3f8;color:#2a69ac">B-: 3</span> <span class="pill" style="background:#fefcbf;color:#975a16">C+: 1</span> <span class="pill" style="background:#fefcbf;color:#975a16">C: 1</span> <span class="pill" style="background:#fefcbf;color:#975a16">C-: 1</span> <span class="pill" style="background:#fed7d7;color:#9b2c2c">F: 2</span> </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Student</th><th>Grade %</th><th>Rounded</th><th>Letter</th></tr></thead>
+          <tbody><tr>
+          <td class="num">1</td>
+          <td class="name">Jason Badripersaud</td>
+          <td class="pct">92.6%</td>
+          <td class="rounded">93%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A-</span></td>
+        </tr>
+<tr>
+          <td class="num">2</td>
+          <td class="name">Mahdi Chowdhury</td>
+          <td class="pct">94.4%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">3</td>
+          <td class="name">Sean Daniel</td>
+          <td class="pct">44.1%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#fed7d7;color:#9b2c2c">F</span></td>
+        </tr>
+<tr>
+          <td class="num">4</td>
+          <td class="name">Ricardo Avila Flores</td>
+          <td class="pct">97.7%</td>
+          <td class="rounded">98%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">5</td>
+          <td class="name">Armando Garcia</td>
+          <td class="pct">67.2%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#fefcbf;color:#975a16">C</span></td>
+        </tr>
+<tr>
+          <td class="num">6</td>
+          <td class="name">Onur Genc</td>
+          <td class="pct">99.1%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">7</td>
+          <td class="name">Jonathan Giles</td>
+          <td class="pct">86.5%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B+</span></td>
+        </tr>
+<tr>
+          <td class="num">8</td>
+          <td class="name">Alexander Giraldo</td>
+          <td class="pct">100.5%</td>
+          <td class="rounded">101%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">9</td>
+          <td class="name">Ariel Godoy</td>
+          <td class="pct">94.0%</td>
+          <td class="rounded">94%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">10</td>
+          <td class="name">Jesus Candia Gonzalez</td>
+          <td class="pct">12.1%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#fed7d7;color:#9b2c2c">F</span></td>
+        </tr>
+<tr>
+          <td class="num">11</td>
+          <td class="name">Utsav Lamgade</td>
+          <td class="pct">95.9%</td>
+          <td class="rounded">96%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">12</td>
+          <td class="name">Armani Lopez</td>
+          <td class="pct">76.8%</td>
+          <td class="rounded">77%</td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B-</span></td>
+        </tr>
+<tr>
+          <td class="num">13</td>
+          <td class="name">Ben Loya</td>
+          <td class="pct">94.7%</td>
+          <td class="rounded">95%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">14</td>
+          <td class="name">Marie Malakhov</td>
+          <td class="pct">93.7%</td>
+          <td class="rounded">94%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">15</td>
+          <td class="name">Joseph Moreno</td>
+          <td class="pct">63.6%</td>
+          <td class="rounded">64%</td>
+          <td><span class="grade-pill" style="background:#fefcbf;color:#975a16">C-</span></td>
+        </tr>
+<tr>
+          <td class="num">16</td>
+          <td class="name">Harsh Patel</td>
+          <td class="pct">93.5%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A-</span></td>
+        </tr>
+<tr>
+          <td class="num">17</td>
+          <td class="name">Jay Patel</td>
+          <td class="pct">92.7%</td>
+          <td class="rounded">93%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A-</span></td>
+        </tr>
+<tr>
+          <td class="num">18</td>
+          <td class="name">Kush Patel</td>
+          <td class="pct">91.8%</td>
+          <td class="rounded">92%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A-</span></td>
+        </tr>
+<tr>
+          <td class="num">19</td>
+          <td class="name">Sara Patel</td>
+          <td class="pct">76.9%</td>
+          <td class="rounded">77%</td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B-</span></td>
+        </tr>
+<tr>
+          <td class="num">20</td>
+          <td class="name">Erick Pena</td>
+          <td class="pct">94.8%</td>
+          <td class="rounded">95%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A</span></td>
+        </tr>
+<tr>
+          <td class="num">21</td>
+          <td class="name">Cristian Amaya Peña</td>
+          <td class="pct">85.7%</td>
+          <td class="rounded">86%</td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B+</span></td>
+        </tr>
+<tr>
+          <td class="num">22</td>
+          <td class="name">Juan Piedra</td>
+          <td class="pct">87.0%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B+</span></td>
+        </tr>
+<tr>
+          <td class="num">23</td>
+          <td class="name">Jose Priego</td>
+          <td class="pct">89.4%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B+</span></td>
+        </tr>
+<tr>
+          <td class="num">24</td>
+          <td class="name">Khaled Rasslan</td>
+          <td class="pct">91.6%</td>
+          <td class="rounded">92%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A-</span></td>
+        </tr>
+<tr>
+          <td class="num">25</td>
+          <td class="name">Victor Manuel Alvarez Reyes</td>
+          <td class="pct">87.2%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B+</span></td>
+        </tr>
+<tr>
+          <td class="num">26</td>
+          <td class="name">Gianna Rosario</td>
+          <td class="pct">72.8%</td>
+          <td class="rounded">73%</td>
+          <td><span class="grade-pill" style="background:#fefcbf;color:#975a16">C+</span></td>
+        </tr>
+<tr>
+          <td class="num">27</td>
+          <td class="name">Svitha Selvakannan</td>
+          <td class="pct">89.5%</td>
+          <td class="rounded">90%</td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A-</span></td>
+        </tr>
+<tr>
+          <td class="num">28</td>
+          <td class="name">Erzana Topciu</td>
+          <td class="pct">77.8%</td>
+          <td class="rounded">78%</td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B-</span></td>
+        </tr>
+<tr>
+          <td class="num">29</td>
+          <td class="name">David Truscott</td>
+          <td class="pct">84.5%</td>
+          <td class="rounded">85%</td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B+</span></td>
+        </tr>
+<tr>
+          <td class="num">30</td>
+          <td class="name">Matt Vinanzaca</td>
+          <td class="pct">89.0%</td>
+          <td class="rounded">89%</td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B+</span></td>
+        </tr>
+</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-header">
+        <h2>CSIT212_74SP26</h2>
+        <span class="count">2 students</span>
+      </div>
+      <div class="summary"><span class="pill" style="background:#c6f6d5;color:#276749">A-: 1</span> <span class="pill" style="background:#bee3f8;color:#2a69ac">B+: 1</span> </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Student</th><th>Grade %</th><th>Rounded</th><th>Letter</th></tr></thead>
+          <tbody><tr>
+          <td class="num">1</td>
+          <td class="name">Prachi Modi</td>
+          <td class="pct">92.2%</td>
+          <td class="rounded"></td>
+          <td><span class="grade-pill" style="background:#c6f6d5;color:#276749">A-</span></td>
+        </tr>
+<tr>
+          <td class="num">2</td>
+          <td class="name">John Severs</td>
+          <td class="pct">87.8%</td>
+          <td class="rounded">88%</td>
+          <td><span class="grade-pill" style="background:#bee3f8;color:#2a69ac">B+</span></td>
+        </tr>
+</tbody>
+        </table>
+      </div>
+    </div>
+
+</main>
+
+<footer>Generated May 2026 &middot; CSIT 212 Spring 2026</footer>
+</body>
+</html>

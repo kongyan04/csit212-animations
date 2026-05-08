@@ -537,7 +537,8 @@ function showTab(id) {
 // ── Final Grades ──────────────────────────────────────────────────────────────
 
 const CANVAS_TOKEN = '1925~QYBVrAy7KvKTHTCM2tG8ZTDQRx4fH2tDBvRE4YkzJxtCTzTyMecvP2YUz33E8ukC';
-const CANVAS_BASE = 'https://montclair.instructure.com/api/v1';
+const CANVAS_DIRECT = 'https://montclair.instructure.com/api/v1';
+const CANVAS_PROXY = 'https://csit212-submissions.onrender.com/canvas-proxy/api/v1';
 let fgStudents = [];
 let fgCourseId = '';
 
@@ -546,15 +547,38 @@ function canvasHeaders() {
 }
 
 async function canvasGetAll(path) {
-  let results = [], url = CANVAS_BASE + path;
-  while (url) {
-    const res = await fetch(url, { headers: canvasHeaders() });
-    if (!res.ok) throw new Error('Canvas error ' + res.status);
-    const data = await res.json();
-    results = results.concat(Array.isArray(data) ? data : [data]);
-    const link = res.headers.get('Link') || '';
-    const m = link.match(/<([^>]+)>;\s*rel="next"/);
-    url = m ? m[1] : null;
+  // Try proxy first (no CORS issues), fall back to direct
+  let results = [];
+  let useProxy = true;
+  let url = CANVAS_PROXY + path;
+
+  try {
+    while (url) {
+      const res = await fetch(url, useProxy ? {} : { headers: canvasHeaders() });
+      if (!res.ok) throw new Error('Canvas error ' + res.status);
+      const data = await res.json();
+      results = results.concat(Array.isArray(data) ? data : [data]);
+      const link = res.headers.get('Link') || '';
+      const m = link.match(/<([^>]+)>;\s*rel="next"/);
+      url = m ? m[1] : null;
+    }
+  } catch (e) {
+    // If proxy fails, try direct (works from localhost)
+    if (useProxy) {
+      results = [];
+      url = CANVAS_DIRECT + path;
+      while (url) {
+        const res = await fetch(url, { headers: canvasHeaders() });
+        if (!res.ok) throw new Error('Canvas error ' + res.status);
+        const data = await res.json();
+        results = results.concat(Array.isArray(data) ? data : [data]);
+        const link = res.headers.get('Link') || '';
+        const m = link.match(/<([^>]+)>;\s*rel="next"/);
+        url = m ? m[1] : null;
+      }
+    } else {
+      throw e;
+    }
   }
   return results;
 }

@@ -684,21 +684,46 @@ async function submitToCanvas(courseId) {
   btn.textContent = 'Submitting...';
   btn.style.background = '#aaa';
 
-  // Find the "Final Grade" assignment or create an override
-  // We'll use the Canvas enrollment API to set override scores
   let ok = 0, fail = 0, errors = [];
+  const PROXY = CANVAS_PROXY.replace('/api/v1', '');
 
-  // Map letter grades to numeric equivalents for Canvas
-  const gradeToNum = {'A':97,'A-':92,'B+':87,'B':82,'B-':77,'C+':72,'C':67,'C-':62,'F':45,'I':0,'W':0};
+  // First get the "Final Grade" or last assignment to use as grade container
+  // We'll use Canvas "override final score" via enrollments
+  // Need enrollment IDs first
+  const enrollments = await canvasGetAll(
+    '/courses/' + courseId + '/enrollments?type[]=StudentEnrollment&per_page=100&state[]=active&state[]=completed'
+  );
+  const enrollMap = {};
+  enrollments.forEach(e => { enrollMap[e.user_id] = e.id; });
 
   for (const s of students) {
     try {
-      const numGrade = gradeToNum[s.finalGrade] || 0;
-      // Use the proxy to PUT the override grade
-      const res = await fetch(CANVAS_PROXY.replace('/api/v1','') + '/api/v1/courses/' + courseId +
-        '/enrollments/' + s.userId + '?enrollment[computed_final_grade]=' + encodeURIComponent(s.finalGrade),
-        { method: 'PUT' });
-      if (res.ok) ok++; else fail++;
+      const enrollId = enrollMap[s.userId];
+      if (!enrollId) { fail++; errors.push(s.name + ': no enrollment'); continue; }
+
+      // Convert letter grade to a score that Canvas accepts
+      const gradeToScore = {'A':4.0,'A-':3.7,'B+':3.3,'B':3.0,'B-':2.7,'C+':2.3,'C':2.0,'C-':1.7,'F':0,'I':0,'W':0};
+      const score = gradeToScore[s.finalGrade] ?? 0;
+
+      // Use override_score on enrollment (percentage-based)
+      const gradeToPercent = {'A':97,'A-':92,'B+':87,'B':82,'B-':77,'C+':72,'C':67,'C-':62,'F':30,'I':0,'W':0};
+      const pctScore = gradeToPercent[s.finalGrade] ?? 0;
+
+      const res = await fetch(
+        PROXY + '/api/v1/courses/' + courseId + '/enrollments/' + enrollId,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'enrollment[override_final_score]=' + pctScore
+        }
+      );
+      if (res.ok) {
+        ok++;
+      } else {
+        const err = await res.text();
+        fail++;
+        errors.push(s.name + ': ' + res.status);
+      }
     } catch(e) {
       fail++;
       errors.push(s.name + ': ' + e.message);
@@ -708,11 +733,15 @@ async function submitToCanvas(courseId) {
   if (fail === 0) {
     btn.textContent = 'Submitted!';
     btn.style.background = '#276749';
-    fgStatus(`<strong>${courseId}:</strong> ${ok} grades submitted successfully.`);
-  } else {
+    fgStatus(`<strong>${courseId}:</strong> All ${ok} grades submitted successfully.`);
+  } else if (ok > 0) {
     btn.textContent = 'Partial (' + fail + ' failed)';
     btn.style.background = '#c05621';
     fgStatus(`<strong>${courseId}:</strong> ${ok} succeeded, ${fail} failed. ${errors.slice(0,3).join('; ')}`, true);
+  } else {
+    btn.textContent = 'Failed';
+    btn.style.background = '#c53030';
+    fgStatus(`<strong>${courseId}:</strong> All ${fail} failed. ${errors.slice(0,3).join('; ')}`, true);
   }
 
   setTimeout(() => {

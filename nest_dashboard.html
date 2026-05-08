@@ -634,9 +634,12 @@ async function loadAllGrades() {
               <button onclick="exportCSV('${sec.courseId}','${sec.crn}')"
                 style="padding:6px 14px;background:#fff;border:1px solid #8b0000;color:#8b0000;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit">
                 Export CSV</button>
-              <button onclick="submitToCanvas('${sec.courseId}')" id="submit-${sec.courseId}"
+              <button onclick="copyForBanner('${sec.courseId}')"
+                style="padding:6px 14px;background:#fff;border:1px solid #555;color:#555;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit">
+                Copy for Banner</button>
+              <button onclick="submitToBanner('${sec.courseId}','${sec.crn}')" id="submit-${sec.courseId}"
                 style="padding:6px 14px;background:#8b0000;color:#fff;border:none;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit">
-                Submit to NEST</button>
+                Submit to Banner</button>
             </div>
           </div>
           <div style="font-size:0.82rem;color:#888;margin-bottom:8px">${students.length} students</div>
@@ -675,7 +678,29 @@ function exportCSV(courseId, crn) {
   URL.revokeObjectURL(url);
 }
 
-async function submitToCanvas(courseId) {
+function copyForBanner(courseId) {
+  const students = allSectionData[courseId];
+  if (!students) return;
+  // Format: tab-separated for pasting into Banner grade sheet
+  let text = 'Student Name\tLetter Grade\tGrade %\n';
+  students.forEach(s => {
+    text += s.name + '\t' + s.finalGrade + '\t' + s.pct.toFixed(1) + '%\n';
+  });
+  navigator.clipboard.writeText(text).then(() => {
+    fgStatus('Copied ' + students.length + ' grades to clipboard. Paste into Banner Final Grades page.');
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    fgStatus('Copied ' + students.length + ' grades to clipboard.');
+  });
+}
+
+async function submitToBanner(courseId, crn) {
   const students = allSectionData[courseId];
   if (!students) return;
 
@@ -684,69 +709,45 @@ async function submitToCanvas(courseId) {
   btn.textContent = 'Submitting...';
   btn.style.background = '#aaa';
 
-  let ok = 0, fail = 0, errors = [];
-  const PROXY = CANVAS_PROXY.replace('/api/v1', '');
+  // Build grade data and send to our server's /submit-grades endpoint
+  const gradeData = students.map(s => ({
+    name: s.name,
+    user_id: s.userId,
+    grade: s.finalGrade,
+    pct: s.pct
+  }));
 
-  // First get the "Final Grade" or last assignment to use as grade container
-  // We'll use Canvas "override final score" via enrollments
-  // Need enrollment IDs first
-  const enrollments = await canvasGetAll(
-    '/courses/' + courseId + '/enrollments?type[]=StudentEnrollment&per_page=100&state[]=active&state[]=completed'
-  );
-  const enrollMap = {};
-  enrollments.forEach(e => { enrollMap[e.user_id] = e.id; });
+  try {
+    const PROXY = CANVAS_PROXY.replace('/api/v1', '').replace('/canvas-proxy', '');
+    const res = await fetch(PROXY + '/submit-banner-grades', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ course_id: courseId, crn: crn, term: '202620', grades: gradeData })
+    });
+    const data = await res.json();
 
-  for (const s of students) {
-    try {
-      const enrollId = enrollMap[s.userId];
-      if (!enrollId) { fail++; errors.push(s.name + ': no enrollment'); continue; }
-
-      // Convert letter grade to a score that Canvas accepts
-      const gradeToScore = {'A':4.0,'A-':3.7,'B+':3.3,'B':3.0,'B-':2.7,'C+':2.3,'C':2.0,'C-':1.7,'F':0,'I':0,'W':0};
-      const score = gradeToScore[s.finalGrade] ?? 0;
-
-      // Use override_score on enrollment (percentage-based)
-      const gradeToPercent = {'A':97,'A-':92,'B+':87,'B':82,'B-':77,'C+':72,'C':67,'C-':62,'F':30,'I':0,'W':0};
-      const pctScore = gradeToPercent[s.finalGrade] ?? 0;
-
-      const res = await fetch(
-        PROXY + '/api/v1/courses/' + courseId + '/enrollments/' + enrollId,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: 'enrollment[override_final_score]=' + pctScore
-        }
-      );
-      if (res.ok) {
-        ok++;
-      } else {
-        const err = await res.text();
-        fail++;
-        errors.push(s.name + ': ' + res.status);
-      }
-    } catch(e) {
-      fail++;
-      errors.push(s.name + ': ' + e.message);
+    if (data.ok) {
+      btn.textContent = 'Submitted!';
+      btn.style.background = '#276749';
+      fgStatus(`<strong>${courseId}:</strong> ${data.message || 'Grades submitted successfully.'}`);
+    } else {
+      btn.textContent = 'Failed';
+      btn.style.background = '#c53030';
+      fgStatus(`<strong>${courseId}:</strong> ${data.error || 'Submission failed.'}<br>
+        <em>Tip: Use "Export CSV" or "Copy for Banner" to submit manually via
+        <a href="https://bannersso.montclair.edu/ssomanager/saml/login?relayState=/c/auth/SSB" target="_blank">Banner SSB</a>.</em>`, true);
     }
-  }
-
-  if (fail === 0) {
-    btn.textContent = 'Submitted!';
-    btn.style.background = '#276749';
-    fgStatus(`<strong>${courseId}:</strong> All ${ok} grades submitted successfully.`);
-  } else if (ok > 0) {
-    btn.textContent = 'Partial (' + fail + ' failed)';
-    btn.style.background = '#c05621';
-    fgStatus(`<strong>${courseId}:</strong> ${ok} succeeded, ${fail} failed. ${errors.slice(0,3).join('; ')}`, true);
-  } else {
+  } catch(e) {
     btn.textContent = 'Failed';
     btn.style.background = '#c53030';
-    fgStatus(`<strong>${courseId}:</strong> All ${fail} failed. ${errors.slice(0,3).join('; ')}`, true);
+    fgStatus(`<strong>${courseId}:</strong> Could not reach server: ${e.message}<br>
+      <em>Use "Export CSV" or "Copy for Banner" instead, then submit via
+      <a href="https://bannersso.montclair.edu/ssomanager/saml/login?relayState=/c/auth/SSB" target="_blank">Banner SSB</a>.</em>`, true);
   }
 
   setTimeout(() => {
     btn.disabled = false;
-    btn.textContent = 'Submit to NEST';
+    btn.textContent = 'Submit to Banner';
     btn.style.background = '#8b0000';
   }, 5000);
 }

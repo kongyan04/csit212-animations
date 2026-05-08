@@ -273,6 +273,55 @@ def announce_post():
         results.append({'label': cfg['label'], 'ok': ok, 'info': info})
     return jsonify({'ok': all(r['ok'] for r in results), 'results': results})
 
+# ── Banner Grade Submission ────────────────────────────────────────────────────
+
+@app.route('/submit-banner-grades', methods=['POST', 'OPTIONS'])
+def submit_banner_grades():
+    """Accept grade data and store for Banner submission."""
+    if request.method == 'OPTIONS':
+        resp = Response('', status=204)
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return resp
+
+    d = request.get_json(force=True)
+    course_id = d.get('course_id', '')
+    crn       = d.get('crn', '')
+    term      = d.get('term', '202620')
+    grades    = d.get('grades', [])
+
+    if not grades:
+        return jsonify({'ok': False, 'error': 'No grades provided.'}), 400
+
+    # Store grades to a JSON file for the Playwright script to pick up
+    import os
+    grade_file = os.path.join(os.path.dirname(__file__), f'pending_grades_{course_id}.json')
+    with open(grade_file, 'w') as f:
+        json.dump({'course_id': course_id, 'crn': crn, 'term': term, 'grades': grades,
+                   'submitted_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}, f, indent=2)
+
+    # Also store in Supabase for persistence
+    try:
+        _sb_insert('final_grades', {
+            'course_id': course_id, 'crn': crn, 'term': term,
+            'grades': json.dumps(grades),
+            'created_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        })
+    except:
+        pass  # Supabase is optional
+
+    resp = jsonify({
+        'ok': True,
+        'message': f'Saved {len(grades)} grades for CRN {crn}. '
+                   f'Run "python3 nest_scraper.py submit-grades {course_id}" to push to Banner, '
+                   f'or use the exported CSV to enter grades manually in Banner SSB.',
+        'file': grade_file,
+        'count': len(grades),
+    })
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    return resp
+
 # ── Keep-alive (prevent Render free tier sleep) ────────────────────────────────
 
 def keep_alive():

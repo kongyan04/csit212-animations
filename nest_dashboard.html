@@ -709,7 +709,6 @@ async function submitToBanner(courseId, crn) {
   btn.textContent = 'Submitting...';
   btn.style.background = '#aaa';
 
-  // Build grade data and send to our server's /submit-grades endpoint
   const gradeData = students.map(s => ({
     name: s.name,
     user_id: s.userId,
@@ -717,32 +716,42 @@ async function submitToBanner(courseId, crn) {
     pct: s.pct
   }));
 
-  try {
-    const PROXY = CANVAS_PROXY.replace('/api/v1', '').replace('/canvas-proxy', '');
-    const res = await fetch(PROXY + '/submit-banner-grades', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ course_id: courseId, crn: crn, term: '202620', grades: gradeData })
-    });
-    const data = await res.json();
+  // Try multiple server locations
+  const servers = [
+    'https://csit212-submissions.onrender.com',
+    'http://localhost:5050',
+  ];
 
-    if (data.ok) {
-      btn.textContent = 'Submitted!';
-      btn.style.background = '#276749';
-      fgStatus(`<strong>${courseId}:</strong> ${data.message || 'Grades submitted successfully.'}`);
-    } else {
-      btn.textContent = 'Failed';
-      btn.style.background = '#c53030';
-      fgStatus(`<strong>${courseId}:</strong> ${data.error || 'Submission failed.'}<br>
-        <em>Tip: Use "Export CSV" or "Copy for Banner" to submit manually via
-        <a href="https://bannersso.montclair.edu/ssomanager/saml/login?relayState=/c/auth/SSB" target="_blank">Banner SSB</a>.</em>`, true);
+  let success = false;
+  for (const server of servers) {
+    try {
+      const res = await fetch(server + '/submit-banner-grades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course_id: courseId, crn: crn, term: '202620', grades: gradeData })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        btn.textContent = 'Saved!';
+        btn.style.background = '#276749';
+        fgStatus(`<strong>${courseId}:</strong> ${data.message}`);
+        success = true;
+        break;
+      }
+    } catch(e) {
+      continue;
     }
-  } catch(e) {
-    btn.textContent = 'Failed';
-    btn.style.background = '#c53030';
-    fgStatus(`<strong>${courseId}:</strong> Could not reach server: ${e.message}<br>
-      <em>Use "Export CSV" or "Copy for Banner" instead, then submit via
-      <a href="https://bannersso.montclair.edu/ssomanager/saml/login?relayState=/c/auth/SSB" target="_blank">Banner SSB</a>.</em>`, true);
+  }
+
+  if (!success) {
+    // Fallback: auto-download as CSV
+    exportCSV(courseId, crn);
+    btn.textContent = 'CSV Downloaded';
+    btn.style.background = '#c05621';
+    fgStatus(`<strong>${courseId}:</strong> Server unreachable. Grades exported as CSV instead.<br>
+      <em>Upload the CSV to
+      <a href="https://bannersso.montclair.edu/ssomanager/saml/login?relayState=/c/auth/SSB" target="_blank" style="color:#8b0000;font-weight:700">Banner SSB Final Grades</a>
+      to submit officially.</em>`, true);
   }
 
   setTimeout(() => {

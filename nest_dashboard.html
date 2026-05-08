@@ -416,47 +416,10 @@ footer { text-align: center; padding: 20px; color: #a0aec0; font-size: 0.75rem; 
       Grades are calculated from Canvas totals using the grading scale (rounded up for &gt; .5).
     </p>
 
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:20px">
-      <div>
-        <label style="display:block;font-size:0.75rem;color:#888;text-transform:uppercase;margin-bottom:4px">Section</label>
-        <select id="fg-section" style="padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;min-width:280px;font-family:inherit">
-          <option value="">— Select a section —</option>
-          <option value="212615">CSIT 212-01 (Section 212615) — 8:00 AM TR</option>
-          <option value="212604">CSIT 212-03 (Section 212604) — 2:00 PM TR</option>
-          <option value="216874">CSIT 503-01 (Section 216874) — Graduate</option>
-        </select>
-      </div>
-      <button onclick="loadGrades()" style="padding:10px 24px;background:#8b0000;color:#fff;border:none;border-radius:8px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit">Load Students</button>
-    </div>
-
     <div id="fg-status" style="display:none;padding:10px 16px;border-radius:8px;font-size:0.85rem;margin-bottom:14px"></div>
-    <div id="fg-loading" style="display:none;text-align:center;padding:30px;color:#888">Loading...</div>
+    <div id="fg-loading" style="text-align:center;padding:30px;color:#888">Loading all sections...</div>
 
-    <div id="fg-table-wrap" style="display:none">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-        <div style="font-size:0.82rem;color:#888" id="fg-summary"></div>
-        <div style="display:flex;gap:8px">
-          <button onclick="autoAssignGrades()" style="padding:8px 16px;background:#fff;border:1px solid #8b0000;color:#8b0000;border-radius:8px;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:inherit">Auto-Assign Letter Grades</button>
-          <button onclick="submitAllGrades()" id="fg-submit-btn" style="padding:8px 20px;background:#276749;color:#fff;border:none;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">Submit All Grades to Canvas</button>
-        </div>
-      </div>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Student</th>
-              <th>Current %</th>
-              <th>Rounded</th>
-              <th>Suggested</th>
-              <th style="min-width:120px">Final Grade</th>
-            </tr>
-          </thead>
-          <tbody id="fg-tbody"></tbody>
-        </table>
-      </div>
-    </div>
+    <div id="fg-all-sections"></div>
   </div>
 
   <div class="card">
@@ -539,53 +502,30 @@ function showTab(id) {
 const CANVAS_TOKEN = '1925~QYBVrAy7KvKTHTCM2tG8ZTDQRx4fH2tDBvRE4YkzJxtCTzTyMecvP2YUz33E8ukC';
 const CANVAS_DIRECT = 'https://montclair.instructure.com/api/v1';
 const CANVAS_PROXY = 'https://csit212-submissions.onrender.com/canvas-proxy/api/v1';
-let fgStudents = [];
-let fgCourseId = '';
-
-function canvasHeaders() {
-  return { 'Authorization': 'Bearer ' + CANVAS_TOKEN };
-}
+const SECTIONS = [
+  { label: 'CSIT 212-01 (8:00 AM TR)', courseId: '212615' },
+  { label: 'CSIT 212-03 (2:00 PM TR)', courseId: '212604' },
+  { label: 'CSIT 503-01 (Graduate)',    courseId: '216874' },
+];
 
 async function canvasGetAll(path) {
-  // Try proxy first (no CORS issues), fall back to direct
-  let results = [];
-  let useProxy = true;
-  let url = CANVAS_PROXY + path;
-
-  try {
-    while (url) {
-      const res = await fetch(url, useProxy ? {} : { headers: canvasHeaders() });
-      if (!res.ok) throw new Error('Canvas error ' + res.status);
-      const data = await res.json();
-      results = results.concat(Array.isArray(data) ? data : [data]);
-      const link = res.headers.get('Link') || '';
-      const m = link.match(/<([^>]+)>;\s*rel="next"/);
-      url = m ? m[1] : null;
-    }
-  } catch (e) {
-    // If proxy fails, try direct (works from localhost)
-    if (useProxy) {
-      results = [];
-      url = CANVAS_DIRECT + path;
-      while (url) {
-        const res = await fetch(url, { headers: canvasHeaders() });
-        if (!res.ok) throw new Error('Canvas error ' + res.status);
-        const data = await res.json();
-        results = results.concat(Array.isArray(data) ? data : [data]);
-        const link = res.headers.get('Link') || '';
-        const m = link.match(/<([^>]+)>;\s*rel="next"/);
-        url = m ? m[1] : null;
-      }
-    } else {
-      throw e;
-    }
+  let results = [], url = CANVAS_PROXY + path;
+  while (url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Canvas error ' + res.status);
+    const data = await res.json();
+    results = results.concat(Array.isArray(data) ? data : [data]);
+    const link = res.headers.get('Link') || '';
+    const m = link.match(/<([^>]+)>;\s*rel="next"/);
+    if (m) {
+      url = m[1].replace(/https?:\/\/[^/]+\/canvas-proxy/, CANVAS_PROXY.replace('/api/v1',''));
+    } else { url = null; }
   }
   return results;
 }
 
 function roundGrade(pct) {
-  const decimal = pct - Math.floor(pct);
-  return decimal > 0.5 ? Math.ceil(pct) : pct;
+  return (pct - Math.floor(pct)) > 0.5 ? Math.ceil(pct) : pct;
 }
 
 function letterGrade(pct) {
@@ -617,143 +557,84 @@ function fgStatus(msg, isError) {
   el.textContent = msg;
 }
 
-async function loadGrades() {
-  fgCourseId = document.getElementById('fg-section').value;
-  if (!fgCourseId) { fgStatus('Please select a section.', true); return; }
-
-  document.getElementById('fg-status').style.display = 'none';
-  document.getElementById('fg-loading').style.display = 'block';
-  document.getElementById('fg-table-wrap').style.display = 'none';
+async function loadAllGrades() {
+  const container = document.getElementById('fg-all-sections');
+  const loading = document.getElementById('fg-loading');
+  loading.style.display = 'block';
+  container.innerHTML = '';
 
   try {
-    const enrollments = await canvasGetAll(
-      '/courses/' + fgCourseId + '/enrollments?type[]=StudentEnrollment&per_page=100&state[]=active&state[]=completed'
-    );
+    for (const sec of SECTIONS) {
+      const enrollments = await canvasGetAll(
+        '/courses/' + sec.courseId + '/enrollments?type[]=StudentEnrollment&per_page=100&state[]=active&state[]=completed'
+      );
 
-    fgStudents = enrollments.map(e => {
-      const name = e.user?.name || 'Unknown';
-      const parts = name.trim().split(/\s+/);
-      const lastName = parts.length > 1 ? parts[parts.length - 1] : name;
-      const pct = parseFloat(e.grades?.current_score || 0);
-      const rounded = roundGrade(pct);
-      const suggested = letterGrade(pct);
-      return {
-        userId: e.user_id,
-        name, lastName, pct, rounded, suggested,
-        finalGrade: '',
-      };
-    });
+      const students = enrollments.map(e => {
+        const name = e.user?.name || 'Unknown';
+        const parts = name.trim().split(/\s+/);
+        const lastName = parts.length > 1 ? parts[parts.length - 1] : name;
+        const pct = parseFloat(e.grades?.current_score || 0);
+        return { name, lastName, pct, rounded: roundGrade(pct), letter: letterGrade(pct) };
+      }).sort((a, b) => a.lastName.localeCompare(b.lastName));
 
-    fgStudents.sort((a, b) => a.lastName.localeCompare(b.lastName));
-    renderGradeTable();
-    document.getElementById('fg-loading').style.display = 'none';
-    document.getElementById('fg-table-wrap').style.display = 'block';
+      // Grade distribution
+      const counts = {};
+      students.forEach(s => { counts[s.letter] = (counts[s.letter] || 0) + 1; });
+      let pills = '';
+      ['A','A-','B+','B','B-','C+','C','C-','F'].forEach(g => {
+        if (counts[g]) {
+          const gc = gradeColor(g);
+          pills += `<span class="pill" style="background:${gc.bg};color:${gc.color}">${g}: ${counts[g]}</span> `;
+        }
+      });
 
-    const counts = {};
-    fgStudents.forEach(s => { counts[s.suggested] = (counts[s.suggested] || 0) + 1; });
-    let summary = fgStudents.length + ' students. Suggested: ';
-    ['A','A-','B+','B','B-','C+','C','C-','F'].forEach(g => {
-      if (counts[g]) summary += g + ':' + counts[g] + ' ';
-    });
-    document.getElementById('fg-summary').textContent = summary;
+      // Build table rows
+      let rows = '';
+      students.forEach((s, i) => {
+        const gc = gradeColor(s.letter);
+        const rStr = s.rounded !== s.pct ? s.rounded.toFixed(0) + '%' : '';
+        rows += `<tr>
+          <td style="color:#aaa;font-size:0.8rem">${i + 1}</td>
+          <td><strong>${esc(s.name)}</strong></td>
+          <td>${s.pct.toFixed(1)}%</td>
+          <td style="color:#2b6cb0;font-weight:600">${rStr}</td>
+          <td><span class="pill" style="background:${gc.bg};color:${gc.color};font-size:0.82rem">${s.letter}</span></td>
+        </tr>`;
+      });
+
+      container.innerHTML += `
+        <div class="card" style="margin-bottom:24px">
+          <h2>${esc(sec.label)}</h2>
+          <div style="font-size:0.82rem;color:#888;margin-bottom:8px">${students.length} students</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${pills}</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Student</th><th>Grade %</th><th>Rounded</th><th>Letter Grade</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>`;
+    }
+
+    loading.style.display = 'none';
+    fgStatus('Loaded all sections. Grades auto-converted using grading scale (rounded up for > .5).');
 
   } catch (err) {
+    loading.style.display = 'none';
     fgStatus('Error loading: ' + err.message, true);
-    document.getElementById('fg-loading').style.display = 'none';
   }
 }
 
-function renderGradeTable() {
-  const tbody = document.getElementById('fg-tbody');
-  const grades = ['','A','A-','B+','B','B-','C+','C','C-','F','I','W'];
-  tbody.innerHTML = fgStudents.map((s, i) => {
-    const gc = gradeColor(s.suggested);
-    const rStr = s.rounded !== s.pct ? s.rounded.toFixed(0) + '%' : '';
-    const opts = grades.map(g => {
-      const sel = g === s.finalGrade ? ' selected' : '';
-      return '<option value="' + g + '"' + sel + '>' + (g || '—') + '</option>';
-    }).join('');
-    return `<tr>
-      <td style="color:#aaa;font-size:0.8rem">${i + 1}</td>
-      <td><strong>${esc(s.name)}</strong></td>
-      <td>${s.pct.toFixed(1)}%</td>
-      <td style="color:#2b6cb0;font-weight:600">${rStr}</td>
-      <td><span class="pill" style="background:${gc.bg};color:${gc.color}">${s.suggested}</span></td>
-      <td>
-        <select onchange="fgStudents[${i}].finalGrade=this.value;updateRowStyle(this)"
-          style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:0.88rem;font-family:inherit;min-width:80px">
-          ${opts}
-        </select>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function updateRowStyle(sel) {
-  const row = sel.closest('tr');
-  if (sel.value) {
-    row.style.background = '#f0fff4';
-    sel.style.borderColor = '#276749';
-    sel.style.fontWeight = '700';
-  } else {
-    row.style.background = '';
-    sel.style.borderColor = '#ddd';
-    sel.style.fontWeight = '';
+// Auto-load when Final Grades tab is first shown
+let fgLoaded = false;
+const origShowTab = showTab;
+showTab = function(id) {
+  origShowTab.call(this, id);
+  if (id === 'finalgrades' && !fgLoaded) {
+    fgLoaded = true;
+    loadAllGrades();
   }
-}
-
-function autoAssignGrades() {
-  fgStudents.forEach(s => { s.finalGrade = s.suggested; });
-  renderGradeTable();
-  // Highlight all selects
-  document.querySelectorAll('#fg-tbody select').forEach(sel => {
-    sel.value = fgStudents[sel.closest('tr').rowIndex - 1]?.finalGrade || '';
-    updateRowStyle(sel);
-  });
-  fgStatus('Auto-assigned letter grades based on grading scale. Review and adjust as needed.');
-}
-
-async function submitAllGrades() {
-  const toSubmit = fgStudents.filter(s => s.finalGrade);
-  if (!toSubmit.length) {
-    fgStatus('No grades assigned yet. Use "Auto-Assign" or select grades manually.', true);
-    return;
-  }
-
-  const btn = document.getElementById('fg-submit-btn');
-  btn.disabled = true;
-  btn.textContent = 'Submitting...';
-  fgStatus('Submitting ' + toSubmit.length + ' grades to Canvas...');
-
-  let ok = 0, fail = 0;
-  for (const s of toSubmit) {
-    try {
-      const res = await fetch(
-        CANVAS_BASE + '/courses/' + fgCourseId + '/enrollments/' + await getEnrollmentId(s.userId) + '?' +
-        'enrollment[computed_final_grade]=' + encodeURIComponent(s.finalGrade),
-        { method: 'PUT', headers: canvasHeaders() }
-      );
-      // Alternative: post as override grade
-      // Actually Canvas doesn't support posting letter grades via enrollments easily.
-      // Use the custom gradebook column or post to the "Final Grade Override" if enabled.
-      // For now, let's just set a "override" score approach:
-      ok++;
-    } catch (e) {
-      fail++;
-    }
-  }
-
-  // Actually the best way is to use the submissions API or override grades
-  // Let's show what was assigned
-  fgStatus('Assigned ' + toSubmit.length + ' letter grades. Grades shown are based on Canvas totals.');
-  btn.disabled = false;
-  btn.textContent = 'Submit All Grades to Canvas';
-}
-
-async function getEnrollmentId(userId) {
-  // This is a placeholder — we'd need to map user_id to enrollment_id
-  return userId;
-}
+};
 
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')

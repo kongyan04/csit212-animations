@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEST Faculty Dashboard — Yan Kong</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #f0f2f5; font-family: 'Segoe UI', system-ui, sans-serif; color: #1a202c; min-height: 100vh; }
+
+header {
+  background: linear-gradient(135deg, #8b0000, #cc0000);
+  padding: 28px 24px;
+  text-align: center;
+  color: #fff;
+}
+header h1 { font-size: 1.8rem; font-weight: 800; margin-bottom: 4px; }
+header p { color: #ffcdd2; font-size: 0.9rem; }
+.cwid-badge {
+  display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 20px; padding: 4px 14px; font-size: 0.78rem; color: #fff; margin-top: 8px;
+  font-family: monospace;
+}
+
+/* Tabs */
+.tab-bar {
+  background: #7b0000; display: flex; justify-content: center; flex-wrap: wrap; gap: 0;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+.tab-btn {
+  padding: 12px 20px; color: #ffcdd2; font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; border: none; background: transparent;
+  border-bottom: 3px solid transparent; transition: all 0.15s;
+  font-family: inherit; white-space: nowrap;
+}
+.tab-btn:hover { color: #fff; }
+.tab-btn.active { color: #fff; border-bottom-color: #ffd700; }
+
+.tab-panel { display: none; max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
+.tab-panel.active { display: block; }
+
+/* Cards */
+.card {
+  background: #fff; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  padding: 24px; margin-bottom: 20px;
+}
+.card h2 {
+  font-size: 1rem; font-weight: 700; color: #8b0000; margin-bottom: 14px;
+  border-left: 4px solid #cc0000; padding-left: 12px;
+}
+.card h3 {
+  font-size: 0.9rem; font-weight: 700; color: #333; margin: 16px 0 8px;
+}
+
+/* Info grid */
+.info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.info-card {
+  background: linear-gradient(135deg, #fff5f5, #fff); border: 1px solid #fed7d7;
+  border-radius: 10px; padding: 18px; text-align: center;
+}
+.info-card .val { font-size: 1.6rem; font-weight: 800; color: #8b0000; }
+.info-card .lbl { font-size: 0.78rem; color: #888; margin-top: 4px; }
+
+/* Tables */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+thead th {
+  background: #8b0000; color: #fff; padding: 10px 14px; text-align: left;
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+}
+tbody td { padding: 10px 14px; border-top: 1px solid #f0f0f0; }
+tbody tr:hover td { background: #fff5f5; }
+
+/* Pills */
+.pill { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 0.73rem; font-weight: 700; }
+.pill-red { background: #fed7d7; color: #9b2c2c; }
+.pill-green { background: #c6f6d5; color: #276749; }
+.pill-blue { background: #bee3f8; color: #2a69ac; }
+.pill-yellow { background: #fefcbf; color: #975a16; }
+.pill-gray { background: #edf2f7; color: #4a5568; }
+
+/* Course card */
+.course-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  padding: 20px; margin-bottom: 16px; position: relative; overflow: hidden;
+}
+.course-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, #8b0000, #cc0000);
+}
+.course-name { font-size: 1rem; font-weight: 700; color: #1a202c; margin-bottom: 4px; }
+.course-meta { font-size: 0.82rem; color: #888; margin-bottom: 12px; }
+.course-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.course-detail { font-size: 0.85rem; }
+.course-detail .label { font-size: 0.72rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+.course-detail .value { font-weight: 600; color: #2d3748; margin-top: 2px; }
+
+.enrollment-bar {
+  height: 6px; background: #edf2f7; border-radius: 3px; margin-top: 8px; overflow: hidden;
+}
+.enrollment-fill { height: 100%; border-radius: 3px; background: #cc0000; transition: width 0.3s; }
+
+/* Timeline */
+.timeline { border-left: 3px solid #e2e8f0; padding-left: 20px; margin-left: 10px; }
+.timeline-item { margin-bottom: 20px; position: relative; }
+.timeline-item::before {
+  content: ''; position: absolute; left: -26px; top: 4px;
+  width: 10px; height: 10px; border-radius: 50%; background: #cc0000; border: 2px solid #fff;
+}
+.timeline-term { font-size: 0.9rem; font-weight: 700; color: #8b0000; }
+.timeline-courses { margin-top: 6px; font-size: 0.85rem; color: #4a5568; }
+
+footer { text-align: center; padding: 20px; color: #a0aec0; font-size: 0.75rem; border-top: 1px solid #e2e8f0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NEST Faculty Dashboard</h1>
+  <p>Montclair State University &middot; School of Computing</p>
+  <div class="cwid-badge">M50097861 &middot; Yan Kong</div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showTab('overview')">Overview</button>
+  <button class="tab-btn" onclick="showTab('spring2026')">Spring 2026</button>
+  <button class="tab-btn" onclick="showTab('summer2026')">Summer 2026</button>
+  <button class="tab-btn" onclick="showTab('spring2025')">Spring 2025</button>
+  <button class="tab-btn" onclick="showTab('history')">Teaching History</button>
+  <button class="tab-btn" onclick="showTab('profile')">Profile</button>
+</div>
+
+<!-- Overview -->
+<div class="tab-panel active" id="tab-overview">
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="val">4</div>
+      <div class="lbl">Spring 2026 Courses</div>
+    </div>
+    <div class="info-card">
+      <div class="val">63</div>
+      <div class="lbl">Total Students (SP26)</div>
+    </div>
+    <div class="info-card">
+      <div class="val">1</div>
+      <div class="lbl">Summer 2026 Course</div>
+    </div>
+    <div class="info-card">
+      <div class="val">3</div>
+      <div class="lbl">Semesters on Record</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Current Semester — Spring 2026</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Course</th><th>Section</th><th>CRN</th><th>Time</th><th>Days</th><th>Room</th><th>Enrolled</th><th>Method</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>CSIT 212</strong> Data Structures & Algorithms</td>
+            <td>01</td><td>23511</td>
+            <td>8:00 – 9:25 AM</td><td>TR</td><td>CCIS 212</td>
+            <td><strong>30/30</strong> <span class="pill pill-red">Full</span></td>
+            <td>Hawk to Hawk</td>
+          </tr>
+          <tr>
+            <td><strong>CSIT 212</strong> Data Structures & Algorithms</td>
+            <td>03</td><td>23513</td>
+            <td>2:00 – 3:25 PM</td><td>TR</td><td>CCIS 152</td>
+            <td><strong>30/30</strong> <span class="pill pill-red">Full</span></td>
+            <td>Hawk to Hawk</td>
+          </tr>
+          <tr>
+            <td><strong>CSIT 256</strong> Intro to Data Science</td>
+            <td>81</td><td>27184</td>
+            <td>TBA</td><td>Async</td><td>Online</td>
+            <td><strong>1/0</strong> <span class="pill pill-yellow">Override</span></td>
+            <td>HawkASYNC</td>
+          </tr>
+          <tr>
+            <td><strong>CSIT 503</strong> Data Structures (Graduate)</td>
+            <td>01</td><td>27138</td>
+            <td>8:00 – 9:25 AM</td><td>TR</td><td>CCIS 212</td>
+            <td><strong>2/30</strong> <span class="pill pill-green">Open</span></td>
+            <td>Hawk to Hawk</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Upcoming — Summer 2026</h2>
+    <div class="course-card">
+      <div class="course-name">CSIT 111 — Fundamentals of Java Programming</div>
+      <div class="course-meta">Section 11 &middot; CRN 31377 &middot; Part of Term B</div>
+      <div class="course-details">
+        <div class="course-detail">
+          <div class="label">Schedule</div>
+          <div class="value">TR 11:00 AM – 1:45 PM</div>
+        </div>
+        <div class="course-detail">
+          <div class="label">Location</div>
+          <div class="value">Richardson Hall 117</div>
+        </div>
+        <div class="course-detail">
+          <div class="label">Dates</div>
+          <div class="value">May 11 – Jun 30, 2026</div>
+        </div>
+        <div class="course-detail">
+          <div class="label">Enrollment</div>
+          <div class="value">10 / 25</div>
+        </div>
+      </div>
+      <div class="enrollment-bar"><div class="enrollment-fill" style="width:40%"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Spring 2026 Detail -->
+<div class="tab-panel" id="tab-spring2026">
+  <div class="card">
+    <h2>Spring 2026 — Full Schedule</h2>
+    <p style="font-size:0.85rem;color:#888;margin-bottom:16px">Jan 16 – May 4, 2026 &middot; College of Science and Mathematics &middot; School of Computing</p>
+
+    <div class="course-card">
+      <div class="course-name">CSIT 212 — Data Structures and Algorithms (Section 01)</div>
+      <div class="course-meta">CRN 23511 &middot; 3 credits &middot; Undergraduate/Graduate</div>
+      <div class="course-details">
+        <div class="course-detail"><div class="label">Time</div><div class="value">8:00 – 9:25 AM</div></div>
+        <div class="course-detail"><div class="label">Days</div><div class="value">Tuesday / Thursday</div></div>
+        <div class="course-detail"><div class="label">Room</div><div class="value">CCIS 212 (cap 42)</div></div>
+        <div class="course-detail"><div class="label">Enrollment</div><div class="value">30/30 (Full)</div></div>
+        <div class="course-detail"><div class="label">Method</div><div class="value">Hawk to Hawk</div></div>
+        <div class="course-detail"><div class="label">Canvas</div><div class="value">Course 212615</div></div>
+      </div>
+      <div class="enrollment-bar"><div class="enrollment-fill" style="width:100%"></div></div>
+    </div>
+
+    <div class="course-card">
+      <div class="course-name">CSIT 212 — Data Structures and Algorithms (Section 03)</div>
+      <div class="course-meta">CRN 23513 &middot; 3 credits &middot; Undergraduate/Graduate</div>
+      <div class="course-details">
+        <div class="course-detail"><div class="label">Time</div><div class="value">2:00 – 3:25 PM</div></div>
+        <div class="course-detail"><div class="label">Days</div><div class="value">Tuesday / Thursday</div></div>
+        <div class="course-detail"><div class="label">Room</div><div class="value">CCIS 152 (cap 36)</div></div>
+        <div class="course-detail"><div class="label">Enrollment</div><div class="value">30/30 (Full, 32/55 cross-list)</div></div>
+        <div class="course-detail"><div class="label">Method</div><div class="value">Hawk to Hawk</div></div>
+        <div class="course-detail"><div class="label">Canvas</div><div class="value">Course 212604</div></div>
+      </div>
+      <div class="enrollment-bar"><div class="enrollment-fill" style="width:100%"></div></div>
+    </div>
+
+    <div class="course-card">
+      <div class="course-name">CSIT 256 — Introduction to Data Science (Section 81)</div>
+      <div class="course-meta">CRN 27184 &middot; 3 credits &middot; Undergraduate/Graduate</div>
+      <div class="course-details">
+        <div class="course-detail"><div class="label">Time</div><div class="value">TBA (Asynchronous)</div></div>
+        <div class="course-detail"><div class="label">Days</div><div class="value">Online</div></div>
+        <div class="course-detail"><div class="label">Method</div><div class="value">HawkASYNC Online</div></div>
+        <div class="course-detail"><div class="label">Enrollment</div><div class="value">1 (Independent Study)</div></div>
+      </div>
+    </div>
+
+    <div class="course-card">
+      <div class="course-name">CSIT 503 — Data Structures (Section 01, Graduate)</div>
+      <div class="course-meta">CRN 27138 &middot; 3 credits &middot; Graduate</div>
+      <div class="course-details">
+        <div class="course-detail"><div class="label">Time</div><div class="value">8:00 – 9:25 AM</div></div>
+        <div class="course-detail"><div class="label">Days</div><div class="value">Tuesday / Thursday</div></div>
+        <div class="course-detail"><div class="label">Room</div><div class="value">CCIS 212 (cap 42)</div></div>
+        <div class="course-detail"><div class="label">Enrollment</div><div class="value">2/30</div></div>
+        <div class="course-detail"><div class="label">Method</div><div class="value">Hawk to Hawk</div></div>
+        <div class="course-detail"><div class="label">Canvas</div><div class="value">Course 216874</div></div>
+      </div>
+      <div class="enrollment-bar"><div class="enrollment-fill" style="width:7%"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Summer 2026 -->
+<div class="tab-panel" id="tab-summer2026">
+  <div class="card">
+    <h2>Summer 2026 Schedule</h2>
+    <p style="font-size:0.85rem;color:#888;margin-bottom:16px">May 11 – Jun 30, 2026 &middot; Part of Term B</p>
+
+    <div class="course-card">
+      <div class="course-name">CSIT 111 — Fundamentals of Java Programming (Section 11)</div>
+      <div class="course-meta">CRN 31377 &middot; 3 credits &middot; Undergraduate/Graduate</div>
+      <div class="course-details">
+        <div class="course-detail"><div class="label">Time</div><div class="value">11:00 AM – 1:45 PM</div></div>
+        <div class="course-detail"><div class="label">Days</div><div class="value">Tuesday / Thursday</div></div>
+        <div class="course-detail"><div class="label">Room</div><div class="value">Richardson Hall 117 (cap 35)</div></div>
+        <div class="course-detail"><div class="label">Enrollment</div><div class="value">10/25 (15 remaining)</div></div>
+        <div class="course-detail"><div class="label">Method</div><div class="value">Hawk to Hawk</div></div>
+        <div class="course-detail"><div class="label">Dates</div><div class="value">May 11 – Jun 30, 2026</div></div>
+      </div>
+      <div class="enrollment-bar"><div class="enrollment-fill" style="width:40%"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Spring 2025 -->
+<div class="tab-panel" id="tab-spring2025">
+  <div class="card">
+    <h2>Spring 2025 Schedule</h2>
+    <p style="font-size:0.85rem;color:#888;margin-bottom:16px">Jan 17 – May 5, 2025</p>
+
+    <div class="course-card">
+      <div class="course-name">CSIT 111 — Fundamentals of Java Programming (Section 06)</div>
+      <div class="course-meta">CRN 23541 &middot; 3 credits</div>
+      <div class="course-details">
+        <div class="course-detail"><div class="label">Time</div><div class="value">12:00 – 1:25 PM</div></div>
+        <div class="course-detail"><div class="label">Days</div><div class="value">Tuesday / Thursday</div></div>
+        <div class="course-detail"><div class="label">Room</div><div class="value">CCIS 149 (cap 32)</div></div>
+        <div class="course-detail"><div class="label">Enrollment</div><div class="value">27/32</div></div>
+      </div>
+      <div class="enrollment-bar"><div class="enrollment-fill" style="width:84%"></div></div>
+    </div>
+
+    <div class="course-card">
+      <div class="course-name">CSIT 111 — Fundamentals of Java Programming (Section 19)</div>
+      <div class="course-meta">CRN 23554 &middot; 3 credits</div>
+      <div class="course-details">
+        <div class="course-detail"><div class="label">Time</div><div class="value">2:00 – 3:25 PM</div></div>
+        <div class="course-detail"><div class="label">Days</div><div class="value">Tuesday / Thursday</div></div>
+        <div class="course-detail"><div class="label">Room</div><div class="value">CCIS 152 (cap 36)</div></div>
+        <div class="course-detail"><div class="label">Enrollment</div><div class="value">29/30</div></div>
+      </div>
+      <div class="enrollment-bar"><div class="enrollment-fill" style="width:97%"></div></div>
+    </div>
+
+    <div class="course-card">
+      <div class="course-name">CSIT 313 — Fundamentals of Programming Languages (Section 01)</div>
+      <div class="course-meta">CRN 23581 &middot; 3 credits</div>
+      <div class="course-details">
+        <div class="course-detail"><div class="label">Time</div><div class="value">12:00 – 1:25 PM</div></div>
+        <div class="course-detail"><div class="label">Days</div><div class="value">Monday / Wednesday</div></div>
+        <div class="course-detail"><div class="label">Room</div><div class="value">CCIS 224 (cap 44)</div></div>
+        <div class="course-detail"><div class="label">Enrollment</div><div class="value">41/40 (over-enrolled)</div></div>
+      </div>
+      <div class="enrollment-bar"><div class="enrollment-fill" style="width:100%;background:#e53e3e"></div></div>
+    </div>
+
+    <div class="course-card">
+      <div class="course-name">CSIT 313 — Fundamentals of Programming Languages (Section 02)</div>
+      <div class="course-meta">CRN 23582 &middot; 3 credits</div>
+      <div class="course-details">
+        <div class="course-detail"><div class="label">Time</div><div class="value">10:00 – 11:25 AM</div></div>
+        <div class="course-detail"><div class="label">Days</div><div class="value">Monday / Wednesday</div></div>
+        <div class="course-detail"><div class="label">Room</div><div class="value">CCIS (cap 44)</div></div>
+        <div class="course-detail"><div class="label">Enrollment</div><div class="value">44/44 (Full)</div></div>
+      </div>
+      <div class="enrollment-bar"><div class="enrollment-fill" style="width:100%"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Teaching History -->
+<div class="tab-panel" id="tab-history">
+  <div class="card">
+    <h2>Teaching History Timeline</h2>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-term">Summer 2026</div>
+        <div class="timeline-courses">
+          <strong>CSIT 111</strong> — Fundamentals of Java Programming (Sec 11)<br>
+          <span style="color:#888">TR 11:00 AM – 1:45 PM &middot; Richardson Hall 117 &middot; 10 students</span>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-term">Spring 2026 <span class="pill pill-red">Current</span></div>
+        <div class="timeline-courses">
+          <strong>CSIT 212</strong> — Data Structures & Algorithms (Sec 01, 03) — 60 students<br>
+          <strong>CSIT 256</strong> — Intro to Data Science (Sec 81) — 1 student<br>
+          <strong>CSIT 503</strong> — Data Structures, Graduate (Sec 01) — 2 students<br>
+          <span style="color:#888">Total: 63 students across 4 sections</span>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-term">Spring 2025</div>
+        <div class="timeline-courses">
+          <strong>CSIT 111</strong> — Fundamentals of Java Programming (Sec 06, 19) — 56 students<br>
+          <strong>CSIT 313</strong> — Fundamentals of Programming Languages (Sec 01, 02) — 85 students<br>
+          <span style="color:#888">Total: ~141 students across 4 sections</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Courses Taught Summary</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Course</th><th>Title</th><th>Level</th><th>Semesters Taught</th><th>Total Sections</th></tr></thead>
+        <tbody>
+          <tr><td><strong>CSIT 111</strong></td><td>Fundamentals of Java Programming</td><td>UG/Grad</td><td>SP25, SU26</td><td>3</td></tr>
+          <tr><td><strong>CSIT 212</strong></td><td>Data Structures and Algorithms</td><td>UG/Grad</td><td>SP26</td><td>2</td></tr>
+          <tr><td><strong>CSIT 256</strong></td><td>Introduction to Data Science</td><td>UG/Grad</td><td>SP26</td><td>1</td></tr>
+          <tr><td><strong>CSIT 313</strong></td><td>Fundamentals of Programming Languages</td><td>UG/Grad</td><td>SP25</td><td>2</td></tr>
+          <tr><td><strong>CSIT 503</strong></td><td>Data Structures (Graduate)</td><td>Graduate</td><td>SP26</td><td>1</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Profile -->
+<div class="tab-panel" id="tab-profile">
+  <div class="card">
+    <h2>Faculty Profile</h2>
+    <div class="course-details" style="margin-bottom:20px">
+      <div class="course-detail"><div class="label">Name</div><div class="value">Yan Kong</div></div>
+      <div class="course-detail"><div class="label">CWID</div><div class="value" style="font-family:monospace">M50097861</div></div>
+      <div class="course-detail"><div class="label">College</div><div class="value">Science and Mathematics</div></div>
+      <div class="course-detail"><div class="label">Department</div><div class="value">School of Computing</div></div>
+      <div class="course-detail"><div class="label">Campus</div><div class="value">Main Campus</div></div>
+      <div class="course-detail"><div class="label">Role</div><div class="value">Faculty / Instructor</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Banner Self-Service Access</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Service</th><th>Description</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Faculty Detail Schedule</td><td>View teaching schedule by term</td><td><span class="pill pill-green">Available</span></td></tr>
+          <tr><td>Class Lists (Detail/Summary)</td><td>View enrolled students by CRN</td><td><span class="pill pill-green">Available</span></td></tr>
+          <tr><td>Final Grades</td><td>Enter/view final grades</td><td><span class="pill pill-green">Available</span></td></tr>
+          <tr><td>Faculty Grade Summary</td><td>View grade distribution</td><td><span class="pill pill-green">Available</span></td></tr>
+          <tr><td>Week at a Glance</td><td>Weekly calendar view</td><td><span class="pill pill-green">Available</span></td></tr>
+          <tr><td>Change of Grade Form</td><td>Submit grade changes</td><td><span class="pill pill-green">Available</span></td></tr>
+          <tr><td>Personal Information</td><td>Address, email, directory</td><td><span class="pill pill-yellow">Restricted</span></td></tr>
+          <tr><td>Student Grade View</td><td>View own student grades</td><td><span class="pill pill-gray">Not Enabled</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>NEST Quick Links</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">
+      <a href="https://nest.montclair.edu/Montclair-State-University/Welcome" target="_blank" style="display:block;padding:12px;background:#fff5f5;border:1px solid #fed7d7;border-radius:8px;text-decoration:none;color:#8b0000;font-weight:600;font-size:0.85rem">NEST Dashboard</a>
+      <a href="https://bannersso.montclair.edu/ssomanager/saml/login?relayState=/c/auth/SSB" target="_blank" style="display:block;padding:12px;background:#fff5f5;border:1px solid #fed7d7;border-radius:8px;text-decoration:none;color:#8b0000;font-weight:600;font-size:0.85rem">Self-Service Banner</a>
+      <a href="https://montclair.instructure.com" target="_blank" style="display:block;padding:12px;background:#fff5f5;border:1px solid #fed7d7;border-radius:8px;text-decoration:none;color:#8b0000;font-weight:600;font-size:0.85rem">Canvas LMS</a>
+      <a href="https://www.myworkday.com/montclair/login-saml2.htmld" target="_blank" style="display:block;padding:12px;background:#fff5f5;border:1px solid #fed7d7;border-radius:8px;text-decoration:none;color:#8b0000;font-weight:600;font-size:0.85rem">Workday</a>
+      <a href="https://25live.collegenet.com/montclair/" target="_blank" style="display:block;padding:12px;background:#fff5f5;border:1px solid #fed7d7;border-radius:8px;text-decoration:none;color:#8b0000;font-weight:600;font-size:0.85rem">25Live Room Booking</a>
+      <a href="https://workflow.montclair.edu/wfprod/home/worklist.do" target="_blank" style="display:block;padding:12px;background:#fff5f5;border:1px solid #fed7d7;border-radius:8px;text-decoration:none;color:#8b0000;font-weight:600;font-size:0.85rem">Workflow Worklist</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Data scraped from NEST / Banner Self-Service &middot; Montclair State University &middot; May 2026
+</footer>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+</script>
+</body>
+</html>

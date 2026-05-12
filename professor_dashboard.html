@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Professor Dashboard — Canvas</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #f5f7fa; font-family: 'Segoe UI', system-ui, sans-serif; color: #1a202c; min-height: 100vh; }
+
+header {
+  background: linear-gradient(135deg, #1a365d, #2b6cb0);
+  padding: 22px 24px; color: #fff;
+}
+header h1 { font-size: 1.4rem; font-weight: 800; margin-bottom: 2px; }
+header p { color: #bee3f8; font-size: 0.82rem; }
+
+.connect-bar {
+  background: #fff; border-bottom: 1px solid #e2e8f0;
+  padding: 12px 24px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+}
+.connect-bar label { font-size: 0.74rem; color: #666; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.03em; }
+.connect-bar input, .connect-bar select {
+  padding: 7px 12px; border: 1px solid #cbd5e0; border-radius: 6px;
+  font-size: 0.85rem; font-family: inherit;
+}
+.connect-bar input[type=password] { width: 220px; font-family: monospace; }
+.connect-bar select { min-width: 280px; }
+.connect-bar button {
+  padding: 7px 18px; background: #2b6cb0; color: #fff; border: none;
+  border-radius: 6px; font-size: 0.82rem; font-weight: 700; cursor: pointer;
+}
+.connect-bar button:hover { background: #1a365d; }
+.conn-status { font-size: 0.8rem; }
+.conn-status.ok { color: #276749; }
+.conn-status.err { color: #c53030; }
+
+main { max-width: 1400px; margin: 0 auto; padding: 20px; }
+.hide { display: none !important; }
+
+/* Tab bar */
+.tab-bar {
+  display: flex; gap: 0; border-bottom: 2px solid #e2e8f0;
+  margin-bottom: 20px; overflow-x: auto;
+}
+.tab-btn {
+  padding: 12px 20px; border: none; background: transparent;
+  font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  color: #666; border-bottom: 3px solid transparent;
+  white-space: nowrap; font-family: inherit;
+}
+.tab-btn:hover { color: #2b6cb0; }
+.tab-btn.active { color: #2b6cb0; border-bottom-color: #2b6cb0; }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Stats grid */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px; margin-bottom: 24px;
+}
+.stat-card {
+  background: #fff; border-radius: 10px; padding: 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  position: relative; overflow: hidden;
+}
+.stat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, #1a365d, #2b6cb0);
+}
+.stat-card .val { font-size: 1.8rem; font-weight: 800; color: #1a365d; line-height: 1; }
+.stat-card .lbl { font-size: 0.78rem; color: #666; margin-top: 4px; }
+.stat-card .sub { font-size: 0.74rem; color: #2b6cb0; margin-top: 6px; font-weight: 600; }
+
+.card {
+  background: #fff; border-radius: 10px; padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px;
+}
+.card h2 {
+  font-size: 0.95rem; font-weight: 700; color: #1a365d; margin-bottom: 14px;
+  border-left: 3px solid #2b6cb0; padding-left: 10px;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+thead th {
+  background: #f7fafc; color: #4a5568; font-size: 0.74rem;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 10px 14px; text-align: left; border-bottom: 2px solid #e2e8f0;
+  position: sticky; top: 0; cursor: pointer; user-select: none;
+}
+thead th:hover { background: #edf2f7; color: #2b6cb0; }
+tbody td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
+tbody tr:hover td { background: #f7fafc; }
+tbody tr.dim td { opacity: 0.4; }
+
+.pill {
+  display: inline-block; padding: 2px 9px; border-radius: 10px;
+  font-size: 0.74rem; font-weight: 700;
+}
+.pill-A { background: #c6f6d5; color: #276749; }
+.pill-B { background: #bee3f8; color: #2a69ac; }
+.pill-C { background: #fefcbf; color: #975a16; }
+.pill-D, .pill-F { background: #fed7d7; color: #9b2c2c; }
+.pill-W, .pill-I { background: #e9d8fd; color: #553c9a; }
+.pill-gray { background: #edf2f7; color: #4a5568; }
+.pill-green { background: #c6f6d5; color: #276749; }
+.pill-red { background: #fed7d7; color: #9b2c2c; }
+.pill-yellow { background: #fefcbf; color: #975a16; }
+.pill-blue { background: #bee3f8; color: #2a69ac; }
+
+.bar-row { display: flex; align-items: center; gap: 10px; }
+.bar { height: 6px; background: #e2e8f0; border-radius: 3px; flex: 1; overflow: hidden; }
+.bar-fill { height: 100%; background: #2b6cb0; transition: width 0.3s; }
+
+.empty {
+  text-align: center; padding: 40px 20px; color: #a0aec0; font-size: 0.9rem;
+}
+
+/* Grade distribution chart */
+.dist-grid {
+  display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px;
+  align-items: end; height: 160px; margin-bottom: 12px;
+}
+.dist-bar {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%;
+}
+.dist-fill {
+  width: 100%; background: linear-gradient(180deg, #2b6cb0, #1a365d);
+  border-radius: 4px 4px 0 0; min-height: 3px; transition: height 0.4s;
+  display: flex; align-items: flex-start; justify-content: center; padding-top: 4px;
+  color: #fff; font-size: 0.74rem; font-weight: 700;
+}
+.dist-label { margin-top: 6px; font-size: 0.78rem; font-weight: 700; color: #4a5568; }
+
+/* Loading */
+.loading { display: flex; gap: 8px; align-items: center; color: #666; font-size: 0.85rem; }
+.spinner {
+  width: 16px; height: 16px; border: 2px solid #e2e8f0;
+  border-top-color: #2b6cb0; border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.tool-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.tool-row input {
+  padding: 7px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.84rem;
+  font-family: inherit; min-width: 200px;
+}
+.tool-row .count { margin-left: auto; color: #666; font-size: 0.78rem; }
+
+a.email-link { color: #2b6cb0; text-decoration: none; font-size: 0.82rem; }
+a.email-link:hover { text-decoration: underline; }
+
+.token-help {
+  background: #fffbeb; border: 1px solid #fbd38d; color: #975a16;
+  padding: 10px 14px; border-radius: 8px; font-size: 0.82rem;
+  margin: 12px 24px; line-height: 1.5;
+}
+.token-help a { color: #2b6cb0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Professor Dashboard</h1>
+  <p>See your courses, students, and grades — everything in one place</p>
+</header>
+
+<div class="connect-bar">
+  <div>
+    <label>Canvas Domain</label><br>
+    <input type="text" id="domain" value="https://montclair.instructure.com" style="width:240px">
+  </div>
+  <div>
+    <label>Access Token</label><br>
+    <input type="password" id="token" placeholder="Paste your token">
+  </div>
+  <div>
+    <label>Course</label><br>
+    <select id="course-select"><option value="">— Load your courses first —</option></select>
+  </div>
+  <button onclick="loadCourses()">Connect</button>
+  <span id="conn-status" class="conn-status"></span>
+</div>
+
+<div id="token-help" class="token-help">
+  <strong>Need a token?</strong> In Canvas: Account → Settings → scroll to <strong>"Approved Integrations"</strong> → click <strong>"+ New Access Token"</strong>. Paste it above. Your token is stored only in this browser.
+</div>
+
+<main id="dashboard" class="hide">
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showTab('overview')">📊 Overview</button>
+  <button class="tab-btn" onclick="showTab('students')">👥 Students</button>
+  <button class="tab-btn" onclick="showTab('gradebook')">📋 Gradebook</button>
+  <button class="tab-btn" onclick="showTab('assignments')">📝 Assignments</button>
+  <button class="tab-btn" onclick="showTab('atrisk')">⚠️ At-Risk</button>
+  <button class="tab-btn" onclick="showTab('announcements')">📢 Announcements</button>
+</div>
+
+<!-- Overview -->
+<div class="tab-panel active" id="tab-overview">
+  <div class="stats-grid" id="overview-stats"></div>
+
+  <div class="card">
+    <h2>Grade Distribution</h2>
+    <div class="dist-grid" id="dist-grid"></div>
+    <div style="font-size:0.78rem;color:#666;margin-top:8px" id="dist-note"></div>
+  </div>
+
+  <div class="card">
+    <h2>Recent Activity (last 7 days)</h2>
+    <div id="recent-activity" class="loading"><span class="spinner"></span> Loading...</div>
+  </div>
+</div>
+
+<!-- Students -->
+<div class="tab-panel" id="tab-students">
+  <div class="card">
+    <h2>Class Roster</h2>
+    <div class="tool-row">
+      <input type="text" id="student-search" placeholder="Search by name or email..." oninput="renderStudents()">
+      <select id="student-filter" onchange="renderStudents()">
+        <option value="">All grades</option>
+        <option value="A">A range (≥90%)</option>
+        <option value="B">B range (80-89%)</option>
+        <option value="C">C range (70-79%)</option>
+        <option value="D">D range (60-69%)</option>
+        <option value="F">F (<60%)</option>
+      </select>
+      <span class="count" id="student-count"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th onclick="sortStudents('name')">Student</th>
+          <th onclick="sortStudents('email')">Email</th>
+          <th onclick="sortStudents('current')">Current %</th>
+          <th onclick="sortStudents('letter')">Letter</th>
+          <th onclick="sortStudents('last')">Last Activity</th>
+        </tr>
+      </thead>
+      <tbody id="students-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Gradebook -->
+<div class="tab-panel" id="tab-gradebook">
+  <div class="card">
+    <h2>Gradebook</h2>
+    <div id="gradebook-area" class="loading"><span class="spinner"></span> Loading gradebook...</div>
+  </div>
+</div>
+
+<!-- Assignments -->
+<div class="tab-panel" id="tab-assignments">
+  <div class="card">
+    <h2>Assignments</h2>
+    <div class="tool-row">
+      <input type="text" id="asn-search" placeholder="Search assignments..." oninput="renderAssignments()">
+      <select id="asn-filter" onchange="renderAssignments()">
+        <option value="">All</option>
+        <option value="published">Published only</option>
+        <option value="unpublished">Unpublished only</option>
+        <option value="due">With due dates</option>
+        <option value="upcoming">Upcoming (next 30 days)</option>
+      </select>
+      <span class="count" id="asn-count"></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Group</th>
+          <th>Points</th>
+          <th>Due Date</th>
+          <th>Submitted</th>
+          <th>Avg Score</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="asn-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- At-Risk -->
+<div class="tab-panel" id="tab-atrisk">
+  <div class="card">
+    <h2>Students Who Need Attention</h2>
+    <p style="font-size:0.82rem;color:#666;margin-bottom:14px">Students with grades below 70% OR with missing/late assignments.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Email</th>
+          <th>Current %</th>
+          <th>Missing</th>
+          <th>Late</th>
+          <th>Last Activity</th>
+        </tr>
+      </thead>
+      <tbody id="atrisk-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Announcements -->
+<div class="tab-panel" id="tab-announcements">
+  <div class="card">
+    <h2>Recent Announcements</h2>
+    <div id="ann-list"></div>
+  </div>
+</div>
+
+</main>
+
+<script>
+const PROXY = 'https://csit212-submissions.onrender.com/canvas-proxy';
+let course_id = '';
+let course_info = null;
+let enrollments = [];
+let assignments = [];
+let students_sorted_by = { key: 'name', asc: true };
+
+// ── Storage ──
+window.addEventListener('load', () => {
+  const t = localStorage.getItem('pd_token'); if (t) document.getElementById('token').value = t;
+  const d = localStorage.getItem('pd_domain'); if (d) document.getElementById('domain').value = d;
+  document.getElementById('token').addEventListener('change', e => localStorage.setItem('pd_token', e.target.value));
+  document.getElementById('domain').addEventListener('change', e => localStorage.setItem('pd_domain', e.target.value));
+  document.getElementById('course-select').addEventListener('change', e => {
+    if (e.target.value) selectCourse(e.target.value);
+  });
+});
+
+// ── API ──
+async function api(path) {
+  const token = document.getElementById('token').value.trim();
+  const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+  if (!token) throw new Error('Token required');
+
+  let results = [], url = PROXY + (path.startsWith('/') ? path : '/' + path);
+  while (url) {
+    const res = await fetch(url, {
+      headers: { 'X-Canvas-Token': token, 'X-Canvas-Domain': domain }
+    });
+    if (!res.ok) {
+      const e = await res.text();
+      throw new Error(`HTTP ${res.status}: ${e.slice(0, 100)}`);
+    }
+    const data = await res.json();
+    if (Array.isArray(data)) results = results.concat(data);
+    else return data;
+    const link = res.headers.get('Link') || '';
+    const m = link.match(/<([^>]+)>;\s*rel="next"/);
+    url = m ? m[1] : null;
+  }
+  return results;
+}
+
+// ── Connect & load courses ──
+async function loadCourses() {
+  const status = document.getElementById('conn-status');
+  status.textContent = 'Connecting...';
+  status.className = 'conn-status';
+  try {
+    const courses = await api('/api/v1/courses?per_page=100&include[]=term&enrollment_type=teacher&state[]=available&state[]=completed');
+    const sel = document.getElementById('course-select');
+    sel.innerHTML = '<option value="">Select a course...</option>';
+    courses.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    courses.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      const term = (c.term && c.term.name) ? ` (${c.term.name})` : '';
+      opt.textContent = `${c.course_code || c.name}${term}`;
+      sel.appendChild(opt);
+    });
+    status.textContent = `✓ Found ${courses.length} courses`;
+    status.className = 'conn-status ok';
+    document.getElementById('token-help').classList.add('hide');
+  } catch (e) {
+    status.textContent = '✗ ' + e.message;
+    status.className = 'conn-status err';
+  }
+}
+
+// ── Load course data ──
+async function selectCourse(cid) {
+  course_id = cid;
+  document.getElementById('dashboard').classList.remove('hide');
+  document.getElementById('overview-stats').innerHTML = '<div class="stat-card"><div class="loading"><span class="spinner"></span> Loading course...</div></div>';
+
+  try {
+    // Load core data in parallel
+    const [info, enrolls, asns] = await Promise.all([
+      api(`/api/v1/courses/${cid}?include[]=total_students&include[]=needs_grading_count&include[]=term`),
+      api(`/api/v1/courses/${cid}/enrollments?type[]=StudentEnrollment&state[]=active&state[]=completed&per_page=100&include[]=user&include[]=current_grading_period_scores`),
+      api(`/api/v1/courses/${cid}/assignments?per_page=100&include[]=submission`),
+    ]);
+
+    course_info = info;
+    enrollments = enrolls;
+    assignments = asns;
+
+    renderOverview();
+    renderStudents();
+    renderAssignments();
+    renderAtRisk();
+    loadRecentActivity();
+    loadAnnouncements();
+    loadGradebook();
+  } catch (e) {
+    document.getElementById('overview-stats').innerHTML =
+      '<div class="stat-card" style="grid-column:span 4"><span style="color:#c53030">Error: ' + esc(e.message) + '</span></div>';
+  }
+}
+
+// ── Overview ──
+function renderOverview() {
+  const grades = enrollments.map(e => parseFloat(e.grades?.current_score || 0));
+  const validGrades = grades.filter(g => g > 0);
+  const avg = validGrades.length ? (validGrades.reduce((a,b)=>a+b,0) / validGrades.length) : 0;
+  const numLow = grades.filter(g => g < 70 && g > 0).length;
+  const numNoActivity = enrollments.filter(e => !e.last_activity_at).length;
+
+  const stats = [
+    { val: enrollments.length, lbl: 'Students Enrolled', sub: course_info.course_code },
+    { val: assignments.length, lbl: 'Assignments', sub: assignments.filter(a => a.published).length + ' published' },
+    { val: avg.toFixed(1) + '%', lbl: 'Class Average', sub: gradeLetter(avg) },
+    { val: numLow, lbl: 'Below 70%', sub: numLow > 0 ? 'Need attention' : 'All on track' },
+    { val: course_info.needs_grading_count || 0, lbl: 'Need Grading', sub: course_info.needs_grading_count > 0 ? 'Submissions waiting' : 'All caught up' },
+    { val: numNoActivity, lbl: 'No Activity', sub: numNoActivity > 0 ? 'Reach out' : 'All engaged' },
+  ];
+
+  document.getElementById('overview-stats').innerHTML = stats.map(s => `
+    <div class="stat-card">
+      <div class="val">${s.val}</div>
+      <div class="lbl">${s.lbl}</div>
+      <div class="sub">${s.sub}</div>
+    </div>`).join('');
+
+  // Distribution
+  const buckets = { 'A': 0, 'A-': 0, 'B+': 0, 'B': 0, 'B-': 0, 'C+': 0, 'C': 0, 'C-': 0, 'F': 0 };
+  enrollments.forEach(e => {
+    const p = parseFloat(e.grades?.current_score || 0);
+    if (!p) return;
+    buckets[gradeLetter(p)]++;
+  });
+  const maxCount = Math.max(...Object.values(buckets), 1);
+  document.getElementById('dist-grid').innerHTML = Object.entries(buckets).map(([letter, n]) => `
+    <div class="dist-bar">
+      <div class="dist-fill" style="height:${(n/maxCount)*100}%">${n || ''}</div>
+      <div class="dist-label">${letter}</div>
+    </div>`).join('');
+  const total = Object.values(buckets).reduce((a,b)=>a+b,0);
+  document.getElementById('dist-note').textContent = total + ' students with grades calculated.';
+}
+
+function gradeLetter(p) {
+  if (p >= 94) return 'A';
+  if (p >= 90) return 'A-';
+  if (p >= 84) return 'B+';
+  if (p >= 80) return 'B';
+  if (p >= 75) return 'B-';
+  if (p >= 70) return 'C+';
+  if (p >= 65) return 'C';
+  if (p >= 60) return 'C-';
+  return 'F';
+}
+
+function pillClass(letter) {
+  if (letter.startsWith('A')) return 'pill-A';
+  if (letter.startsWith('B')) return 'pill-B';
+  if (letter.startsWith('C')) return 'pill-C';
+  if (letter === 'D' || letter.startsWith('D')) return 'pill-D';
+  return 'pill-F';
+}
+
+// ── Students ──
+function sortStudents(key) {
+  if (students_sorted_by.key === key) students_sorted_by.asc = !students_sorted_by.asc;
+  else students_sorted_by = { key, asc: true };
+  renderStudents();
+}
+
+function renderStudents() {
+  const search = (document.getElementById('student-search').value || '').toLowerCase();
+  const filter = document.getElementById('student-filter').value;
+  let rows = enrollments.map(e => ({
+    e,
+    name: e.user?.name || 'Unknown',
+    email: e.user?.email || e.user?.login_id || '',
+    current: parseFloat(e.grades?.current_score || 0),
+    letter: gradeLetter(parseFloat(e.grades?.current_score || 0)),
+    last: e.last_activity_at || '',
+  }));
+
+  if (search) rows = rows.filter(r => r.name.toLowerCase().includes(search) || r.email.toLowerCase().includes(search));
+  if (filter) {
+    rows = rows.filter(r => {
+      const p = r.current;
+      if (filter === 'A') return p >= 90;
+      if (filter === 'B') return p >= 80 && p < 90;
+      if (filter === 'C') return p >= 70 && p < 80;
+      if (filter === 'D') return p >= 60 && p < 70;
+      if (filter === 'F') return p < 60;
+    });
+  }
+
+  // Sort
+  const { key, asc } = students_sorted_by;
+  rows.sort((a, b) => {
+    let va = a[key], vb = b[key];
+    if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return asc ? va - vb : vb - va;
+  });
+
+  document.getElementById('student-count').textContent = rows.length + ' student' + (rows.length !== 1 ? 's' : '');
+  document.getElementById('students-tbody').innerHTML = rows.map(r => `
+    <tr>
+      <td><strong>${esc(r.name)}</strong></td>
+      <td>${r.email ? `<a class="email-link" href="mailto:${esc(r.email)}">${esc(r.email)}</a>` : '<span style="color:#aaa">—</span>'}</td>
+      <td>${r.current ? r.current.toFixed(1) + '%' : '<span style="color:#aaa">—</span>'}</td>
+      <td>${r.current ? `<span class="pill ${pillClass(r.letter)}">${r.letter}</span>` : '—'}</td>
+      <td style="color:#666;font-size:0.82rem">${r.last ? new Date(r.last).toLocaleDateString() : '<span style="color:#aaa">never</span>'}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="empty">No students match</td></tr>';
+}
+
+// ── Assignments ──
+function renderAssignments() {
+  const search = (document.getElementById('asn-search').value || '').toLowerCase();
+  const filter = document.getElementById('asn-filter').value;
+  const now = new Date();
+  const in30 = new Date(); in30.setDate(in30.getDate() + 30);
+
+  let rows = assignments.slice();
+  if (search) rows = rows.filter(a => (a.name || '').toLowerCase().includes(search));
+  if (filter === 'published') rows = rows.filter(a => a.published);
+  else if (filter === 'unpublished') rows = rows.filter(a => !a.published);
+  else if (filter === 'due') rows = rows.filter(a => a.due_at);
+  else if (filter === 'upcoming') rows = rows.filter(a => {
+    if (!a.due_at) return false;
+    const d = new Date(a.due_at);
+    return d >= now && d <= in30;
+  });
+
+  rows.sort((a, b) => (a.due_at || 'z').localeCompare(b.due_at || 'z'));
+
+  document.getElementById('asn-count').textContent = rows.length + ' assignment' + (rows.length !== 1 ? 's' : '');
+  document.getElementById('asn-tbody').innerHTML = rows.map(a => {
+    const due = a.due_at ? new Date(a.due_at).toLocaleDateString() : '—';
+    const pub = a.published ? '<span class="pill pill-green">Published</span>' : '<span class="pill pill-gray">Unpublished</span>';
+    return `<tr>
+      <td><strong>${esc(a.name || '')}</strong></td>
+      <td style="color:#666">${esc(a.assignment_group_id ? '' : '—')}</td>
+      <td>${a.points_possible ?? '—'}</td>
+      <td>${due}</td>
+      <td style="color:#666">—</td>
+      <td style="color:#666">—</td>
+      <td>${pub}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="empty">No assignments</td></tr>';
+}
+
+// ── At-Risk ──
+function renderAtRisk() {
+  const atrisk = enrollments
+    .filter(e => {
+      const p = parseFloat(e.grades?.current_score || 0);
+      return p > 0 && p < 70;
+    })
+    .map(e => ({
+      name: e.user?.name || 'Unknown',
+      email: e.user?.email || e.user?.login_id || '',
+      current: parseFloat(e.grades?.current_score || 0),
+      last: e.last_activity_at || '',
+    }))
+    .sort((a, b) => a.current - b.current);
+
+  document.getElementById('atrisk-tbody').innerHTML = atrisk.map(r => `
+    <tr>
+      <td><strong>${esc(r.name)}</strong></td>
+      <td>${r.email ? `<a class="email-link" href="mailto:${esc(r.email)}">${esc(r.email)}</a>` : '—'}</td>
+      <td><span class="pill pill-red">${r.current.toFixed(1)}%</span></td>
+      <td>—</td><td>—</td>
+      <td style="color:#666;font-size:0.82rem">${r.last ? new Date(r.last).toLocaleDateString() : 'never'}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="empty">🎉 No students at risk — everyone is doing well!</td></tr>';
+}
+
+// ── Recent Activity ──
+async function loadRecentActivity() {
+  try {
+    const subs = await api(`/api/v1/courses/${course_id}/students/submissions?student_ids[]=all&per_page=50&order=graded_at&order_direction=descending`);
+    const since = new Date(); since.setDate(since.getDate() - 7);
+    const recent = subs.filter(s => s.submitted_at && new Date(s.submitted_at) > since);
+    const el = document.getElementById('recent-activity');
+    if (!recent.length) { el.innerHTML = '<div class="empty">No recent submissions in the last 7 days.</div>'; return; }
+    el.innerHTML = `<table><thead><tr><th>Student</th><th>Assignment</th><th>Submitted</th><th>Score</th></tr></thead><tbody>` +
+      recent.slice(0, 20).map(s => {
+        const studentName = enrollments.find(e => e.user_id === s.user_id)?.user?.name || `User ${s.user_id}`;
+        const asnName = assignments.find(a => a.id === s.assignment_id)?.name || `Assignment ${s.assignment_id}`;
+        return `<tr>
+          <td>${esc(studentName)}</td>
+          <td>${esc(asnName)}</td>
+          <td style="color:#666;font-size:0.82rem">${new Date(s.submitted_at).toLocaleString()}</td>
+          <td>${s.score != null ? s.score : '<span class="pill pill-yellow">Ungraded</span>'}</td>
+        </tr>`;
+      }).join('') + '</tbody></table>';
+  } catch (e) {
+    document.getElementById('recent-activity').innerHTML = '<div style="color:#c53030">Error: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ── Announcements ──
+async function loadAnnouncements() {
+  try {
+    const anns = await api(`/api/v1/courses/${course_id}/discussion_topics?only_announcements=true&per_page=20`);
+    const el = document.getElementById('ann-list');
+    if (!anns.length) { el.innerHTML = '<div class="empty">No announcements posted yet.</div>'; return; }
+    el.innerHTML = anns.map(a => `
+      <div style="border-left:3px solid #2b6cb0;padding:10px 14px;margin-bottom:10px;background:#f7fafc;border-radius:0 6px 6px 0">
+        <div style="font-weight:700;color:#1a365d">${esc(a.title || 'Untitled')}</div>
+        <div style="font-size:0.78rem;color:#666;margin-top:2px">Posted ${a.posted_at ? new Date(a.posted_at).toLocaleString() : 'unknown'}</div>
+      </div>`).join('');
+  } catch (e) {
+    document.getElementById('ann-list').innerHTML = '<div style="color:#c53030">Error: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ── Gradebook ──
+async function loadGradebook() {
+  const el = document.getElementById('gradebook-area');
+  try {
+    // Get submission scores per assignment
+    const subs = await api(`/api/v1/courses/${course_id}/students/submissions?student_ids[]=all&per_page=100`);
+    const map = {}; // userId -> assignmentId -> score
+    subs.forEach(s => {
+      if (!map[s.user_id]) map[s.user_id] = {};
+      map[s.user_id][s.assignment_id] = s;
+    });
+    const pubAsns = assignments.filter(a => a.published).slice(0, 20); // limit display
+    const sortedEnrolls = enrollments.slice().sort((a, b) => (a.user?.sortable_name || a.user?.name || '').localeCompare(b.user?.sortable_name || b.user?.name || ''));
+    let html = '<div style="overflow-x:auto"><table style="min-width:max-content"><thead><tr><th style="position:sticky;left:0;background:#f7fafc;z-index:1">Student</th><th>Total %</th>';
+    pubAsns.forEach(a => {
+      html += `<th title="${esc(a.name)}" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((a.name||'').slice(0, 18))}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    sortedEnrolls.forEach(e => {
+      const total = parseFloat(e.grades?.current_score || 0);
+      const letter = gradeLetter(total);
+      html += `<tr><td style="position:sticky;left:0;background:#fff;font-weight:600">${esc(e.user?.name||'')}</td>`;
+      html += `<td>${total ? `<span class="pill ${pillClass(letter)}">${total.toFixed(1)}%</span>` : '—'}</td>`;
+      pubAsns.forEach(a => {
+        const sub = map[e.user_id]?.[a.id];
+        let cell = '<span style="color:#ccc">—</span>';
+        if (sub) {
+          if (sub.workflow_state === 'graded' && sub.score != null) {
+            cell = `<span style="color:#2b6cb0;font-weight:600">${sub.score}</span>`;
+          } else if (sub.workflow_state === 'submitted') {
+            cell = '<span class="pill pill-yellow">📥</span>';
+          } else if (sub.missing) {
+            cell = '<span class="pill pill-red">M</span>';
+          }
+        }
+        html += `<td style="text-align:center">${cell}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    html += '<div style="font-size:0.74rem;color:#666;margin-top:8px">Showing first 20 assignments. <span class="pill pill-yellow">📥</span> = Submitted (ungraded), <span class="pill pill-red">M</span> = Missing</div>';
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = '<div style="color:#c53030">Error loading gradebook: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ── Tabs ──
+function showTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>

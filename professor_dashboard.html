@@ -343,6 +343,44 @@ a.email-link:hover { text-decoration: underline; }
 
 <!-- Tasks -->
 <div class="tab-panel" id="tab-tasks">
+
+  <!-- Smart Task input -->
+  <div class="card" style="background:linear-gradient(135deg,#1a365d,#2b6cb0);color:#fff;border:none">
+    <h2 style="color:#fff;border-left-color:#fff">🤖 Smart Task</h2>
+    <p style="font-size:0.84rem;color:#bee3f8;margin-bottom:12px">
+      Describe what you want done in plain English. Claude will figure out the steps and ask before executing.
+    </p>
+    <textarea id="smart-task-input" rows="3"
+              placeholder='Examples: "Create HW2 due next Friday, 20 points, on variables and expressions" · "Announce class canceled this Thursday" · "Email all students with grade below 70%" · "Move all due dates back by 3 days"'
+              style="width:100%;padding:11px 14px;border:none;border-radius:8px;font-size:0.92rem;font-family:inherit;line-height:1.5;background:rgba(255,255,255,0.95);color:#1a202c"></textarea>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+      <button onclick="planSmartTask()" id="smart-plan-btn"
+              style="padding:9px 22px;background:#fff;color:#1a365d;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.88rem">
+        Plan with Claude →
+      </button>
+      <input type="password" id="anthropic-key" placeholder="Paste Anthropic API key"
+             style="padding:8px 12px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:0.84rem;font-family:monospace;background:rgba(255,255,255,0.1);color:#fff;flex:1;min-width:200px"
+             title="Get from console.anthropic.com → API Keys">
+      <span id="smart-status" style="font-size:0.84rem;color:#bee3f8"></span>
+    </div>
+
+    <!-- Plan preview -->
+    <div id="smart-plan" class="hide" style="margin-top:14px;background:rgba(255,255,255,0.95);color:#1a202c;border-radius:8px;padding:14px">
+      <div style="font-size:0.84rem;font-weight:700;color:#1a365d;margin-bottom:8px">Plan:</div>
+      <div id="smart-plan-content" style="font-size:0.88rem;line-height:1.5"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button onclick="executeSmartTask()" id="smart-exec-btn"
+                style="padding:8px 18px;background:#276749;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.84rem">
+          ✓ Execute
+        </button>
+        <button onclick="document.getElementById('smart-plan').classList.add('hide')"
+                style="padding:8px 18px;background:#edf2f7;color:#4a5568;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.84rem">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="stats-grid">
     <div class="stat-card" onclick="showTaskForm('announce')" style="cursor:pointer">
       <div class="val" style="font-size:2rem">📢</div>
@@ -1158,6 +1196,274 @@ async function bulkPublish(publish) {
   }).then(r => r.json());
   assignments = all;
   renderAssignments();
+}
+
+// ── Smart Task (AI-powered) ──
+let smartPlan = null;
+
+window.addEventListener('load', () => {
+  const k = localStorage.getItem('anth_key');
+  if (k) {
+    setTimeout(() => {
+      const el = document.getElementById('anthropic-key');
+      if (el) el.value = k;
+    }, 100);
+  }
+});
+
+async function planSmartTask() {
+  const prompt = document.getElementById('smart-task-input').value.trim();
+  const apiKey = document.getElementById('anthropic-key').value.trim();
+  if (!prompt) { setStatus('smart-status', 'Type a task first', 'err'); return; }
+  if (!apiKey) { setStatus('smart-status', 'Anthropic API key required', 'err'); return; }
+  if (!course_id) { setStatus('smart-status', 'Select a course first', 'err'); return; }
+
+  localStorage.setItem('anth_key', apiKey);
+
+  const btn = document.getElementById('smart-plan-btn');
+  btn.disabled = true; btn.textContent = 'Thinking...';
+  setStatus('smart-status', '', '');
+
+  // Build course context
+  const ctx = {
+    course_id,
+    course_name: course_info?.name || '',
+    course_code: course_info?.course_code || '',
+    student_count: enrollments.length,
+    assignment_count: assignments.length,
+    assignment_groups: assignments.reduce((acc, a) => {
+      if (a.assignment_group_id && !acc.includes(a.assignment_group_id)) acc.push(a.assignment_group_id);
+      return acc;
+    }, []),
+    today: new Date().toISOString().slice(0, 10),
+    recent_assignment_examples: assignments.slice(-3).map(a => ({
+      name: a.name, points: a.points_possible, due: a.due_at,
+      group_id: a.assignment_group_id
+    })),
+    student_summary: {
+      avg_grade: (() => {
+        const grades = enrollments.map(e => parseFloat(e.grades?.current_score||0)).filter(g => g > 0);
+        return grades.length ? (grades.reduce((a,b)=>a+b,0)/grades.length).toFixed(1) : 0;
+      })(),
+      below_70: enrollments.filter(e => {
+        const p = parseFloat(e.grades?.current_score||0);
+        return p > 0 && p < 70;
+      }).length,
+    }
+  };
+
+  const systemPrompt = `You are an assistant that converts plain-English requests from a Canvas professor into a structured action plan.
+
+Current course context:
+${JSON.stringify(ctx, null, 2)}
+
+Output JSON ONLY (no markdown, no extra text), as one of these action types:
+
+1. Post announcement:
+{"action": "announce", "title": "...", "message": "<HTML body>"}
+
+2. Create assignment:
+{"action": "create_assignment", "name": "...", "description": "<HTML>", "points": N, "due_at": "YYYY-MM-DDTHH:MM:00Z" or null, "submission_type": "online_upload|online_text_entry|online_url|on_paper|none", "publish": true|false, "group_id": null}
+
+3. Send message to students:
+{"action": "message", "recipients": "all|failing|missing|[user_id, user_id...]", "subject": "...", "body": "..."}
+
+4. Shift all due dates:
+{"action": "shift_dates", "days": N}
+
+5. Publish/unpublish all assignments:
+{"action": "bulk_publish", "published": true|false}
+
+6. Award full credit on an assignment:
+{"action": "full_credit", "assignment_name_match": "..."}
+
+7. Multiple steps (rare):
+{"action": "multi", "steps": [...]}
+
+8. Clarification needed:
+{"action": "clarify", "question": "..."}
+
+Be conservative — only output an action if confident. If unclear, ask for clarification.
+Always include explanation in a "summary" field describing what will happen.`;
+
+  try {
+    const res = await fetch('https://csit212-submissions.onrender.com/ai-route', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Anthropic-Key': apiKey,
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1500,
+        system: systemPrompt,
+        messages: [{role: 'user', content: prompt}]
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error?.message || `HTTP ${res.status}`);
+
+    const text = data.content?.[0]?.text || '';
+    let plan;
+    try {
+      // Try to extract JSON from response
+      const m = text.match(/\{[\s\S]*\}/);
+      plan = JSON.parse(m ? m[0] : text);
+    } catch {
+      throw new Error('Could not parse plan: ' + text.substring(0, 200));
+    }
+
+    smartPlan = plan;
+    renderPlan(plan);
+    btn.disabled = false; btn.textContent = 'Plan with Claude →';
+  } catch (e) {
+    setStatus('smart-status', '✗ ' + e.message, 'err');
+    btn.disabled = false; btn.textContent = 'Plan with Claude →';
+  }
+}
+
+function renderPlan(plan) {
+  const el = document.getElementById('smart-plan-content');
+  const wrap = document.getElementById('smart-plan');
+  let html = '';
+
+  if (plan.action === 'clarify') {
+    html = `<div style="color:#975a16">${esc(plan.question || 'Need more info')}</div>`;
+    document.getElementById('smart-exec-btn').classList.add('hide');
+  } else {
+    document.getElementById('smart-exec-btn').classList.remove('hide');
+    if (plan.summary) html += `<div style="margin-bottom:8px"><strong>Summary:</strong> ${esc(plan.summary)}</div>`;
+
+    if (plan.action === 'announce') {
+      html += `<div><strong>📢 Announcement</strong></div>
+        <div style="margin-top:4px"><strong>Title:</strong> ${esc(plan.title)}</div>
+        <div style="margin-top:4px;border:1px solid #e2e8f0;border-radius:4px;padding:8px;background:#f7fafc">${plan.message}</div>`;
+    } else if (plan.action === 'create_assignment') {
+      html += `<div><strong>📝 New Assignment</strong></div>
+        <div>Name: <strong>${esc(plan.name)}</strong> · ${plan.points} pts · Due: ${plan.due_at || 'no due date'} · ${plan.publish ? 'Published' : 'Unpublished'}</div>
+        <div style="margin-top:4px;border:1px solid #e2e8f0;border-radius:4px;padding:8px;background:#f7fafc;max-height:200px;overflow-y:auto">${plan.description || ''}</div>`;
+    } else if (plan.action === 'message') {
+      html += `<div><strong>✉️ Send Message</strong></div>
+        <div>To: <strong>${esc(typeof plan.recipients === 'string' ? plan.recipients : (plan.recipients || []).length + ' students')}</strong></div>
+        <div>Subject: ${esc(plan.subject || '')}</div>
+        <div style="margin-top:4px;border:1px solid #e2e8f0;border-radius:4px;padding:8px;background:#f7fafc;white-space:pre-wrap">${esc(plan.body || '')}</div>`;
+    } else if (plan.action === 'shift_dates') {
+      html += `<div><strong>📅 Shift All Due Dates</strong></div><div>Move every assignment's due date by <strong>${plan.days} days</strong>.</div>`;
+    } else if (plan.action === 'bulk_publish') {
+      html += `<div><strong>${plan.published ? '📤 Publish All' : '📥 Unpublish All'} Assignments</strong></div><div>Will affect ${assignments.length} assignments.</div>`;
+    } else if (plan.action === 'full_credit') {
+      const matched = assignments.find(a => (a.name||'').toLowerCase().includes((plan.assignment_name_match||'').toLowerCase()));
+      html += `<div><strong>🎓 Award Full Credit</strong></div>
+        <div>Match: <strong>${matched ? esc(matched.name) : '⚠ no match for "' + esc(plan.assignment_name_match) + '"'}</strong></div>`;
+    } else if (plan.action === 'multi') {
+      html += `<div><strong>🔀 Multiple Steps:</strong></div><ol style="margin-left:24px">`;
+      for (const s of (plan.steps||[])) html += `<li>${esc(s.summary || s.action)}</li>`;
+      html += `</ol>`;
+    } else {
+      html += `<div style="color:#c53030">Unknown action: ${esc(plan.action || 'none')}</div>
+        <pre style="margin-top:8px;background:#f7fafc;padding:8px;border-radius:4px;font-size:0.78rem">${esc(JSON.stringify(plan,null,2))}</pre>`;
+    }
+  }
+
+  el.innerHTML = html;
+  wrap.classList.remove('hide');
+}
+
+async function executeSmartTask() {
+  if (!smartPlan) return;
+  const btn = document.getElementById('smart-exec-btn');
+  btn.disabled = true; btn.textContent = 'Executing...';
+  setStatus('smart-status', '', '');
+
+  try {
+    await executePlan(smartPlan);
+    setStatus('smart-status', '✓ Done!', 'ok');
+    document.getElementById('smart-plan').classList.add('hide');
+    document.getElementById('smart-task-input').value = '';
+    smartPlan = null;
+    // Refresh relevant data
+    setTimeout(() => selectCourse(course_id), 500);
+  } catch (e) {
+    setStatus('smart-status', '✗ ' + e.message, 'err');
+  }
+  btn.disabled = false; btn.textContent = '✓ Execute';
+}
+
+async function executePlan(plan) {
+  if (plan.action === 'announce') {
+    await apiPost(`/api/v1/courses/${course_id}/discussion_topics`, [
+      ['title', plan.title], ['message', plan.message],
+      ['is_announcement', 'true'], ['published', 'true']
+    ]);
+  } else if (plan.action === 'create_assignment') {
+    const params = [
+      ['assignment[name]', plan.name],
+      ['assignment[description]', plan.description || ''],
+      ['assignment[points_possible]', String(plan.points || 0)],
+      ['assignment[submission_types][]', plan.submission_type || 'online_text_entry'],
+      ['assignment[published]', plan.publish ? 'true' : 'false'],
+      ['assignment[grading_type]', 'points'],
+    ];
+    if (plan.due_at) params.push(['assignment[due_at]', plan.due_at]);
+    if (plan.group_id) params.push(['assignment[assignment_group_id]', String(plan.group_id)]);
+    await apiPost(`/api/v1/courses/${course_id}/assignments`, params);
+  } else if (plan.action === 'message') {
+    let recipients = [];
+    if (plan.recipients === 'all') recipients = enrollments.map(e => 'student_' + e.user_id);
+    else if (plan.recipients === 'failing') {
+      recipients = enrollments.filter(e => {
+        const p = parseFloat(e.grades?.current_score || 0);
+        return p > 0 && p < 70;
+      }).map(e => 'student_' + e.user_id);
+    } else if (plan.recipients === 'missing') {
+      recipients = enrollments.filter(e => !e.last_activity_at).map(e => 'student_' + e.user_id);
+    } else if (Array.isArray(plan.recipients)) {
+      recipients = plan.recipients.map(uid => 'student_' + uid);
+    }
+    if (!recipients.length) throw new Error('No recipients');
+    const params = [
+      ['subject', plan.subject || 'Message from your instructor'],
+      ['body', plan.body || ''],
+      ['group_conversation', 'false'],
+      ['context_code', `course_${course_id}`],
+    ];
+    for (const r of recipients) params.push(['recipients[]', r]);
+    await apiPost('/api/v1/conversations', params);
+  } else if (plan.action === 'shift_dates') {
+    for (const a of assignments) {
+      if (!a.due_at) continue;
+      const nd = new Date(a.due_at);
+      nd.setDate(nd.getDate() + plan.days);
+      await apiPut(`/api/v1/courses/${course_id}/assignments/${a.id}`, [
+        ['assignment[due_at]', nd.toISOString()]
+      ]);
+    }
+  } else if (plan.action === 'bulk_publish') {
+    for (const a of assignments) {
+      await apiPut(`/api/v1/courses/${course_id}/assignments/${a.id}`, [
+        ['assignment[published]', plan.published ? 'true' : 'false']
+      ]);
+    }
+  } else if (plan.action === 'full_credit') {
+    const matched = assignments.find(a => (a.name||'').toLowerCase().includes((plan.assignment_name_match||'').toLowerCase()));
+    if (!matched) throw new Error('Could not find assignment matching "' + plan.assignment_name_match + '"');
+    const token = document.getElementById('token').value.trim();
+    const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+    const subsRes = await fetch(PROXY + `/api/v1/courses/${course_id}/assignments/${matched.id}/submissions?per_page=100`, {
+      headers: { 'X-Canvas-Token': token, 'X-Canvas-Domain': domain }
+    });
+    const subs = await subsRes.json();
+    for (const s of subs) {
+      if (!s.submitted_at) continue;
+      await apiPut(`/api/v1/courses/${course_id}/assignments/${matched.id}/submissions/${s.user_id}`, [
+        ['submission[posted_grade]', String(matched.points_possible)]
+      ]);
+    }
+  } else if (plan.action === 'multi') {
+    for (const step of (plan.steps || [])) await executePlan(step);
+  } else {
+    throw new Error('Unsupported action: ' + plan.action);
+  }
 }
 
 async function bulkFullCredit() {

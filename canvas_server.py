@@ -294,6 +294,43 @@ def announce_post():
 
 # ── Banner Grade Submission ────────────────────────────────────────────────────
 
+# ── Anthropic API proxy (for AI-powered task planning) ─────────────────────────
+
+@app.route('/ai-route', methods=['POST', 'OPTIONS'])
+def ai_route():
+    """Proxy to Anthropic API for natural language task planning."""
+    if request.method == 'OPTIONS':
+        resp = Response('', status=204)
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Anthropic-Key'
+        return resp
+
+    api_key = request.headers.get('X-Anthropic-Key', '').strip()
+    if not api_key:
+        return jsonify({'ok': False, 'error': 'X-Anthropic-Key header required'}), 400
+
+    body = request.get_data()
+    try:
+        req = urllib.request.Request(
+            'https://api.anthropic.com/v1/messages',
+            data=body, method='POST',
+            headers={
+                'x-api-key': api_key,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json',
+            }
+        )
+        with urllib.request.urlopen(req, timeout=60) as r:
+            data = r.read()
+            resp = Response(data, status=r.status, mimetype='application/json')
+    except urllib.error.HTTPError as e:
+        resp = Response(e.read(), status=e.code, mimetype='application/json')
+    except Exception as e:
+        resp = jsonify({'ok': False, 'error': str(e)}); resp.status_code = 500
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    return resp
+
 @app.route('/submit-banner-grades', methods=['POST', 'OPTIONS'])
 def submit_banner_grades():
     """Accept grade data and store for Banner submission."""

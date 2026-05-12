@@ -158,6 +158,31 @@ a.email-link:hover { text-decoration: underline; }
   margin: 12px 24px; line-height: 1.5;
 }
 .token-help a { color: #2b6cb0; }
+
+/* Rich text editor */
+.editor-toolbar {
+  display: flex; gap: 2px; background: #f7fafc;
+  border: 1px solid #cbd5e0; border-bottom: none;
+  border-radius: 6px 6px 0 0; padding: 6px;
+}
+.editor-toolbar button {
+  padding: 4px 10px; background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 4px; font-size: 0.82rem; cursor: pointer;
+  font-family: inherit; color: #2d3748;
+}
+.editor-toolbar button:hover { background: #edf2f7; color: #2b6cb0; }
+.rich-editor:focus { outline: 2px solid #2b6cb0; outline-offset: -2px; }
+.rich-editor h2 { font-size: 1.05rem; margin: 8px 0; color: #1a365d; }
+.rich-editor h3 { font-size: 0.95rem; margin: 8px 0; color: #2b6cb0; }
+.rich-editor ul, .rich-editor ol { margin-left: 24px; margin-bottom: 8px; }
+.rich-editor pre { background: #f0f0f0; padding: 8px; border-radius: 4px; font-family: monospace; }
+.rich-editor a { color: #2b6cb0; }
+
+/* Bulk op cards */
+.bulk-op {
+  background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;
+}
+.bulk-op h3 { font-size: 0.9rem; color: #1a365d; margin-bottom: 6px; }
 </style>
 </head>
 <body>
@@ -197,6 +222,7 @@ a.email-link:hover { text-decoration: underline; }
   <button class="tab-btn" onclick="showTab('assignments')">📝 Assignments</button>
   <button class="tab-btn" onclick="showTab('atrisk')">⚠️ At-Risk</button>
   <button class="tab-btn" onclick="showTab('announcements')">📢 Announcements</button>
+  <button class="tab-btn" onclick="showTab('tasks')">✏️ Tasks</button>
 </div>
 
 <!-- Overview -->
@@ -312,6 +338,190 @@ a.email-link:hover { text-decoration: underline; }
   <div class="card">
     <h2>Recent Announcements</h2>
     <div id="ann-list"></div>
+  </div>
+</div>
+
+<!-- Tasks -->
+<div class="tab-panel" id="tab-tasks">
+  <div class="stats-grid">
+    <div class="stat-card" onclick="showTaskForm('announce')" style="cursor:pointer">
+      <div class="val" style="font-size:2rem">📢</div>
+      <div class="lbl">Post Announcement</div>
+      <div class="sub">Notify all students</div>
+    </div>
+    <div class="stat-card" onclick="showTaskForm('assign')" style="cursor:pointer">
+      <div class="val" style="font-size:2rem">📝</div>
+      <div class="lbl">Create Assignment</div>
+      <div class="sub">With rubric & due date</div>
+    </div>
+    <div class="stat-card" onclick="showTaskForm('message')" style="cursor:pointer">
+      <div class="val" style="font-size:2rem">✉️</div>
+      <div class="lbl">Message Students</div>
+      <div class="sub">Individual or group</div>
+    </div>
+    <div class="stat-card" onclick="showTaskForm('bulk')" style="cursor:pointer">
+      <div class="val" style="font-size:2rem">⚡</div>
+      <div class="lbl">Bulk Operations</div>
+      <div class="sub">Publish, dates, grades</div>
+    </div>
+  </div>
+
+  <!-- Announcement form -->
+  <div class="card task-form hide" id="task-announce">
+    <h2>📢 Post Announcement</h2>
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Title</label>
+      <input type="text" id="ann-title" placeholder="Announcement title"
+             style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Message</label>
+      <div class="editor-toolbar">
+        <button onclick="fmt('bold')" title="Bold"><b>B</b></button>
+        <button onclick="fmt('italic')" title="Italic"><i>I</i></button>
+        <button onclick="fmt('underline')" title="Underline"><u>U</u></button>
+        <button onclick="fmt('insertUnorderedList')" title="Bullets">• List</button>
+        <button onclick="fmt('insertOrderedList')" title="Numbered">1. List</button>
+        <button onclick="insertLink()" title="Link">🔗 Link</button>
+        <button onclick="insertHeading()" title="Heading">H</button>
+        <button onclick="toggleHtml()" id="html-toggle" title="HTML">&lt;/&gt;</button>
+      </div>
+      <div id="ann-body" contenteditable="true" class="rich-editor"
+           style="border:1px solid #cbd5e0;border-top:none;border-radius:0 0 6px 6px;padding:12px;min-height:200px;font-size:0.92rem;line-height:1.5;background:#fff"></div>
+      <textarea id="ann-body-html" class="hide"
+                style="width:100%;border:1px solid #cbd5e0;border-top:none;border-radius:0 0 6px 6px;padding:12px;min-height:200px;font-family:monospace;font-size:0.82rem"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-primary" onclick="postAnnouncement()" style="padding:9px 22px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">Post Announcement</button>
+      <button onclick="document.getElementById('task-announce').classList.add('hide')" style="padding:9px 22px;background:#edf2f7;color:#666;border:none;border-radius:6px;font-weight:600;cursor:pointer">Cancel</button>
+      <span id="ann-status" style="margin-left:8px;font-size:0.84rem"></span>
+    </div>
+  </div>
+
+  <!-- Assignment form -->
+  <div class="card task-form hide" id="task-assign">
+    <h2>📝 Create Assignment</h2>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Name</label>
+        <input type="text" id="asn-name" placeholder="e.g., HW2: Variables and Expressions"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Points</label>
+        <input type="number" id="asn-points" value="10" min="0"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Due Date</label>
+        <input type="datetime-local" id="asn-due"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Group</label>
+        <select id="asn-group" style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px"></select>
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Submission Type</label>
+        <select id="asn-type" style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+          <option value="online_upload">File Upload</option>
+          <option value="online_text_entry">Text Entry</option>
+          <option value="online_url">URL</option>
+          <option value="on_paper">On Paper</option>
+          <option value="none">No Submission</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Description / Instructions</label>
+      <div class="editor-toolbar">
+        <button onclick="fmt('bold')"><b>B</b></button>
+        <button onclick="fmt('italic')"><i>I</i></button>
+        <button onclick="fmt('insertUnorderedList')">• List</button>
+        <button onclick="fmt('insertOrderedList')">1. List</button>
+        <button onclick="insertLink()">🔗 Link</button>
+        <button onclick="insertHeading()">H</button>
+      </div>
+      <div id="asn-desc" contenteditable="true" class="rich-editor"
+           style="border:1px solid #cbd5e0;border-top:none;border-radius:0 0 6px 6px;padding:12px;min-height:200px;font-size:0.92rem;line-height:1.5;background:#fff"></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.84rem;font-weight:600">
+        <input type="checkbox" id="asn-publish" checked>
+        Publish immediately (visible to students)
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="createAssignment()" style="padding:9px 22px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">Create Assignment</button>
+      <button onclick="document.getElementById('task-assign').classList.add('hide')" style="padding:9px 22px;background:#edf2f7;color:#666;border:none;border-radius:6px;font-weight:600;cursor:pointer">Cancel</button>
+      <span id="asn-status" style="margin-left:8px;font-size:0.84rem"></span>
+    </div>
+  </div>
+
+  <!-- Message form -->
+  <div class="card task-form hide" id="task-message">
+    <h2>✉️ Send Message to Students</h2>
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Recipients</label>
+      <select id="msg-recipients" style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+        <option value="all">All Students</option>
+        <option value="failing">Students with grade &lt; 70%</option>
+        <option value="missing">Students with no recent activity</option>
+        <option value="individual">Pick individual student(s)...</option>
+      </select>
+      <div id="msg-individual-picker" class="hide" style="margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid #cbd5e0;border-radius:6px;padding:10px;background:#f7fafc"></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Subject</label>
+      <input type="text" id="msg-subject" placeholder="Subject"
+             style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Message</label>
+      <textarea id="msg-body" rows="8" placeholder="Type your message..."
+                style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px;font-family:inherit;resize:vertical"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="sendMessage()" style="padding:9px 22px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">Send Message</button>
+      <button onclick="document.getElementById('task-message').classList.add('hide')" style="padding:9px 22px;background:#edf2f7;color:#666;border:none;border-radius:6px;font-weight:600;cursor:pointer">Cancel</button>
+      <span id="msg-status" style="margin-left:8px;font-size:0.84rem"></span>
+    </div>
+  </div>
+
+  <!-- Bulk operations -->
+  <div class="card task-form hide" id="task-bulk">
+    <h2>⚡ Bulk Operations</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+      <div class="bulk-op">
+        <h3>📅 Shift All Due Dates</h3>
+        <p style="font-size:0.82rem;color:#666;margin-bottom:8px">Move every assignment due date by N days.</p>
+        <div style="display:flex;gap:6px">
+          <input type="number" id="bulk-shift-days" value="7" style="width:80px;padding:7px 10px;border:1px solid #cbd5e0;border-radius:6px">
+          <span style="align-self:center;font-size:0.82rem">days</span>
+          <button onclick="bulkShiftDates()" style="padding:7px 14px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">Apply</button>
+        </div>
+      </div>
+      <div class="bulk-op">
+        <h3>📤 Publish All</h3>
+        <p style="font-size:0.82rem;color:#666;margin-bottom:8px">Publish every assignment in this course.</p>
+        <button onclick="bulkPublish(true)" style="padding:7px 14px;background:#276749;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">Publish All</button>
+      </div>
+      <div class="bulk-op">
+        <h3>📥 Unpublish All</h3>
+        <p style="font-size:0.82rem;color:#666;margin-bottom:8px">Hide every assignment from students.</p>
+        <button onclick="bulkPublish(false)" style="padding:7px 14px;background:#c05621;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">Unpublish All</button>
+      </div>
+      <div class="bulk-op">
+        <h3>🎓 Give Everyone Full Credit</h3>
+        <p style="font-size:0.82rem;color:#666;margin-bottom:8px">Pick an assignment, award all submitted students the full points.</p>
+        <select id="bulk-fc-asn" style="width:100%;padding:7px 10px;border:1px solid #cbd5e0;border-radius:6px;margin-bottom:6px;font-size:0.84rem"></select>
+        <button onclick="bulkFullCredit()" style="padding:7px 14px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer">Award Full Credit</button>
+      </div>
+    </div>
+    <div id="bulk-status" style="margin-top:12px;font-size:0.84rem"></div>
+    <button onclick="document.getElementById('task-bulk').classList.add('hide')" style="padding:9px 22px;background:#edf2f7;color:#666;border:none;border-radius:6px;font-weight:600;cursor:pointer;margin-top:12px">Close</button>
   </div>
 </div>
 
@@ -688,6 +898,295 @@ function showTab(id) {
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
                   .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Tasks ──
+function showTaskForm(which) {
+  document.querySelectorAll('.task-form').forEach(f => f.classList.add('hide'));
+  const form = document.getElementById('task-' + which);
+  form.classList.remove('hide');
+  form.scrollIntoView({behavior: 'smooth', block: 'start'});
+
+  if (which === 'assign') populateAssignmentGroups();
+  if (which === 'message') setupMessagePicker();
+  if (which === 'bulk') populateBulkAssignments();
+}
+
+function fmt(cmd, val) {
+  document.execCommand(cmd, false, val || null);
+}
+function insertLink() {
+  const url = prompt('URL:'); if (!url) return;
+  document.execCommand('createLink', false, url);
+}
+function insertHeading() {
+  document.execCommand('formatBlock', false, 'h3');
+}
+function toggleHtml() {
+  const rich = document.getElementById('ann-body');
+  const ta = document.getElementById('ann-body-html');
+  if (ta.classList.contains('hide')) {
+    ta.value = rich.innerHTML;
+    rich.classList.add('hide');
+    ta.classList.remove('hide');
+  } else {
+    rich.innerHTML = ta.value;
+    ta.classList.add('hide');
+    rich.classList.remove('hide');
+  }
+}
+
+// ── API helpers for tasks ──
+async function apiPost(path, params) {
+  const token = document.getElementById('token').value.trim();
+  const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+  if (!token) throw new Error('Token required');
+  const body = new URLSearchParams();
+  for (const [k, v] of params) body.append(k, v);
+  const res = await fetch(PROXY + path, {
+    method: 'POST',
+    headers: {
+      'X-Canvas-Token': token,
+      'X-Canvas-Domain': domain,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: body.toString(),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.errors?.[0]?.message || `HTTP ${res.status}`);
+  return data;
+}
+async function apiPut(path, params) {
+  const token = document.getElementById('token').value.trim();
+  const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+  const body = new URLSearchParams();
+  for (const [k, v] of params) body.append(k, v);
+  const res = await fetch(PROXY + path, {
+    method: 'PUT',
+    headers: {
+      'X-Canvas-Token': token,
+      'X-Canvas-Domain': domain,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: body.toString(),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.errors?.[0]?.message || `HTTP ${res.status}`);
+  return data;
+}
+
+function setStatus(elId, msg, type) {
+  const el = document.getElementById(elId);
+  el.textContent = msg;
+  el.style.color = type === 'err' ? '#c53030' : type === 'ok' ? '#276749' : '#666';
+}
+
+// ── Post Announcement ──
+async function postAnnouncement() {
+  const title = document.getElementById('ann-title').value.trim();
+  const ta = document.getElementById('ann-body-html');
+  const body = ta.classList.contains('hide') ? document.getElementById('ann-body').innerHTML
+                                              : ta.value;
+  if (!title || !body) { setStatus('ann-status', 'Title and message required', 'err'); return; }
+  setStatus('ann-status', 'Posting...', '');
+  try {
+    const r = await apiPost(`/api/v1/courses/${course_id}/discussion_topics`, [
+      ['title', title], ['message', body],
+      ['is_announcement', 'true'], ['published', 'true']
+    ]);
+    setStatus('ann-status', `✓ Posted: ${r.title}`, 'ok');
+    document.getElementById('ann-title').value = '';
+    document.getElementById('ann-body').innerHTML = '';
+    setTimeout(() => loadAnnouncements(), 1000);
+  } catch (e) {
+    setStatus('ann-status', '✗ ' + e.message, 'err');
+  }
+}
+
+// ── Create Assignment ──
+async function populateAssignmentGroups() {
+  try {
+    const token = document.getElementById('token').value.trim();
+    const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+    const res = await fetch(PROXY + `/api/v1/courses/${course_id}/assignment_groups?per_page=100`, {
+      headers: { 'X-Canvas-Token': token, 'X-Canvas-Domain': domain }
+    });
+    const groups = await res.json();
+    const sel = document.getElementById('asn-group');
+    sel.innerHTML = groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function createAssignment() {
+  const name = document.getElementById('asn-name').value.trim();
+  const points = document.getElementById('asn-points').value;
+  const due = document.getElementById('asn-due').value;
+  const groupId = document.getElementById('asn-group').value;
+  const subType = document.getElementById('asn-type').value;
+  const desc = document.getElementById('asn-desc').innerHTML;
+  const publish = document.getElementById('asn-publish').checked;
+  if (!name) { setStatus('asn-status', 'Name required', 'err'); return; }
+  setStatus('asn-status', 'Creating...', '');
+  try {
+    const params = [
+      ['assignment[name]', name],
+      ['assignment[points_possible]', points],
+      ['assignment[description]', desc],
+      ['assignment[submission_types][]', subType],
+      ['assignment[published]', publish ? 'true' : 'false'],
+      ['assignment[grading_type]', 'points'],
+    ];
+    if (due) params.push(['assignment[due_at]', new Date(due).toISOString()]);
+    if (groupId) params.push(['assignment[assignment_group_id]', groupId]);
+    const r = await apiPost(`/api/v1/courses/${course_id}/assignments`, params);
+    setStatus('asn-status', `✓ Created: ${r.name}`, 'ok');
+    // Reset form
+    document.getElementById('asn-name').value = '';
+    document.getElementById('asn-desc').innerHTML = '';
+    // Refresh assignments list
+    const all = await fetch(PROXY + `/api/v1/courses/${course_id}/assignments?per_page=100`, {
+      headers: { 'X-Canvas-Token': document.getElementById('token').value.trim(), 'X-Canvas-Domain': document.getElementById('domain').value.trim() }
+    }).then(r => r.json());
+    assignments = all;
+    renderAssignments();
+  } catch (e) {
+    setStatus('asn-status', '✗ ' + e.message, 'err');
+  }
+}
+
+// ── Send Message ──
+function setupMessagePicker() {
+  const sel = document.getElementById('msg-recipients');
+  sel.onchange = () => {
+    const picker = document.getElementById('msg-individual-picker');
+    if (sel.value === 'individual') {
+      picker.classList.remove('hide');
+      picker.innerHTML = enrollments.map((e, i) => `
+        <label style="display:block;padding:4px 0;font-size:0.84rem">
+          <input type="checkbox" class="msg-student" value="${e.user_id}" data-name="${esc(e.user?.name||'')}">
+          ${esc(e.user?.name || 'Unknown')} <span style="color:#888">— ${esc(e.user?.email || '')}</span>
+        </label>`).join('');
+    } else {
+      picker.classList.add('hide');
+    }
+  };
+}
+
+async function sendMessage() {
+  const mode = document.getElementById('msg-recipients').value;
+  const subject = document.getElementById('msg-subject').value.trim();
+  const body = document.getElementById('msg-body').value.trim();
+  if (!subject || !body) { setStatus('msg-status', 'Subject and body required', 'err'); return; }
+
+  let recipients = [];
+  if (mode === 'all') recipients = enrollments.map(e => 'student_' + e.user_id);
+  else if (mode === 'failing') {
+    recipients = enrollments.filter(e => {
+      const p = parseFloat(e.grades?.current_score || 0);
+      return p > 0 && p < 70;
+    }).map(e => 'student_' + e.user_id);
+  } else if (mode === 'missing') {
+    recipients = enrollments.filter(e => !e.last_activity_at).map(e => 'student_' + e.user_id);
+  } else if (mode === 'individual') {
+    recipients = Array.from(document.querySelectorAll('.msg-student:checked')).map(c => 'student_' + c.value);
+  }
+
+  if (!recipients.length) { setStatus('msg-status', 'No recipients selected', 'err'); return; }
+
+  setStatus('msg-status', `Sending to ${recipients.length}...`, '');
+  try {
+    const params = [
+      ['subject', subject],
+      ['body', body],
+      ['group_conversation', 'false'],
+      ['context_code', `course_${course_id}`],
+    ];
+    for (const r of recipients) params.push(['recipients[]', r]);
+    await apiPost('/api/v1/conversations', params);
+    setStatus('msg-status', `✓ Sent to ${recipients.length} student${recipients.length>1?'s':''}`, 'ok');
+    document.getElementById('msg-subject').value = '';
+    document.getElementById('msg-body').value = '';
+  } catch (e) {
+    setStatus('msg-status', '✗ ' + e.message, 'err');
+  }
+}
+
+// ── Bulk Operations ──
+function populateBulkAssignments() {
+  const sel = document.getElementById('bulk-fc-asn');
+  sel.innerHTML = '<option value="">— Select assignment —</option>' +
+    assignments.map(a => `<option value="${a.id}">${esc(a.name||'')} (${a.points_possible||0} pts)</option>`).join('');
+}
+
+async function bulkShiftDates() {
+  const days = parseInt(document.getElementById('bulk-shift-days').value);
+  if (!days || !confirm(`Shift all ${assignments.length} assignment due dates by ${days} days?`)) return;
+  setStatus('bulk-status', `Shifting ${assignments.length} dates...`, '');
+  let ok = 0, fail = 0;
+  for (const a of assignments) {
+    if (!a.due_at) continue;
+    const newDate = new Date(a.due_at);
+    newDate.setDate(newDate.getDate() + days);
+    try {
+      await apiPut(`/api/v1/courses/${course_id}/assignments/${a.id}`, [
+        ['assignment[due_at]', newDate.toISOString()],
+      ]);
+      ok++;
+    } catch { fail++; }
+  }
+  setStatus('bulk-status', `✓ Shifted ${ok} dates, ${fail} failed`, fail ? 'err' : 'ok');
+}
+
+async function bulkPublish(publish) {
+  if (!confirm(`${publish ? 'Publish' : 'Unpublish'} all ${assignments.length} assignments?`)) return;
+  setStatus('bulk-status', `${publish?'Publishing':'Unpublishing'}...`, '');
+  let ok = 0, fail = 0;
+  for (const a of assignments) {
+    try {
+      await apiPut(`/api/v1/courses/${course_id}/assignments/${a.id}`, [
+        ['assignment[published]', publish ? 'true' : 'false'],
+      ]);
+      ok++;
+    } catch { fail++; }
+  }
+  setStatus('bulk-status', `✓ Updated ${ok} (${fail} failed)`, fail ? 'err' : 'ok');
+  // Refresh
+  const all = await fetch(PROXY + `/api/v1/courses/${course_id}/assignments?per_page=100`, {
+    headers: { 'X-Canvas-Token': document.getElementById('token').value.trim(), 'X-Canvas-Domain': document.getElementById('domain').value.trim() }
+  }).then(r => r.json());
+  assignments = all;
+  renderAssignments();
+}
+
+async function bulkFullCredit() {
+  const aid = document.getElementById('bulk-fc-asn').value;
+  if (!aid) { setStatus('bulk-status', 'Pick an assignment', 'err'); return; }
+  const asn = assignments.find(a => a.id == aid);
+  if (!confirm(`Award ${asn.points_possible} points to every student who submitted "${asn.name}"?`)) return;
+  setStatus('bulk-status', `Awarding...`, '');
+  try {
+    const token = document.getElementById('token').value.trim();
+    const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+    const subsRes = await fetch(PROXY + `/api/v1/courses/${course_id}/assignments/${aid}/submissions?per_page=100`, {
+      headers: { 'X-Canvas-Token': token, 'X-Canvas-Domain': domain }
+    });
+    const subs = await subsRes.json();
+    let ok = 0, skipped = 0;
+    for (const s of subs) {
+      if (!s.submitted_at) { skipped++; continue; }
+      try {
+        await apiPut(`/api/v1/courses/${course_id}/assignments/${aid}/submissions/${s.user_id}`, [
+          ['submission[posted_grade]', String(asn.points_possible)],
+        ]);
+        ok++;
+      } catch {}
+    }
+    setStatus('bulk-status', `✓ Awarded ${ok} students (skipped ${skipped} with no submission)`, 'ok');
+  } catch (e) {
+    setStatus('bulk-status', '✗ ' + e.message, 'err');
+  }
 }
 </script>
 </body>

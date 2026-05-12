@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canvas API Console</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #f5f7fa; font-family: 'Segoe UI', system-ui, sans-serif; color: #1a202c;
+  min-height: 100vh; padding-bottom: 60px;
+}
+header {
+  background: linear-gradient(135deg, #1a365d, #2b6cb0);
+  padding: 20px 24px; color: #fff;
+}
+header h1 { font-size: 1.4rem; font-weight: 800; margin-bottom: 2px; }
+header p { color: #bee3f8; font-size: 0.82rem; }
+
+main { max-width: 1200px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: 1fr; gap: 16px; }
+
+.card {
+  background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  padding: 18px;
+}
+.card h2 {
+  font-size: 0.78rem; font-weight: 700; color: #2b6cb0; margin-bottom: 12px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+label { display: block; font-size: 0.72rem; color: #666; text-transform: uppercase;
+  letter-spacing: 0.04em; margin-bottom: 4px; font-weight: 600; }
+
+input, select, textarea {
+  width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 0.88rem; font-family: inherit; outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus { border-color: #2b6cb0; box-shadow: 0 0 0 2px rgba(43,108,176,0.15); }
+textarea { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 0.82rem; resize: vertical; }
+
+.row { display: grid; gap: 10px; }
+.row.two { grid-template-columns: 1fr 1fr; }
+.row.three { grid-template-columns: 100px 1fr 110px; }
+.row.mb { margin-bottom: 12px; }
+
+button {
+  padding: 9px 18px; border: none; border-radius: 6px; font-size: 0.85rem;
+  font-weight: 700; cursor: pointer; font-family: inherit;
+  transition: background 0.15s, transform 0.05s;
+}
+button:active { transform: scale(0.98); }
+.btn-primary { background: #2b6cb0; color: #fff; }
+.btn-primary:hover { background: #1a365d; }
+.btn-secondary { background: #edf2f7; color: #2b6cb0; border: 1px solid #cbd5e0; }
+.btn-secondary:hover { background: #e2e8f0; }
+.btn-danger { background: #c53030; color: #fff; }
+
+.tag-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tag {
+  background: #edf2f7; border: 1px solid #cbd5e0; color: #2d3748;
+  padding: 4px 10px; border-radius: 14px; font-size: 0.74rem;
+  cursor: pointer; font-family: 'SF Mono', monospace;
+  transition: all 0.15s;
+}
+.tag:hover { background: #2b6cb0; color: #fff; border-color: #2b6cb0; }
+
+.status {
+  display: inline-block; padding: 3px 10px; border-radius: 10px;
+  font-size: 0.74rem; font-weight: 700; font-family: monospace;
+  margin-right: 8px;
+}
+.status-2xx { background: #c6f6d5; color: #276749; }
+.status-3xx { background: #bee3f8; color: #2a69ac; }
+.status-4xx, .status-5xx { background: #fed7d7; color: #9b2c2c; }
+.status-0 { background: #edf2f7; color: #4a5568; }
+
+.output {
+  background: #1a202c; color: #e2e8f0; border-radius: 6px;
+  padding: 14px; font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.78rem; line-height: 1.5; overflow-x: auto; white-space: pre-wrap;
+  max-height: 600px; overflow-y: auto;
+}
+.output .key { color: #7f9cf5; }
+.output .str { color: #68d391; }
+.output .num { color: #f6ad55; }
+.output .bool { color: #f56565; }
+.output .null { color: #a0aec0; }
+
+.meta-line {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.78rem; color: #666; margin-bottom: 10px; flex-wrap: wrap;
+}
+
+.token-warn {
+  background: #fffbeb; border: 1px solid #fbd38d; color: #975a16;
+  padding: 8px 12px; border-radius: 6px; font-size: 0.78rem; margin-top: 8px;
+}
+
+.history-item {
+  padding: 8px 10px; border-radius: 6px; margin-bottom: 4px;
+  background: #f7fafc; cursor: pointer; display: flex; align-items: center;
+  gap: 8px; font-size: 0.78rem;
+}
+.history-item:hover { background: #edf2f7; }
+.history-method {
+  font-family: monospace; font-size: 0.7rem; padding: 2px 6px; border-radius: 3px;
+  font-weight: 700; min-width: 50px; text-align: center;
+}
+.history-method.GET { background: #c6f6d5; color: #276749; }
+.history-method.POST { background: #bee3f8; color: #2a69ac; }
+.history-method.PUT { background: #fefcbf; color: #975a16; }
+.history-method.DELETE { background: #fed7d7; color: #9b2c2c; }
+.history-path {
+  font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-status { font-family: monospace; color: #666; font-size: 0.72rem; }
+
+footer {
+  max-width: 1200px; margin: 20px auto 0; padding: 0 20px;
+  text-align: center; color: #a0aec0; font-size: 0.74rem;
+}
+footer a { color: #2b6cb0; }
+
+@media (min-width: 1024px) {
+  main { grid-template-columns: 1fr 1fr; }
+  .card.full { grid-column: span 2; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Canvas API Console</h1>
+  <p>Connect to your Canvas instance and run any API command</p>
+</header>
+
+<main>
+
+<div class="card full">
+  <h2>Connection</h2>
+  <div class="row two mb">
+    <div>
+      <label>Canvas Domain</label>
+      <input type="text" id="domain" placeholder="https://montclair.instructure.com" value="https://montclair.instructure.com">
+    </div>
+    <div>
+      <label>Access Token <span style="color:#c53030">*</span></label>
+      <input type="password" id="token" placeholder="Paste your Canvas API token">
+    </div>
+  </div>
+  <div class="row two">
+    <button class="btn-primary" onclick="testConnection()">Test Connection</button>
+    <button class="btn-secondary" onclick="loadCourses()">Load My Courses</button>
+  </div>
+  <div class="token-warn">
+    🔒 Your token is stored only in this browser (localStorage). It is sent through the proxy at
+    csit212-submissions.onrender.com which forwards to Canvas. Generate a token at
+    <strong>Canvas → Account → Settings → New Access Token</strong>.
+  </div>
+  <div id="conn-status" style="margin-top:8px;font-size:0.82rem"></div>
+</div>
+
+<div class="card">
+  <h2>Request</h2>
+  <div class="row three mb">
+    <div>
+      <label>Method</label>
+      <select id="method">
+        <option>GET</option>
+        <option>POST</option>
+        <option>PUT</option>
+        <option>DELETE</option>
+      </select>
+    </div>
+    <div>
+      <label>Path</label>
+      <input type="text" id="path" placeholder="/api/v1/courses" value="/api/v1/courses?per_page=10">
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <button class="btn-primary" onclick="sendRequest()" style="width:100%">Send</button>
+    </div>
+  </div>
+  <label>Body (for POST/PUT) — JSON or form-encoded</label>
+  <textarea id="body" rows="5" placeholder='{"assignment": {"name": "New Assignment", "points_possible": 100}}'></textarea>
+
+  <h2 style="margin-top:14px">Quick Commands</h2>
+  <div class="tag-bar" id="quick-cmds"></div>
+</div>
+
+<div class="card">
+  <h2>History</h2>
+  <div id="history" style="max-height:380px;overflow-y:auto"></div>
+  <button class="btn-secondary" onclick="clearHistory()" style="margin-top:8px;font-size:0.74rem;padding:5px 12px">Clear History</button>
+</div>
+
+<div class="card full">
+  <h2>Response</h2>
+  <div class="meta-line">
+    <span id="status" class="status status-0">—</span>
+    <span id="meta-info" style="font-family:monospace;font-size:0.74rem"></span>
+    <button class="btn-secondary" onclick="copyResponse()" style="margin-left:auto;font-size:0.74rem;padding:4px 10px">Copy</button>
+    <button class="btn-secondary" onclick="downloadResponse()" style="font-size:0.74rem;padding:4px 10px">Download JSON</button>
+  </div>
+  <div class="output" id="output">Press <strong>Send</strong> to run a request, or use a Quick Command above.</div>
+</div>
+
+</main>
+
+<footer>
+  Canvas API reference: <a href="https://canvas.instructure.com/doc/api/" target="_blank">canvas.instructure.com/doc/api/</a>
+  · Proxy: csit212-submissions.onrender.com
+</footer>
+
+<script>
+const PROXY = 'https://csit212-submissions.onrender.com/canvas-proxy';
+
+const QUICK_CMDS = [
+  { name: 'List my courses', method: 'GET', path: '/api/v1/courses?per_page=20&include[]=term' },
+  { name: 'My profile', method: 'GET', path: '/api/v1/users/self' },
+  { name: 'Calendar events', method: 'GET', path: '/api/v1/calendar_events?per_page=20' },
+  { name: 'Course assignments', method: 'GET', path: '/api/v1/courses/COURSE_ID/assignments?per_page=100' },
+  { name: 'Course modules', method: 'GET', path: '/api/v1/courses/COURSE_ID/modules?per_page=100' },
+  { name: 'Course people', method: 'GET', path: '/api/v1/courses/COURSE_ID/users?enrollment_type[]=student&per_page=100' },
+  { name: 'Enrollments+grades', method: 'GET', path: '/api/v1/courses/COURSE_ID/enrollments?type[]=StudentEnrollment&per_page=100' },
+  { name: 'Course pages', method: 'GET', path: '/api/v1/courses/COURSE_ID/pages?per_page=50' },
+  { name: 'Course announcements', method: 'GET', path: '/api/v1/courses/COURSE_ID/discussion_topics?only_announcements=true&per_page=50' },
+  { name: 'Course files', method: 'GET', path: '/api/v1/courses/COURSE_ID/files?per_page=50' },
+  { name: 'Course outcomes', method: 'GET', path: '/api/v1/courses/COURSE_ID/outcome_groups?per_page=50' },
+  { name: 'External tools', method: 'GET', path: '/api/v1/courses/COURSE_ID/external_tools?per_page=50' },
+];
+
+const HIST_KEY = 'canvas_console_history';
+const TOKEN_KEY = 'canvas_console_token';
+const DOMAIN_KEY = 'canvas_console_domain';
+
+window.addEventListener('load', () => {
+  // Restore from localStorage
+  const t = localStorage.getItem(TOKEN_KEY); if (t) document.getElementById('token').value = t;
+  const d = localStorage.getItem(DOMAIN_KEY); if (d) document.getElementById('domain').value = d;
+
+  // Save on change
+  document.getElementById('token').addEventListener('change', e => localStorage.setItem(TOKEN_KEY, e.target.value));
+  document.getElementById('domain').addEventListener('change', e => localStorage.setItem(DOMAIN_KEY, e.target.value));
+
+  // Render quick commands
+  const cmdsEl = document.getElementById('quick-cmds');
+  QUICK_CMDS.forEach(c => {
+    const el = document.createElement('span');
+    el.className = 'tag';
+    el.textContent = c.name;
+    el.onclick = () => useQuickCmd(c);
+    cmdsEl.appendChild(el);
+  });
+
+  renderHistory();
+});
+
+function useQuickCmd(c) {
+  document.getElementById('method').value = c.method;
+  let path = c.path;
+  if (path.includes('COURSE_ID')) {
+    const cid = prompt('Course ID:', localStorage.getItem('last_course') || '');
+    if (!cid) return;
+    localStorage.setItem('last_course', cid);
+    path = path.replace(/COURSE_ID/g, cid);
+  }
+  document.getElementById('path').value = path;
+}
+
+async function callProxy(method, path, body) {
+  const token = document.getElementById('token').value.trim();
+  const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+  if (!token) throw new Error('Token required');
+  if (!domain) throw new Error('Domain required');
+
+  // Strip leading slash and api prefix consistency
+  const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+  const url = PROXY + '/' + cleanPath;
+
+  const headers = {
+    'X-Canvas-Token': token,
+    'X-Canvas-Domain': domain,
+  };
+  const opts = { method, headers };
+  if (body && (method === 'POST' || method === 'PUT')) {
+    // Detect JSON vs form
+    const trimmed = body.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      headers['Content-Type'] = 'application/json';
+      opts.body = trimmed;
+    } else {
+      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      opts.body = trimmed;
+    }
+  }
+
+  const t0 = performance.now();
+  const res = await fetch(url, opts);
+  const ms = Math.round(performance.now() - t0);
+  let data;
+  const ct = res.headers.get('Content-Type') || '';
+  if (ct.includes('json')) data = await res.json();
+  else data = await res.text();
+  return { status: res.status, data, ms, link: res.headers.get('Link') };
+}
+
+async function testConnection() {
+  setStatus(0, 'testing…');
+  document.getElementById('output').textContent = 'Testing connection...';
+  try {
+    const r = await callProxy('GET', '/api/v1/users/self', '');
+    setStatus(r.status, `${r.ms}ms`);
+    if (r.status === 200) {
+      document.getElementById('conn-status').innerHTML =
+        '<span style="color:#276749">✓ Connected as <strong>' + escapeHtml(r.data.name || 'unknown') +
+        '</strong> (ID ' + r.data.id + ')</span>';
+    } else {
+      document.getElementById('conn-status').innerHTML =
+        '<span style="color:#c53030">✗ ' + (r.data?.errors?.[0]?.message || 'HTTP ' + r.status) + '</span>';
+    }
+    showResponse(r);
+  } catch (e) {
+    document.getElementById('conn-status').innerHTML = '<span style="color:#c53030">✗ ' + e.message + '</span>';
+    setStatus(0, 'error');
+    document.getElementById('output').textContent = 'Error: ' + e.message;
+  }
+}
+
+async function loadCourses() {
+  document.getElementById('method').value = 'GET';
+  document.getElementById('path').value = '/api/v1/courses?per_page=20&include[]=term';
+  await sendRequest();
+}
+
+async function sendRequest() {
+  const method = document.getElementById('method').value;
+  const path = document.getElementById('path').value.trim();
+  const body = document.getElementById('body').value;
+  if (!path) return alert('Path required');
+
+  setStatus(0, 'sending…');
+  document.getElementById('output').textContent = 'Sending...';
+  try {
+    const r = await callProxy(method, path, body);
+    setStatus(r.status, `${r.ms}ms`);
+    showResponse(r);
+    addHistory({ method, path, status: r.status, ms: r.ms, body });
+  } catch (e) {
+    setStatus(0, 'error');
+    document.getElementById('output').textContent = 'Error: ' + e.message;
+  }
+}
+
+function setStatus(code, ms) {
+  const el = document.getElementById('status');
+  el.className = 'status status-' + (code === 0 ? '0' : Math.floor(code / 100) + 'xx');
+  el.textContent = code === 0 ? '—' : code;
+  document.getElementById('meta-info').textContent = ms;
+}
+
+function showResponse(r) {
+  const out = document.getElementById('output');
+  if (typeof r.data === 'object') {
+    out.innerHTML = syntaxHighlight(JSON.stringify(r.data, null, 2));
+  } else {
+    out.textContent = String(r.data);
+  }
+  if (r.link) {
+    document.getElementById('meta-info').textContent += ' · pagination available';
+  }
+}
+
+function syntaxHighlight(json) {
+  json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return json.replace(/("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+    let cls = 'num';
+    if (/^"/.test(m)) cls = /:$/.test(m) ? 'key' : 'str';
+    else if (/true|false/.test(m)) cls = 'bool';
+    else if (/null/.test(m)) cls = 'null';
+    return '<span class="' + cls + '">' + m + '</span>';
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// History
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; }
+  catch { return []; }
+}
+function addHistory(item) {
+  const h = getHistory();
+  h.unshift({ ...item, ts: Date.now() });
+  localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 30)));
+  renderHistory();
+}
+function clearHistory() {
+  if (!confirm('Clear all history?')) return;
+  localStorage.removeItem(HIST_KEY);
+  renderHistory();
+}
+function renderHistory() {
+  const h = getHistory();
+  const el = document.getElementById('history');
+  if (!h.length) { el.innerHTML = '<div style="color:#a0aec0;font-size:0.78rem;padding:8px">No history yet.</div>'; return; }
+  el.innerHTML = h.map((it, i) => `
+    <div class="history-item" onclick="replayHistory(${i})">
+      <span class="history-method ${it.method}">${it.method}</span>
+      <span class="history-path">${escapeHtml(it.path)}</span>
+      <span class="history-status">${it.status} · ${it.ms}ms</span>
+    </div>`).join('');
+}
+function replayHistory(i) {
+  const it = getHistory()[i];
+  if (!it) return;
+  document.getElementById('method').value = it.method;
+  document.getElementById('path').value = it.path;
+  document.getElementById('body').value = it.body || '';
+}
+
+function copyResponse() {
+  const text = document.getElementById('output').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = event.target.textContent;
+    event.target.textContent = '✓ Copied';
+    setTimeout(() => event.target.textContent = orig, 1500);
+  });
+}
+
+function downloadResponse() {
+  const text = document.getElementById('output').innerText;
+  const blob = new Blob([text], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'canvas_response_' + Date.now() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>

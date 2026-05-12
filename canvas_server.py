@@ -103,9 +103,13 @@ def db_all_ratings():
 
 # ── Canvas helpers ─────────────────────────────────────────────────────────────
 
-def canvas_request(method, path, body=None):
-    url = CANVAS_BASE + path
-    headers = {'Authorization': 'Bearer ' + TOKEN, 'Accept': 'application/json'}
+def canvas_request(method, path, body=None, user_token=None, user_base=None, content_type=None):
+    base = user_base or CANVAS_BASE
+    url = base + path
+    token = user_token or TOKEN
+    headers = {'Authorization': 'Bearer ' + token, 'Accept': 'application/json'}
+    if content_type:
+        headers['Content-Type'] = content_type
     req = urllib.request.Request(url, data=body, method=method, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=20) as resp:
@@ -173,25 +177,40 @@ def index():
 
 @app.route('/canvas-proxy/<path:canvas_path>', methods=['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'])
 def canvas_proxy(canvas_path):
-    """Forward requests to Canvas with server-side auth token."""
+    """Forward requests to Canvas with server-side or user-supplied auth token.
+
+    User can supply their own credentials via headers:
+      X-Canvas-Token   — their Canvas API token (used instead of server default)
+      X-Canvas-Domain  — their Canvas instance, e.g. https://harvard.instructure.com
+    """
     # Handle CORS preflight
     if request.method == 'OPTIONS':
         resp = Response('', status=204)
         resp.headers['Access-Control-Allow-Origin'] = '*'
         resp.headers['Access-Control-Allow-Methods'] = 'GET, PUT, POST, DELETE, OPTIONS'
-        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Canvas-Token, X-Canvas-Domain'
         return resp
 
-    qs   = request.query_string.decode()
-    path = '/' + canvas_path + ('?' + qs if qs else '')
+    qs       = request.query_string.decode()
+    path     = '/' + canvas_path + ('?' + qs if qs else '')
     req_body = request.get_data() if request.method in ('PUT', 'POST') else None
-    code, body, link = canvas_request(request.method, path, req_body)
-    # Rewrite pagination links to go through proxy
+    user_token  = request.headers.get('X-Canvas-Token')
+    user_domain = request.headers.get('X-Canvas-Domain')
+    ct          = request.headers.get('Content-Type')
+
+    code, body, link = canvas_request(
+        request.method, path, req_body,
+        user_token=user_token, user_base=user_domain, content_type=ct
+    )
+
+    base_for_rewrite = user_domain or CANVAS_BASE
     if link:
-        link = link.replace(CANVAS_BASE, request.host_url.rstrip('/') + '/canvas-proxy')
+        link = link.replace(base_for_rewrite, request.host_url.rstrip('/') + '/canvas-proxy')
+
     resp = Response(body, status=code, mimetype='application/json')
     resp.headers['Access-Control-Allow-Origin'] = '*'
     resp.headers['Access-Control-Allow-Methods'] = 'GET, PUT, POST, DELETE, OPTIONS'
+    resp.headers['Access-Control-Expose-Headers'] = 'Link'
     if link:
         resp.headers['Link'] = link
     return resp

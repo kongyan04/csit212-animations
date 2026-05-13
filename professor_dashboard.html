@@ -283,7 +283,6 @@ a.email-link:hover { text-decoration: underline; }
           <th onclick="sortStudents('email')">Email</th>
           <th onclick="sortStudents('current')">Current %</th>
           <th onclick="sortStudents('letter')">Letter</th>
-          <th onclick="sortStudents('last')">Last Activity</th>
         </tr>
       </thead>
       <tbody id="students-tbody"></tbody>
@@ -1072,17 +1071,6 @@ function renderMultiStudents() {
   const search = (document.getElementById('student-search').value || '').toLowerCase();
   const filter = document.getElementById('student-filter').value;
 
-  // Inject the Section header column (multi-mode only)
-  const thead = document.querySelector('#tab-students thead tr');
-  if (thead && !thead.querySelector('th[data-multi]')) {
-    const th = document.createElement('th');
-    th.textContent = 'Section';
-    th.setAttribute('data-multi', '1');
-    th.style.cursor = 'pointer';
-    th.onclick = () => sortStudents('code');
-    thead.insertBefore(th, thead.firstChild);
-  }
-
   // Decide which courses to render
   const visibleCourses = sectionFilter
     ? multi_courses.filter(c => String(c.id) === String(sectionFilter))
@@ -1141,7 +1129,7 @@ function renderMultiStudents() {
         : 0;
       const header = `
         <tr style="background:#edf2f7">
-          <td colspan="6" style="padding:10px 14px">
+          <td colspan="4" style="padding:10px 14px">
             <span style="font-weight:700;color:#1a365d;font-size:0.96rem">📚 ${esc(g.code)}</span>
             <span style="margin-left:12px;color:#4a5568;font-size:0.84rem">
               ${g.rows.length} student(s) · Avg ${groupAvg ? groupAvg.toFixed(1) + '%' : '—'}
@@ -1157,12 +1145,10 @@ function renderMultiStudents() {
 
 function rowHtmlMulti(r) {
   return `<tr>
-    <td><span style="background:#edf2f7;padding:2px 8px;border-radius:10px;font-size:0.78rem;font-weight:600;cursor:pointer" onclick="selectCourse('${r.cid}')">${esc(r.code)}</span></td>
     <td>${esc(r.name)}</td>
     <td><span style="color:#666;font-size:0.84rem">${esc(r.email)}</span></td>
     <td>${r.current ? r.current.toFixed(1) + '%' : '—'}</td>
     <td>${r.current ? `<span class="pill ${pillClass(r.letter)}">${r.letter}</span>` : '—'}</td>
-    <td>${r.last ? new Date(r.last).toLocaleDateString() : '<span style="color:#a0aec0">never</span>'}</td>
   </tr>`;
 }
 
@@ -1185,11 +1171,6 @@ function renderMultiOtherTabs() {
 
 // When semester filter changes or user picks a single course, drop the multi-mode student-table column
 function removeMultiSectionColumn() {
-  const thead = document.querySelector('#tab-students thead tr');
-  if (thead) {
-    const th = thead.querySelector('th[data-multi]');
-    if (th) th.remove();
-  }
   const secSel = document.getElementById('section-filter');
   if (secSel) { secSel.classList.add('hide'); secSel.value = ''; }
 }
@@ -1337,8 +1318,7 @@ function renderStudents() {
       <td>${r.email ? `<a class="email-link" href="mailto:${esc(r.email)}">${esc(r.email)}</a>` : '<span style="color:#aaa">—</span>'}</td>
       <td>${r.current ? r.current.toFixed(1) + '%' : '<span style="color:#aaa">—</span>'}</td>
       <td>${r.current ? `<span class="pill ${pillClass(r.letter)}">${r.letter}</span>` : '—'}</td>
-      <td style="color:#666;font-size:0.82rem">${r.last ? new Date(r.last).toLocaleDateString() : '<span style="color:#aaa">never</span>'}</td>
-    </tr>`).join('') || '<tr><td colspan="5" class="empty">No students match</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="4" class="empty">No students match</td></tr>';
 }
 
 // ── Assignments ──

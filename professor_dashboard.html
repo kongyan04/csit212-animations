@@ -1450,7 +1450,7 @@ function refreshPickersForCurrentCourse(cid) {
 // ── Load course data ──
 async function selectCourse(cid) {
   multi_mode = false;
-  multi_courses = [];
+  // Keep multi_courses so the tab pickers stay populated and the user can switch back
   removeMultiSectionColumn();
   course_id = cid;
   document.getElementById('dashboard').classList.remove('hide');

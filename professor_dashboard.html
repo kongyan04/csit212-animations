@@ -445,6 +445,40 @@ a.email-link:hover { text-decoration: underline; }
       <div class="lbl">Bulk Operations</div>
       <div class="sub">Publish, dates, grades</div>
     </div>
+    <div class="stat-card" onclick="showTaskForm('grade')" style="cursor:pointer">
+      <div class="val" style="font-size:2rem">📊</div>
+      <div class="lbl">Grade Homework</div>
+      <div class="sub">Score one assignment</div>
+    </div>
+  </div>
+
+  <!-- Grade homework form -->
+  <div class="card task-form hide" id="task-grade">
+    <h2>📊 Grade Homework</h2>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px;align-items:end">
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Assignment</label>
+        <select id="grade-asn-select" onchange="loadGradeRows()"
+                style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+          <option value="">— Pick an assignment —</option>
+        </select>
+      </div>
+      <div style="text-align:right;font-size:0.82rem;color:#4a5568">
+        <span id="grade-asn-meta"></span>
+      </div>
+    </div>
+    <div id="grade-rows-wrap" style="max-height:520px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
+      <button onclick="saveGrades()" id="grade-save-btn"
+              style="padding:9px 22px;background:#276749;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">
+        ✓ Save Changes
+      </button>
+      <button onclick="document.getElementById('task-grade').classList.add('hide')"
+              style="padding:9px 22px;background:#edf2f7;color:#666;border:none;border-radius:6px;font-weight:600;cursor:pointer">
+        Cancel
+      </button>
+      <span id="grade-status" style="margin-left:8px;font-size:0.84rem"></span>
+    </div>
   </div>
 
   <!-- Announcement form -->
@@ -991,6 +1025,139 @@ function showTaskForm(which) {
   if (which === 'assign') populateAssignmentGroups();
   if (which === 'message') setupMessagePicker();
   if (which === 'bulk') populateBulkAssignments();
+  if (which === 'grade') populateGradeAssignments();
+}
+
+// ── Grade Homework form ──
+let gradeRowsCache = []; // {user_id, name, original, current_input}
+
+function populateGradeAssignments() {
+  const sel = document.getElementById('grade-asn-select');
+  if (!sel || !assignments?.length) return;
+  sel.innerHTML = '<option value="">— Pick an assignment —</option>' +
+    assignments.map(a => `<option value="${a.id}">${esc(a.name)} (${a.points_possible ?? 0} pts)</option>`).join('');
+  document.getElementById('grade-rows-wrap').innerHTML = '';
+  document.getElementById('grade-asn-meta').textContent = '';
+}
+
+async function loadGradeRows() {
+  const aid = document.getElementById('grade-asn-select').value;
+  const wrap = document.getElementById('grade-rows-wrap');
+  const meta = document.getElementById('grade-asn-meta');
+  if (!aid) { wrap.innerHTML = ''; meta.textContent = ''; return; }
+
+  const asn = assignments.find(a => String(a.id) === String(aid));
+  if (!asn) return;
+  const max = asn.points_possible ?? 0;
+  meta.innerHTML = `Max: <b>${max}</b> pts · Due: ${asn.due_at ? new Date(asn.due_at).toLocaleDateString() : '—'}`;
+
+  wrap.innerHTML = '<div style="padding:20px;color:#666;font-size:0.9rem">Loading submissions…</div>';
+
+  try {
+    const subs = await api(`/api/v1/courses/${course_id}/assignments/${aid}/submissions?per_page=100&include[]=user`);
+    const byUser = {};
+    for (const s of subs) byUser[s.user_id] = s;
+
+    const students = (enrollments || [])
+      .filter(e => e.type === 'StudentEnrollment' && e.user)
+      .map(e => ({ id: e.user.id, name: e.user.sortable_name || e.user.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    gradeRowsCache = students.map(st => {
+      const s = byUser[st.id];
+      return {
+        user_id: st.id,
+        name: st.name,
+        submitted: !!(s && s.submitted_at),
+        original_grade: s?.grade ?? '',
+        original_score: s?.score,
+        missing: !!(s && s.missing),
+        late: !!(s && s.late),
+      };
+    });
+
+    wrap.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
+        <thead style="position:sticky;top:0;background:#edf2f7;z-index:1">
+          <tr>
+            <th style="text-align:left;padding:10px 12px;border-bottom:2px solid #cbd5e0">Student</th>
+            <th style="text-align:center;padding:10px 8px;border-bottom:2px solid #cbd5e0;width:90px">Status</th>
+            <th style="text-align:center;padding:10px 8px;border-bottom:2px solid #cbd5e0;width:110px">Grade</th>
+            <th style="text-align:center;padding:10px 8px;border-bottom:2px solid #cbd5e0;width:220px">Quick</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${gradeRowsCache.map((r, i) => {
+            const badge = r.missing ? '<span style="background:#fed7d7;color:#9b2c2c;padding:2px 8px;border-radius:10px;font-size:0.74rem;font-weight:600">Missing</span>'
+                       : r.late ? '<span style="background:#feebc8;color:#9c4221;padding:2px 8px;border-radius:10px;font-size:0.74rem;font-weight:600">Late</span>'
+                       : r.submitted ? '<span style="background:#c6f6d5;color:#22543d;padding:2px 8px;border-radius:10px;font-size:0.74rem;font-weight:600">Submitted</span>'
+                       : '<span style="color:#a0aec0;font-size:0.78rem">—</span>';
+            return `
+              <tr style="border-bottom:1px solid #edf2f7">
+                <td style="padding:8px 12px">${esc(r.name)}</td>
+                <td style="text-align:center;padding:8px">${badge}</td>
+                <td style="text-align:center;padding:8px">
+                  <input type="text" id="g-row-${i}" value="${esc(r.original_grade || '')}"
+                         placeholder="—"
+                         style="width:80px;padding:5px 8px;border:1px solid #cbd5e0;border-radius:5px;font-size:0.86rem;text-align:center">
+                </td>
+                <td style="text-align:center;padding:8px">
+                  <button onclick="setGradeRow(${i}, ${max})" style="padding:4px 10px;background:#276749;color:#fff;border:none;border-radius:4px;font-size:0.76rem;font-weight:600;cursor:pointer">Full</button>
+                  <button onclick="setGradeRow(${i}, ${Math.round(max/2)})" style="padding:4px 10px;background:#dd6b20;color:#fff;border:none;border-radius:4px;font-size:0.76rem;font-weight:600;cursor:pointer">½</button>
+                  <button onclick="setGradeRow(${i}, 0)" style="padding:4px 10px;background:#718096;color:#fff;border:none;border-radius:4px;font-size:0.76rem;font-weight:600;cursor:pointer">0</button>
+                  <button onclick="setGradeRow(${i}, '')" style="padding:4px 10px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:4px;font-size:0.76rem;font-weight:600;cursor:pointer">Clear</button>
+                </td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    wrap.innerHTML = `<div style="padding:16px;color:#c53030">Error loading submissions: ${esc(e.message)}</div>`;
+  }
+}
+
+function setGradeRow(i, val) {
+  const inp = document.getElementById(`g-row-${i}`);
+  if (inp) inp.value = val === '' ? '' : String(val);
+}
+
+async function saveGrades() {
+  const aid = document.getElementById('grade-asn-select').value;
+  if (!aid) { setStatus('grade-status', 'Pick an assignment first.', 'err'); return; }
+
+  const changes = [];
+  gradeRowsCache.forEach((r, i) => {
+    const inp = document.getElementById(`g-row-${i}`);
+    if (!inp) return;
+    const newVal = inp.value.trim();
+    const oldVal = (r.original_grade ?? '').toString();
+    if (newVal !== oldVal) changes.push({ user_id: r.user_id, name: r.name, grade: newVal });
+  });
+
+  if (!changes.length) { setStatus('grade-status', 'No changes to save.', 'warn'); return; }
+  if (!confirm(`Save ${changes.length} grade change${changes.length === 1 ? '' : 's'}?`)) return;
+
+  const btn = document.getElementById('grade-save-btn');
+  btn.disabled = true;
+  let ok = 0, fail = 0;
+  for (const c of changes) {
+    setStatus('grade-status', `Saving ${ok + fail + 1}/${changes.length} — ${c.name}…`, 'info');
+    try {
+      await apiPut(`/api/v1/courses/${course_id}/assignments/${aid}/submissions/${c.user_id}`, [
+        ['submission[posted_grade]', c.grade === '' ? '' : c.grade]
+      ]);
+      ok++;
+    } catch (e) {
+      fail++;
+      console.error('Grade save failed for', c.name, e);
+    }
+  }
+  btn.disabled = false;
+  setStatus('grade-status', `Saved ${ok} / ${changes.length}${fail ? ` · ${fail} failed (see console)` : ''}.`, fail ? 'warn' : 'ok');
+  if (ok > 0) {
+    // Refresh originals so future diffs work correctly
+    await loadGradeRows();
+  }
 }
 
 function fmt(cmd, val) {

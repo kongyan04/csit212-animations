@@ -35,6 +35,7 @@ header p { color: #bee3f8; font-size: 0.82rem; }
 .conn-status { font-size: 0.8rem; }
 .conn-status.ok { color: #276749; }
 .conn-status.err { color: #c53030; }
+.conn-status.warn { color: #c05621; }
 
 main { max-width: 1400px; margin: 0 auto; padding: 20px; }
 .hide { display: none !important; }
@@ -206,6 +207,8 @@ a.email-link:hover { text-decoration: underline; }
     <select id="course-select"><option value="">— Load your courses first —</option></select>
   </div>
   <button onclick="loadCourses()">Connect</button>
+  <button onclick="loadCurrentSemester()" title="Load only courses in the current semester"
+          style="margin-left:6px">📅 Current Semester</button>
   <span id="conn-status" class="conn-status"></span>
 </div>
 
@@ -754,25 +757,95 @@ async function api(path) {
 }
 
 // ── Connect & load courses ──
+let allCourses = [];
+
 async function loadCourses() {
   const status = document.getElementById('conn-status');
   status.textContent = 'Connecting...';
   status.className = 'conn-status';
   try {
     const courses = await api('/api/v1/courses?per_page=100&include[]=term&enrollment_type=teacher&state[]=available&state[]=completed');
-    const sel = document.getElementById('course-select');
-    sel.innerHTML = '<option value="">Select a course...</option>';
+    allCourses = courses;
     courses.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-    courses.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.id;
-      const term = (c.term && c.term.name) ? ` (${c.term.name})` : '';
-      opt.textContent = `${c.course_code || c.name}${term}`;
-      sel.appendChild(opt);
-    });
+    populateCourseSelect(courses, 'Select a course...');
     status.textContent = `✓ Found ${courses.length} courses`;
     status.className = 'conn-status ok';
     document.getElementById('token-help').classList.add('hide');
+  } catch (e) {
+    status.textContent = '✗ ' + e.message;
+    status.className = 'conn-status err';
+  }
+}
+
+function populateCourseSelect(courses, placeholder) {
+  const sel = document.getElementById('course-select');
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+  courses.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    const term = (c.term && c.term.name) ? ` (${c.term.name})` : '';
+    opt.textContent = `${c.course_code || c.name}${term}`;
+    sel.appendChild(opt);
+  });
+}
+
+// Return a tag like "SP26" / "SU26" / "FA26" for today's date.
+function currentSemesterTag(d) {
+  d = d || new Date();
+  const m = d.getMonth() + 1; // 1..12
+  const yy = String(d.getFullYear()).slice(-2);
+  // MSU pattern: Spring = Jan–May, Summer = May–Aug, Fall = Aug–Dec
+  if (m <= 5) return `SP${yy}`;
+  if (m <= 8) return `SU${yy}`;
+  return `FA${yy}`;
+}
+
+function isCurrentSemesterCourse(c, tag, today) {
+  // 1. Course code contains the tag (e.g. CSIT111_11SU26)
+  const code = (c.course_code || '').toUpperCase();
+  if (code.includes(tag)) return true;
+  // 2. Term name contains the season + year, e.g. "Summer 2026"
+  const tn = (c.term && c.term.name) || '';
+  const yearFull = `20${tag.slice(2)}`;
+  const season = { SP: 'Spring', SU: 'Summer', FA: 'Fall' }[tag.slice(0, 2)];
+  if (tn.includes(season) && tn.includes(yearFull)) return true;
+  // 3. Today's date is between course start_at and end_at
+  const start = c.start_at && new Date(c.start_at);
+  const end = c.end_at && new Date(c.end_at);
+  if (start && end && today >= start && today <= end) return true;
+  return false;
+}
+
+async function loadCurrentSemester() {
+  const status = document.getElementById('conn-status');
+  status.textContent = 'Loading current semester...';
+  status.className = 'conn-status';
+  try {
+    if (!allCourses.length) {
+      const courses = await api('/api/v1/courses?per_page=100&include[]=term&enrollment_type=teacher&state[]=available&state[]=completed');
+      allCourses = courses;
+    }
+    const today = new Date();
+    const tag = currentSemesterTag(today);
+    const matches = allCourses.filter(c => isCurrentSemesterCourse(c, tag, today));
+    matches.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+
+    if (!matches.length) {
+      status.textContent = `No courses found for ${tag}. Showing all courses.`;
+      status.className = 'conn-status warn';
+      populateCourseSelect(allCourses.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')), 'Select a course...');
+      document.getElementById('token-help').classList.add('hide');
+      return;
+    }
+    populateCourseSelect(matches, `${matches.length} course(s) in ${tag}`);
+    status.textContent = `✓ ${matches.length} course(s) in current semester (${tag})`;
+    status.className = 'conn-status ok';
+    document.getElementById('token-help').classList.add('hide');
+    if (matches.length === 1) {
+      const sel = document.getElementById('course-select');
+      sel.value = matches[0].id;
+      selectCourse(matches[0].id);
+    }
   } catch (e) {
     status.textContent = '✗ ' + e.message;
     status.className = 'conn-status err';

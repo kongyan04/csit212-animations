@@ -51,6 +51,24 @@ header p { color: #bee3f8; font-size: 0.82rem; }
   border-radius:6px; font-size:0.86rem; font-family:inherit; min-width:240px; }
 .multi-picker-bar .picker-note { color:#4a5568; font-size:0.82rem; }
 
+.course-chip {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:7px 14px; background:#fff; border:1.5px solid #cbd5e0;
+  border-radius:20px; cursor:pointer; user-select:none;
+  font-size:0.86rem; transition:all 0.1s;
+}
+.course-chip:hover { border-color:#2b6cb0; }
+.course-chip input.round-check { appearance:none; -webkit-appearance:none;
+  width:18px; height:18px; border:2px solid #cbd5e0; border-radius:50%;
+  cursor:pointer; position:relative; margin:0; transition:all 0.1s; flex-shrink:0; }
+.course-chip input.round-check:checked { background:#2b6cb0; border-color:#2b6cb0; }
+.course-chip input.round-check:checked::after {
+  content:''; position:absolute; top:50%; left:50%;
+  transform:translate(-50%,-50%) rotate(45deg);
+  width:5px; height:9px; border:solid #fff; border-width:0 2px 2px 0;
+}
+.course-chip:has(input:checked) { background:#ebf8ff; border-color:#2b6cb0; color:#1a365d; font-weight:600; }
+
 main { max-width: 1400px; margin: 0 auto; padding: 20px; }
 .hide { display: none !important; }
 
@@ -366,10 +384,48 @@ a.email-link:hover { text-decoration: underline; }
 
 <!-- Announcements -->
 <div class="tab-panel" id="tab-announcements">
-  <div class="multi-picker-bar hide" id="picker-announcements"></div>
   <div class="card">
-    <h2>Recent Announcements</h2>
-    <div id="ann-list"></div>
+    <h2>📢 New Announcement</h2>
+    <p style="font-size:0.84rem;color:#666;margin-bottom:14px">Compose once and send to any combination of your loaded courses.</p>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Title</label>
+      <input type="text" id="multi-ann-title" placeholder="e.g., Class canceled tomorrow"
+             style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.92rem;margin-top:4px">
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Send to which course(s)?</label>
+      <div style="display:flex;gap:8px;align-items:center;margin:6px 0">
+        <button type="button" onclick="multiAnnSelectAll(true)" style="padding:4px 12px;background:#edf2f7;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Select all</button>
+        <button type="button" onclick="multiAnnSelectAll(false)" style="padding:4px 12px;background:#edf2f7;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Clear</button>
+        <span id="multi-ann-courses-count" style="font-size:0.78rem;color:#666"></span>
+      </div>
+      <div id="multi-ann-courses" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:8px;min-height:54px"></div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Message</label>
+      <div class="editor-toolbar">
+        <button onclick="document.execCommand('bold',false,null)" title="Bold"><b>B</b></button>
+        <button onclick="document.execCommand('italic',false,null)" title="Italic"><i>I</i></button>
+        <button onclick="document.execCommand('underline',false,null)" title="Underline"><u>U</u></button>
+        <button onclick="document.execCommand('insertUnorderedList',false,null)">• List</button>
+        <button onclick="document.execCommand('insertOrderedList',false,null)">1. List</button>
+        <button onclick="(function(){const u=prompt('URL:');if(u)document.execCommand('createLink',false,u);})()">🔗 Link</button>
+        <button onclick="document.execCommand('formatBlock',false,'h3')">H</button>
+      </div>
+      <div id="multi-ann-body" contenteditable="true" class="rich-editor"
+           style="border:1px solid #cbd5e0;border-top:none;border-radius:0 0 6px 6px;padding:12px;min-height:200px;font-size:0.92rem;line-height:1.5;background:#fff"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="postMultiAnnouncement()" id="multi-ann-send-btn"
+              style="padding:10px 24px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">📢 Send Announcement</button>
+      <button onclick="resetMultiAnnouncementForm()"
+              style="padding:10px 22px;background:#edf2f7;color:#4a5568;border:none;border-radius:6px;font-weight:600;cursor:pointer">Reset</button>
+      <span id="multi-ann-status" style="margin-left:8px;font-size:0.86rem"></span>
+    </div>
   </div>
 </div>
 
@@ -1174,13 +1230,13 @@ function renderMultiOtherTabs() {
   showMultiPicker('gradebook', false);
   showMultiPicker('assignments', true);
   showMultiPicker('atrisk', true);
-  showMultiPicker('announcements', true);
   showMultiPicker('tasks', false);
   renderMultiAssignments();
   renderMultiAtRisk();
-  renderMultiAnnouncements();
   renderMultiGradebook();
   renderMultiTasks();
+  // Announcements tab is a composer — populate the course checkboxes
+  renderAnnouncementComposerCourses();
 }
 
 function showMultiPicker(tabKey, supportsGrouped) {
@@ -1219,7 +1275,7 @@ function onMultiPickerChange(tabKey, val) {
     selectCourse(val);
     return;
   }
-  // Assignments / At-Risk / Announcements support multi-mode grouped or filtered
+  // Assignments / At-Risk support multi-mode grouped or filtered
   if (val === 'all') {
     if (!multi_mode) {
       // Reload the multi context
@@ -1227,18 +1283,16 @@ function onMultiPickerChange(tabKey, val) {
       return;
     }
   } else if (val) {
-    // User wants this tab to show one specific course
     if (!multi_mode) selectCourse(val);
   }
   if (multi_mode) {
     if (tabKey === 'assignments') renderMultiAssignments();
     if (tabKey === 'atrisk') renderMultiAtRisk();
-    if (tabKey === 'announcements') renderMultiAnnouncements();
   }
 }
 
 function hideMultiPickers() {
-  ['gradebook','assignments','atrisk','announcements','tasks'].forEach(k => {
+  ['gradebook','assignments','atrisk','tasks'].forEach(k => {
     const el = document.getElementById('picker-' + k);
     if (el) { el.classList.add('hide'); el.innerHTML = ''; }
   });
@@ -1367,48 +1421,85 @@ function renderMultiAtRisk() {
   }
 }
 
-// ── Multi: Announcements tab ──
-async function renderMultiAnnouncements() {
-  if (!multi_mode) return;
-  const list = document.getElementById('ann-list');
-  const cur = multi_tab_active.announcements || 'all';
-  list.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
-  const courses = cur === 'all' ? multi_courses : multi_courses.filter(c => String(c.id) === String(cur));
-  await Promise.all(courses.map(c => ensureMultiCourseAnnouncements(c)));
+// ── Announcement composer (multi-course) ──
+function renderAnnouncementComposerCourses() {
+  const wrap = document.getElementById('multi-ann-courses');
+  if (!wrap) return;
+  // Build list: prefer loaded multi_courses; if empty, fall back to currently-selected single course
+  const pool = multi_courses.length
+    ? multi_courses.map(c => ({ id: c.id, code: c.code }))
+    : (course_id ? [{ id: course_id, code: course_info?.course_code || 'Current course' }] : []);
+  if (!pool.length) {
+    wrap.innerHTML = '<div style="color:#666;font-size:0.86rem;padding:6px">Connect and load a course or semester first.</div>';
+    document.getElementById('multi-ann-courses-count').textContent = '';
+    return;
+  }
+  wrap.innerHTML = pool.map(c => `
+    <label class="course-chip">
+      <input type="checkbox" class="round-check" value="${c.id}" data-code="${esc(c.code)}" onchange="updateMultiAnnCount()">
+      <span>${esc(c.code)}</span>
+    </label>
+  `).join('');
+  updateMultiAnnCount();
+}
 
-  if (cur === 'all') {
-    list.innerHTML = courses.map(c => {
-      const ann = (c._announcements || []).slice(0, 5);
-      const header = `<div style="background:#edf2f7;padding:10px 14px;border-radius:8px;margin:14px 0 8px">
-        <span style="font-weight:700;color:#1a365d">📚 ${esc(c.code)}</span>
-        <span style="margin-left:12px;color:#4a5568;font-size:0.84rem">
-          ${ann.length} recent announcement(s)
-          · <a href="#" onclick="event.preventDefault();selectCourse('${c.id}')" style="color:#2b6cb0">Open this section →</a>
-        </span></div>`;
-      const body = ann.length
-        ? ann.map(a => annHtml(a)).join('')
-        : `<div class="empty" style="padding:14px">No announcements.</div>`;
-      return header + body;
-    }).join('');
-  } else {
-    const c = courses[0];
-    const ann = c?._announcements || [];
-    list.innerHTML = ann.length
-      ? ann.map(a => annHtml(a)).join('')
-      : `<div class="empty" style="padding:20px;text-align:center">No announcements in ${esc(c?.code || '')}.</div>`;
+function updateMultiAnnCount() {
+  const n = document.querySelectorAll('#multi-ann-courses input[type=checkbox]:checked').length;
+  const total = document.querySelectorAll('#multi-ann-courses input[type=checkbox]').length;
+  const el = document.getElementById('multi-ann-courses-count');
+  if (el) el.textContent = `${n} of ${total} selected`;
+}
+
+function multiAnnSelectAll(on) {
+  document.querySelectorAll('#multi-ann-courses input[type=checkbox]').forEach(cb => { cb.checked = on; });
+  updateMultiAnnCount();
+}
+
+function resetMultiAnnouncementForm() {
+  document.getElementById('multi-ann-title').value = '';
+  document.getElementById('multi-ann-body').innerHTML = '';
+  multiAnnSelectAll(false);
+  setStatus('multi-ann-status', '', '');
+}
+
+async function postMultiAnnouncement() {
+  const title = document.getElementById('multi-ann-title').value.trim();
+  const body = document.getElementById('multi-ann-body').innerHTML.trim();
+  const checked = Array.from(document.querySelectorAll('#multi-ann-courses input[type=checkbox]:checked'));
+  if (!title) { setStatus('multi-ann-status', 'Title required.', 'err'); return; }
+  if (!body || body === '<br>') { setStatus('multi-ann-status', 'Message required.', 'err'); return; }
+  if (!checked.length) { setStatus('multi-ann-status', 'Pick at least one course.', 'err'); return; }
+  const targets = checked.map(c => ({ id: c.value, code: c.dataset.code }));
+  if (!confirm(`Send this announcement to ${targets.length} course(s)?\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
+
+  const btn = document.getElementById('multi-ann-send-btn');
+  btn.disabled = true;
+  let ok = 0, fail = 0;
+  for (const t of targets) {
+    setStatus('multi-ann-status', `Sending to ${t.code} (${ok + fail + 1}/${targets.length})…`, 'info');
+    try {
+      await apiPost(`/api/v1/courses/${t.id}/discussion_topics`, [
+        ['title', title],
+        ['message', body],
+        ['is_announcement', 'true'],
+        ['published', 'true'],
+      ]);
+      ok++;
+    } catch (e) {
+      fail++;
+      console.error('Announcement failed for', t.code, e);
+    }
+  }
+  btn.disabled = false;
+  setStatus('multi-ann-status', `Sent to ${ok} of ${targets.length}${fail ? ` · ${fail} failed (see console)` : ''}.`, fail ? 'warn' : 'ok');
+  if (ok > 0 && !fail) {
+    setTimeout(resetMultiAnnouncementForm, 1500);
   }
 }
 
-function annHtml(a) {
-  const date = a.posted_at ? new Date(a.posted_at).toLocaleDateString() : '';
-  return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:10px">
-    <div style="display:flex;justify-content:space-between;align-items:start">
-      <strong style="font-size:0.96rem">${esc(a.title || '(no title)')}</strong>
-      <span style="font-size:0.78rem;color:#666">${date}</span>
-    </div>
-    <div style="margin-top:8px;font-size:0.86rem;color:#4a5568;line-height:1.5;max-height:120px;overflow:hidden">${a.message || ''}</div>
-  </div>`;
-}
+// (kept stub so removed renderMultiAnnouncements call sites don't error)
+async function renderMultiAnnouncements() { renderAnnouncementComposerCourses(); }
+async function ensureMultiCourseAnnouncements() { /* no longer used for view */ }
 
 // ── Multi: Gradebook tab ──
 function renderMultiGradebook() {
@@ -1436,15 +1527,16 @@ function removeMultiSectionColumn() {
 
 function refreshPickersForCurrentCourse(cid) {
   if (!multi_courses.length) return;
-  ['gradebook','assignments','atrisk','announcements','tasks'].forEach(k => {
+  ['gradebook','assignments','atrisk','tasks'].forEach(k => {
     multi_tab_active[k] = String(cid);
   });
   // Re-render each picker so it shows the new selection
   showMultiPicker('gradebook', false);
   showMultiPicker('assignments', true);
   showMultiPicker('atrisk', true);
-  showMultiPicker('announcements', true);
   showMultiPicker('tasks', false);
+  // Announcement composer: refresh its course checkboxes
+  renderAnnouncementComposerCourses();
 }
 
 // ── Load course data ──
@@ -1748,6 +1840,7 @@ function showTab(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + id).classList.add('active');
   event.currentTarget.classList.add('active');
+  if (id === 'announcements') renderAnnouncementComposerCourses();
 }
 
 function esc(s) {

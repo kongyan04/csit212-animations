@@ -1158,12 +1158,9 @@ function autoGradeFor(r, max, asnName) {
   const requiresUrl  = (r.required_type || []).includes('online_url');
   const needsContent = requiresFile || requiresText || requiresUrl;
 
-  // No submission at all
+  // No submission at all — skip (leave grade and comment untouched)
   if (!r.submitted) {
-    return {
-      grade: 0,
-      comment: `No submission received for "${asnName}". Please submit as soon as possible — reach out if you ran into trouble.`,
-    };
+    return null;
   }
   // Submitted but no attachment when a file was required
   if (requiresFile && !r.attachments) {
@@ -1200,16 +1197,17 @@ function autoGradeAll() {
   if (!asn) return;
   const max = asn.points_possible ?? 0;
 
-  let filled = 0;
+  let filled = 0, skipped = 0;
   gradeRowsCache.forEach((r, i) => {
     const plan = autoGradeFor(r, max, asn.name);
+    if (!plan) { skipped++; return; }
     const gInp = document.getElementById(`g-row-${i}`);
     const cInp = document.getElementById(`c-row-${i}`);
     if (gInp) gInp.value = String(plan.grade);
     if (cInp) cInp.value = plan.comment;
     filled++;
   });
-  setStatus('grade-status', `Auto-filled ${filled} rows. Review and edit, then click Save Changes.`, 'info');
+  setStatus('grade-status', `Auto-filled ${filled} rows${skipped ? ` · ${skipped} skipped (no submission)` : ''}. Review and edit, then click Save Changes.`, 'info');
 }
 
 async function saveGrades() {

@@ -203,11 +203,17 @@ a.email-link:hover { text-decoration: underline; }
     <input type="password" id="token" placeholder="Paste your token">
   </div>
   <div>
+    <label>Semester</label><br>
+    <select id="semester-select" onchange="filterBySemester()" disabled>
+      <option value="__all__">All semesters</option>
+    </select>
+  </div>
+  <div>
     <label>Course</label><br>
     <select id="course-select"><option value="">— Load your courses first —</option></select>
   </div>
   <button onclick="loadCourses()">Connect</button>
-  <button onclick="loadCurrentSemester()" title="Load only courses in the current semester"
+  <button onclick="loadCurrentSemester()" title="Filter to current semester and auto-select"
           style="margin-left:6px">📅 Current Semester</button>
   <span id="conn-status" class="conn-status"></span>
 </div>
@@ -768,6 +774,7 @@ async function loadCourses() {
     allCourses = courses;
     courses.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     populateCourseSelect(courses, 'Select a course...');
+    populateSemesterDropdown();
     status.textContent = `✓ Found ${courses.length} courses`;
     status.className = 'conn-status ok';
     document.getElementById('token-help').classList.add('hide');
@@ -790,14 +797,92 @@ function populateCourseSelect(courses, placeholder) {
 }
 
 // Return a tag like "SP26" / "SU26" / "FA26" for today's date.
+// MSU calendar: Spring ends ~May 10, Summer runs ~May 11 – Aug 15, Fall starts ~Aug 16.
 function currentSemesterTag(d) {
   d = d || new Date();
-  const m = d.getMonth() + 1; // 1..12
+  const m = d.getMonth() + 1;       // 1..12
+  const day = d.getDate();          // 1..31
   const yy = String(d.getFullYear()).slice(-2);
-  // MSU pattern: Spring = Jan–May, Summer = May–Aug, Fall = Aug–Dec
-  if (m <= 5) return `SP${yy}`;
-  if (m <= 8) return `SU${yy}`;
+  if (m < 5 || (m === 5 && day <= 10)) return `SP${yy}`;
+  if (m < 8 || (m === 8 && day <= 15)) return `SU${yy}`;
   return `FA${yy}`;
+}
+
+function semesterTagFromCourse(c) {
+  // Try course_code first: CSIT111_11SU26 → SU26
+  const code = (c.course_code || '').toUpperCase();
+  const m = code.match(/(SP|SU|FA)\d{2}/);
+  if (m) return m[0];
+  // Fall back to term name like "Summer 2026"
+  const tn = (c.term && c.term.name) || '';
+  const mt = tn.match(/\b(Spring|Summer|Fall)\s+(\d{4})\b/i);
+  if (mt) {
+    const season = mt[1].toLowerCase();
+    const yy = mt[2].slice(-2);
+    return ({ spring: 'SP', summer: 'SU', fall: 'FA' }[season] || '?') + yy;
+  }
+  return '';
+}
+
+function semesterLabel(tag) {
+  if (!tag) return 'Other / no term';
+  const season = { SP: 'Spring', SU: 'Summer', FA: 'Fall' }[tag.slice(0, 2)] || tag.slice(0, 2);
+  const year = `20${tag.slice(2)}`;
+  return `${season} ${year}`;
+}
+
+function populateSemesterDropdown() {
+  const sel = document.getElementById('semester-select');
+  const tagCounts = {};
+  allCourses.forEach(c => {
+    const t = semesterTagFromCourse(c) || '__none__';
+    tagCounts[t] = (tagCounts[t] || 0) + 1;
+  });
+  // Sort tags: newest first, putting __none__ at the end.
+  const tagOrder = t => {
+    if (t === '__none__') return -1;
+    const seasonRank = { FA: 3, SU: 2, SP: 1 }[t.slice(0, 2)] || 0;
+    const year = +t.slice(2);
+    return year * 10 + seasonRank;
+  };
+  const tags = Object.keys(tagCounts).sort((a, b) => tagOrder(b) - tagOrder(a));
+  const today = new Date();
+  const curTag = currentSemesterTag(today);
+  const curLabel = `📅 Current — ${semesterLabel(curTag)}`;
+  let html = `<option value="__all__">All semesters</option>`;
+  html += `<option value="${curTag}">${curLabel}</option>`;
+  for (const t of tags) {
+    if (t === curTag) continue;
+    const label = t === '__none__' ? 'Other / no term' : semesterLabel(t);
+    html += `<option value="${t}">${label} (${tagCounts[t]})</option>`;
+  }
+  sel.innerHTML = html;
+  sel.disabled = false;
+}
+
+function filterBySemester() {
+  const tag = document.getElementById('semester-select').value;
+  if (!allCourses.length) return;
+  let list;
+  if (tag === '__all__') {
+    list = allCourses.slice();
+  } else {
+    list = allCourses.filter(c => (semesterTagFromCourse(c) || '__none__') === tag);
+  }
+  list.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  populateCourseSelect(list, list.length ? 'Select a course...' : 'No matches');
+  const status = document.getElementById('conn-status');
+  if (tag === '__all__') {
+    status.textContent = `${allCourses.length} course(s) total`;
+  } else {
+    status.textContent = `${list.length} course(s) in ${semesterLabel(tag)}`;
+  }
+  status.className = 'conn-status ok';
+  if (list.length === 1) {
+    const sel = document.getElementById('course-select');
+    sel.value = list[0].id;
+    selectCourse(list[0].id);
+  }
 }
 
 function isCurrentSemesterCourse(c, tag, today) {
@@ -824,28 +909,14 @@ async function loadCurrentSemester() {
     if (!allCourses.length) {
       const courses = await api('/api/v1/courses?per_page=100&include[]=term&enrollment_type=teacher&state[]=available&state[]=completed');
       allCourses = courses;
+      populateSemesterDropdown();
     }
-    const today = new Date();
-    const tag = currentSemesterTag(today);
-    const matches = allCourses.filter(c => isCurrentSemesterCourse(c, tag, today));
-    matches.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-
-    if (!matches.length) {
-      status.textContent = `No courses found for ${tag}. Showing all courses.`;
-      status.className = 'conn-status warn';
-      populateCourseSelect(allCourses.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')), 'Select a course...');
-      document.getElementById('token-help').classList.add('hide');
-      return;
-    }
-    populateCourseSelect(matches, `${matches.length} course(s) in ${tag}`);
-    status.textContent = `✓ ${matches.length} course(s) in current semester (${tag})`;
-    status.className = 'conn-status ok';
     document.getElementById('token-help').classList.add('hide');
-    if (matches.length === 1) {
-      const sel = document.getElementById('course-select');
-      sel.value = matches[0].id;
-      selectCourse(matches[0].id);
-    }
+    const tag = currentSemesterTag(new Date());
+    const sel = document.getElementById('semester-select');
+    // Ensure the current-semester option exists; populateSemesterDropdown always inserts it
+    sel.value = tag;
+    filterBySemester();
   } catch (e) {
     status.textContent = '✗ ' + e.message;
     status.className = 'conn-status err';

@@ -797,14 +797,17 @@ function populateCourseSelect(courses, placeholder) {
 }
 
 // Return a tag like "SP26" / "SU26" / "FA26" for today's date.
-// MSU calendar: Spring ends ~May 10, Summer runs ~May 11 – Aug 15, Fall starts ~Aug 16.
+// Per MSU academic calendar:
+//   Spring: Jan 16 – May 4   (start of year through May 10 incl. winter intercession & Spring grading window)
+//   Summer: May 11 – Aug 19  (extended through Aug 27 to absorb the pre-Fall gap)
+//   Fall:   Aug 28 – Dec 16  (through end of year incl. Fall grading window)
 function currentSemesterTag(d) {
   d = d || new Date();
   const m = d.getMonth() + 1;       // 1..12
   const day = d.getDate();          // 1..31
   const yy = String(d.getFullYear()).slice(-2);
   if (m < 5 || (m === 5 && day <= 10)) return `SP${yy}`;
-  if (m < 8 || (m === 8 && day <= 15)) return `SU${yy}`;
+  if (m < 8 || (m === 8 && day <= 27)) return `SU${yy}`;
   return `FA${yy}`;
 }
 

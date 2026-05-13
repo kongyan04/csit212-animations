@@ -346,22 +346,23 @@ a.email-link:hover { text-decoration: underline; }
 
   <!-- Smart Task input -->
   <div class="card" style="background:linear-gradient(135deg,#1a365d,#2b6cb0);color:#fff;border:none">
-    <h2 style="color:#fff;border-left-color:#fff">🤖 Smart Task</h2>
+    <h2 style="color:#fff;border-left-color:#fff">⚡ Quick Task</h2>
     <p style="font-size:0.84rem;color:#bee3f8;margin-bottom:12px">
-      Describe what you want done in plain English. Claude will figure out the steps and ask before executing.
+      Type a structured command. Click any example below to fill it in.
     </p>
     <textarea id="smart-task-input" rows="3"
-              placeholder='Examples: "Create HW2 due next Friday, 20 points, on variables and expressions" · "Announce class canceled this Thursday" · "Email all students with grade below 70%" · "Move all due dates back by 3 days"'
-              style="width:100%;padding:11px 14px;border:none;border-radius:8px;font-size:0.92rem;font-family:inherit;line-height:1.5;background:rgba(255,255,255,0.95);color:#1a202c"></textarea>
+              placeholder="Type a command (see examples below) and press Plan."
+              style="width:100%;padding:11px 14px;border:none;border-radius:8px;font-size:0.92rem;font-family:'SF Mono',monospace;line-height:1.5;background:rgba(255,255,255,0.95);color:#1a202c"></textarea>
     <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
       <button onclick="planSmartTask()" id="smart-plan-btn"
               style="padding:9px 22px;background:#fff;color:#1a365d;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.88rem">
-        Plan with Claude →
+        Plan →
       </button>
-      <input type="password" id="anthropic-key" placeholder="Paste Anthropic API key"
-             style="padding:8px 12px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;font-size:0.84rem;font-family:monospace;background:rgba(255,255,255,0.1);color:#fff;flex:1;min-width:200px"
-             title="Get from console.anthropic.com → API Keys">
       <span id="smart-status" style="font-size:0.84rem;color:#bee3f8"></span>
+    </div>
+    <div style="margin-top:10px">
+      <div style="font-size:0.74rem;color:#bee3f8;margin-bottom:6px;font-weight:700;text-transform:uppercase">Examples (click to use):</div>
+      <div id="example-tags" style="display:flex;flex-wrap:wrap;gap:6px"></div>
     </div>
 
     <!-- Plan preview -->
@@ -1198,128 +1199,164 @@ async function bulkPublish(publish) {
   renderAssignments();
 }
 
-// ── Smart Task (AI-powered) ──
+// ── Smart Task (keyword-based) ──
 let smartPlan = null;
 
+const EXAMPLES = [
+  'announce: Class Canceled | Class is canceled tomorrow due to weather.',
+  'create assignment: HW2 Variables | due 5/16 | 20 pts',
+  'email failing: Office Hours Reminder | Please come see me — your grade is below 70%.',
+  'email all: Reminder | Please review chapter 3 before Thursday.',
+  'shift dates by 7',
+  'shift dates by -3',
+  'publish all',
+  'unpublish all',
+  'full credit on HW1',
+];
+
 window.addEventListener('load', () => {
-  const k = localStorage.getItem('anth_key');
-  if (k) {
-    setTimeout(() => {
-      const el = document.getElementById('anthropic-key');
-      if (el) el.value = k;
-    }, 100);
-  }
+  setTimeout(() => {
+    const el = document.getElementById('example-tags');
+    if (!el) return;
+    el.innerHTML = EXAMPLES.map(e =>
+      `<span style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:14px;padding:4px 10px;font-size:0.74rem;cursor:pointer;font-family:'SF Mono',monospace;color:#fff" onclick="useExample(this)">${esc(e)}</span>`
+    ).join('');
+  }, 200);
 });
 
-async function planSmartTask() {
+function useExample(el) {
+  document.getElementById('smart-task-input').value = el.textContent;
+}
+
+function parseCommand(input) {
+  const text = input.trim();
+  const lower = text.toLowerCase();
+
+  // announce: TITLE | MESSAGE
+  if (lower.startsWith('announce:') || lower.startsWith('announcement:') || lower.startsWith('post:')) {
+    const rest = text.replace(/^(announce|announcement|post):\s*/i, '');
+    const parts = rest.split('|').map(s => s.trim());
+    if (parts.length >= 2) {
+      return { action: 'announce', title: parts[0], message: parts.slice(1).join(' | '),
+               summary: `Post announcement "${parts[0]}" to ${enrollments.length} students` };
+    }
+    return { action: 'announce', title: 'Announcement', message: rest,
+             summary: `Post announcement to ${enrollments.length} students` };
+  }
+
+  // create assignment: NAME | due DATE | POINTS pts [| description]
+  if (lower.startsWith('create assignment:') || lower.startsWith('assignment:') || lower.startsWith('new assignment:')) {
+    const rest = text.replace(/^(create assignment|assignment|new assignment):\s*/i, '');
+    const parts = rest.split('|').map(s => s.trim());
+    const name = parts[0];
+    let points = 10, due_at = null, description = '';
+    for (const p of parts.slice(1)) {
+      const dueMatch = p.match(/^due\s+(.+)$/i);
+      const ptsMatch = p.match(/^(\d+)\s*(pts?|points?)$/i);
+      if (dueMatch) {
+        due_at = parseDate(dueMatch[1]);
+      } else if (ptsMatch) {
+        points = parseInt(ptsMatch[1]);
+      } else {
+        description = p;
+      }
+    }
+    return {
+      action: 'create_assignment', name, points,
+      due_at, description: description || `<p>${esc(name)}</p>`,
+      submission_type: 'online_text_entry', publish: true,
+      summary: `Create assignment "${name}" worth ${points} pts${due_at ? ' due ' + new Date(due_at).toLocaleString() : ''}`
+    };
+  }
+
+  // email RECIPIENT_GROUP: SUBJECT | BODY
+  const emailMatch = lower.match(/^(email|message)\s+(all|failing|missing|low.?grade|no.?activity)\s*[:|]\s*/);
+  if (emailMatch) {
+    const recipients = (() => {
+      const r = emailMatch[2];
+      if (r === 'failing' || r === 'low-grade' || r === 'lowgrade') return 'failing';
+      if (r === 'missing' || r === 'no-activity' || r === 'noactivity') return 'missing';
+      return 'all';
+    })();
+    const rest = text.replace(/^(email|message)\s+\S+\s*[:|]\s*/i, '');
+    const parts = rest.split('|').map(s => s.trim());
+    const subject = parts[0] || 'Message from your instructor';
+    const body = parts.slice(1).join(' | ') || subject;
+    const targetCount = recipients === 'all' ? enrollments.length
+      : recipients === 'failing' ? enrollments.filter(e => {
+          const p = parseFloat(e.grades?.current_score || 0); return p > 0 && p < 70;
+        }).length
+      : enrollments.filter(e => !e.last_activity_at).length;
+    return {
+      action: 'message', recipients, subject, body,
+      summary: `Email "${subject}" to ${targetCount} ${recipients} students`
+    };
+  }
+
+  // shift dates by N [days]
+  const shiftMatch = lower.match(/^shift\s+(dates?|due\s+dates?)\s+by\s+(-?\d+)(\s+days?)?$/);
+  if (shiftMatch) {
+    const days = parseInt(shiftMatch[2]);
+    return { action: 'shift_dates', days,
+             summary: `Move every assignment due date by ${days} day${days !== 1 ? 's' : ''}` };
+  }
+
+  // publish all / unpublish all
+  if (lower === 'publish all' || lower === 'publish all assignments') {
+    return { action: 'bulk_publish', published: true,
+             summary: `Publish all ${assignments.length} assignments` };
+  }
+  if (lower === 'unpublish all' || lower === 'unpublish all assignments') {
+    return { action: 'bulk_publish', published: false,
+             summary: `Unpublish all ${assignments.length} assignments` };
+  }
+
+  // full credit on NAME
+  const fcMatch = lower.match(/^(give\s+)?full\s+credit\s+(on\s+)?(.+)$/);
+  if (fcMatch) {
+    const nameSearch = fcMatch[3].trim();
+    const matched = assignments.find(a => (a.name||'').toLowerCase().includes(nameSearch.toLowerCase()));
+    return {
+      action: 'full_credit', assignment_name_match: nameSearch,
+      summary: matched
+        ? `Award full credit (${matched.points_possible} pts) on "${matched.name}" to every student who submitted`
+        : `⚠ No assignment matches "${nameSearch}"`
+    };
+  }
+
+  return { action: 'unknown', error: 'Could not parse command. Try clicking an example below for the right format.' };
+}
+
+function parseDate(s) {
+  s = s.trim();
+  // Try ISO date / standard parse
+  const direct = new Date(s);
+  if (!isNaN(direct)) return direct.toISOString();
+  // Try M/D or M/D/YY
+  const md = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+  if (md) {
+    const yr = md[3] ? (md[3].length === 2 ? 2000 + parseInt(md[3]) : parseInt(md[3])) : new Date().getFullYear();
+    const d = new Date(yr, parseInt(md[1]) - 1, parseInt(md[2]), 23, 59);
+    return d.toISOString();
+  }
+  return null;
+}
+
+function planSmartTask() {
   const prompt = document.getElementById('smart-task-input').value.trim();
-  const apiKey = document.getElementById('anthropic-key').value.trim();
-  if (!prompt) { setStatus('smart-status', 'Type a task first', 'err'); return; }
-  if (!apiKey) { setStatus('smart-status', 'Anthropic API key required', 'err'); return; }
+  if (!prompt) { setStatus('smart-status', 'Type a command first', 'err'); return; }
   if (!course_id) { setStatus('smart-status', 'Select a course first', 'err'); return; }
 
-  localStorage.setItem('anth_key', apiKey);
-
-  const btn = document.getElementById('smart-plan-btn');
-  btn.disabled = true; btn.textContent = 'Thinking...';
   setStatus('smart-status', '', '');
+  const plan = parseCommand(prompt);
 
-  // Build course context
-  const ctx = {
-    course_id,
-    course_name: course_info?.name || '',
-    course_code: course_info?.course_code || '',
-    student_count: enrollments.length,
-    assignment_count: assignments.length,
-    assignment_groups: assignments.reduce((acc, a) => {
-      if (a.assignment_group_id && !acc.includes(a.assignment_group_id)) acc.push(a.assignment_group_id);
-      return acc;
-    }, []),
-    today: new Date().toISOString().slice(0, 10),
-    recent_assignment_examples: assignments.slice(-3).map(a => ({
-      name: a.name, points: a.points_possible, due: a.due_at,
-      group_id: a.assignment_group_id
-    })),
-    student_summary: {
-      avg_grade: (() => {
-        const grades = enrollments.map(e => parseFloat(e.grades?.current_score||0)).filter(g => g > 0);
-        return grades.length ? (grades.reduce((a,b)=>a+b,0)/grades.length).toFixed(1) : 0;
-      })(),
-      below_70: enrollments.filter(e => {
-        const p = parseFloat(e.grades?.current_score||0);
-        return p > 0 && p < 70;
-      }).length,
-    }
-  };
-
-  const systemPrompt = `You are an assistant that converts plain-English requests from a Canvas professor into a structured action plan.
-
-Current course context:
-${JSON.stringify(ctx, null, 2)}
-
-Output JSON ONLY (no markdown, no extra text), as one of these action types:
-
-1. Post announcement:
-{"action": "announce", "title": "...", "message": "<HTML body>"}
-
-2. Create assignment:
-{"action": "create_assignment", "name": "...", "description": "<HTML>", "points": N, "due_at": "YYYY-MM-DDTHH:MM:00Z" or null, "submission_type": "online_upload|online_text_entry|online_url|on_paper|none", "publish": true|false, "group_id": null}
-
-3. Send message to students:
-{"action": "message", "recipients": "all|failing|missing|[user_id, user_id...]", "subject": "...", "body": "..."}
-
-4. Shift all due dates:
-{"action": "shift_dates", "days": N}
-
-5. Publish/unpublish all assignments:
-{"action": "bulk_publish", "published": true|false}
-
-6. Award full credit on an assignment:
-{"action": "full_credit", "assignment_name_match": "..."}
-
-7. Multiple steps (rare):
-{"action": "multi", "steps": [...]}
-
-8. Clarification needed:
-{"action": "clarify", "question": "..."}
-
-Be conservative — only output an action if confident. If unclear, ask for clarification.
-Always include explanation in a "summary" field describing what will happen.`;
-
-  try {
-    const res = await fetch('https://csit212-submissions.onrender.com/ai-route', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Anthropic-Key': apiKey,
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1500,
-        system: systemPrompt,
-        messages: [{role: 'user', content: prompt}]
-      })
-    });
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error?.message || `HTTP ${res.status}`);
-
-    const text = data.content?.[0]?.text || '';
-    let plan;
-    try {
-      // Try to extract JSON from response
-      const m = text.match(/\{[\s\S]*\}/);
-      plan = JSON.parse(m ? m[0] : text);
-    } catch {
-      throw new Error('Could not parse plan: ' + text.substring(0, 200));
-    }
-
-    smartPlan = plan;
-    renderPlan(plan);
-    btn.disabled = false; btn.textContent = 'Plan with Claude →';
-  } catch (e) {
-    setStatus('smart-status', '✗ ' + e.message, 'err');
-    btn.disabled = false; btn.textContent = 'Plan with Claude →';
+  if (plan.action === 'unknown') {
+    setStatus('smart-status', '✗ ' + plan.error, 'err');
+    return;
   }
+
+  smartPlan = plan;
+  renderPlan(plan);
 }
 
 function renderPlan(plan) {

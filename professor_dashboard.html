@@ -69,6 +69,20 @@ header p { color: #bee3f8; font-size: 0.82rem; }
 }
 .course-chip:has(input:checked) { background:#ebf8ff; border-color:#2b6cb0; color:#1a365d; font-weight:600; }
 
+details.atrisk-list { font-size:0.86rem; }
+details.atrisk-list summary {
+  cursor:pointer; padding:3px 10px; background:#fed7d7; color:#9b2c2c;
+  border-radius:12px; display:inline-block; font-weight:600;
+}
+details.atrisk-list.late summary { background:#feebc8; color:#9c4221; }
+details.atrisk-list summary::marker { color:#9b2c2c; }
+details.atrisk-list ul { margin:6px 0 0 0; padding-left:18px; list-style:disc; }
+details.atrisk-list li { margin:2px 0; color:#4a5568; font-size:0.82rem; }
+.email-icon { cursor:pointer; background:#edf2f7; color:#2b6cb0;
+  padding:4px 8px; border-radius:6px; font-size:0.78rem; font-weight:600;
+  border:1px solid #cbd5e0; display:inline-block; }
+.email-icon:hover { background:#2b6cb0; color:#fff; }
+
 main { max-width: 1400px; margin: 0 auto; padding: 20px; }
 .hide { display: none !important; }
 
@@ -798,6 +812,40 @@ a.email-link:hover { text-decoration: underline; }
 
 </main>
 
+<!-- Email composer modal -->
+<div id="email-modal" class="hide" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:10px;max-width:620px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid #e2e8f0">
+      <h2 style="margin:0;font-size:1.15rem;color:#1a365d">✉️ New Message</h2>
+      <button onclick="closeEmailModal()" style="background:none;border:none;font-size:1.4rem;color:#666;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="padding:18px 24px">
+      <div style="margin-bottom:12px">
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">To</label>
+        <input type="text" id="email-to" readonly
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px;background:#f7fafc">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Subject</label>
+        <input type="text" id="email-subject" placeholder="Subject"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Message</label>
+        <textarea id="email-body" rows="9" placeholder="Type your message…"
+                  style="width:100%;padding:10px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px;font-family:inherit;resize:vertical;min-height:160px"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="sendEmail()" id="email-send-btn"
+                style="padding:9px 22px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">Send</button>
+        <button onclick="closeEmailModal()"
+                style="padding:9px 22px;background:#edf2f7;color:#4a5568;border:none;border-radius:6px;font-weight:600;cursor:pointer">Cancel</button>
+        <span id="email-status" style="margin-left:8px;font-size:0.86rem"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const PROXY = 'https://csit212-submissions.onrender.com/canvas-proxy';
 let course_id = '';
@@ -1372,17 +1420,119 @@ function assignmentRowHtml(a) {
   </tr>`;
 }
 
+// ── At-Risk helpers (submissions cache, email composer) ──
+let submissionsCache = {}; // cid -> array of submission objects
+
+async function getCourseSubmissions(cid) {
+  if (submissionsCache[cid]) return submissionsCache[cid];
+  try {
+    const subs = await api(`/api/v1/courses/${cid}/students/submissions?student_ids[]=all&include[]=assignment&per_page=200`);
+    submissionsCache[cid] = subs;
+    return subs;
+  } catch (e) {
+    console.error('Failed to load submissions for', cid, e);
+    submissionsCache[cid] = [];
+    return [];
+  }
+}
+
+function missingLateForStudent(courseSubs, userId) {
+  const now = Date.now();
+  const userSubs = courseSubs.filter(s => s.user_id === userId);
+  const missing = userSubs.filter(s => {
+    if (s.missing) return true;
+    if (s.workflow_state === 'unsubmitted' && s.assignment?.due_at && new Date(s.assignment.due_at).getTime() < now) return true;
+    return false;
+  });
+  const late = userSubs.filter(s => s.late);
+  return { missing, late };
+}
+
+function missingLateCellHtml(items, isLate) {
+  if (!items.length) return '<span style="color:#a0aec0">—</span>';
+  const cls = isLate ? 'atrisk-list late' : 'atrisk-list';
+  const label = isLate ? 'late' : 'missing';
+  return `<details class="${cls}">
+    <summary>${items.length} ${label}</summary>
+    <ul>
+      ${items.map(s => {
+        const asnName = s.assignment?.name || `Assignment ${s.assignment_id}`;
+        const due = s.assignment?.due_at ? ` (due ${new Date(s.assignment.due_at).toLocaleDateString()})` : '';
+        return `<li>${esc(asnName)}${due}</li>`;
+      }).join('')}
+    </ul>
+  </details>`;
+}
+
+let _emailCtx = {};
+
+function openEmail(userId, name, cid) {
+  _emailCtx = { userId, name, cid };
+  document.getElementById('email-to').value = name;
+  document.getElementById('email-subject').value = '';
+  document.getElementById('email-body').value = '';
+  setStatus('email-status', '', '');
+  document.getElementById('email-modal').classList.remove('hide');
+  setTimeout(() => document.getElementById('email-subject').focus(), 50);
+}
+
+function closeEmailModal() {
+  document.getElementById('email-modal').classList.add('hide');
+}
+
+async function sendEmail() {
+  const subject = document.getElementById('email-subject').value.trim();
+  const body = document.getElementById('email-body').value.trim();
+  if (!subject) { setStatus('email-status', 'Subject required.', 'err'); return; }
+  if (!body) { setStatus('email-status', 'Message required.', 'err'); return; }
+  const btn = document.getElementById('email-send-btn');
+  btn.disabled = true;
+  setStatus('email-status', 'Sending…', 'info');
+  try {
+    await apiPost('/api/v1/conversations', [
+      ['recipients[]', `${_emailCtx.userId}`],
+      ['subject', subject],
+      ['body', body],
+      ['context_code', `course_${_emailCtx.cid}`],
+    ]);
+    setStatus('email-status', '✓ Sent.', 'ok');
+    setTimeout(closeEmailModal, 1000);
+  } catch (e) {
+    setStatus('email-status', '✗ ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ── Multi: At-Risk tab ──
-function renderMultiAtRisk() {
+async function renderMultiAtRisk() {
   if (!multi_mode) return;
   const tbody = document.getElementById('atrisk-tbody');
   const cur = multi_tab_active.atrisk || 'all';
   const list = cur === 'all' ? multi_courses : multi_courses.filter(c => String(c.id) === String(cur));
 
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:14px;color:#666"><span class="spinner"></span> Loading submissions…</td></tr>`;
+  await Promise.all(list.map(c => getCourseSubmissions(c.id)));
+
   const riskRows = c => c.enrollments.map(e => {
     const cur = parseFloat(e.grades?.current_score || 0);
-    return { e, cid: c.id, code: c.code, name: e.user?.name || '—', email: e.user?.email || '', current: cur, last: e.last_activity_at || '' };
+    return { uid: e.user_id, cid: c.id, code: c.code, name: e.user?.name || '—', email: e.user?.email || '', current: cur, last: e.last_activity_at || '' };
   }).filter(r => r.current > 0 && r.current < 70);
+
+  const rowHtml = r => {
+    const { missing, late } = missingLateForStudent(submissionsCache[r.cid] || [], r.uid);
+    return `<tr>
+      <td>${esc(r.name)}</td>
+      <td>
+        <span class="email-icon" onclick="openEmail(${r.uid}, '${esc(r.name).replace(/'/g,"\\'")}', '${r.cid}')">✉️ Compose</span>
+        ${r.email ? `<a class="email-link" href="mailto:${esc(r.email)}" style="margin-left:6px;font-size:0.82rem">mail</a>` : ''}
+      </td>
+      <td><span style="color:#c53030;font-weight:600">${r.current.toFixed(1)}%</span></td>
+      <td>${missingLateCellHtml(missing, false)}</td>
+      <td>${missingLateCellHtml(late, true)}</td>
+      <td style="color:#666;font-size:0.82rem">${r.last ? new Date(r.last).toLocaleDateString() : 'never'}</td>
+    </tr>`;
+  };
 
   if (cur === 'all') {
     const html = list.map(c => {
@@ -1395,13 +1545,7 @@ function renderMultiAtRisk() {
           </span>
         </td></tr>`;
       const body = rows.length
-        ? rows.map(r => `<tr>
-            <td>${esc(r.name)}</td>
-            <td><a class="email-link" href="mailto:${esc(r.email)}">${esc(r.email)}</a></td>
-            <td><span style="color:#c53030;font-weight:600">${r.current.toFixed(1)}%</span></td>
-            <td>—</td><td>—</td>
-            <td style="color:#666;font-size:0.82rem">${r.last ? new Date(r.last).toLocaleDateString() : 'never'}</td>
-          </tr>`).join('')
+        ? rows.map(rowHtml).join('')
         : `<tr><td colspan="6" class="empty" style="text-align:center;color:#276749">No students below 70% 🎉</td></tr>`;
       return header + body;
     }).join('');
@@ -1410,13 +1554,7 @@ function renderMultiAtRisk() {
     const c = list[0];
     const rows = c ? riskRows(c) : [];
     tbody.innerHTML = rows.length
-      ? rows.map(r => `<tr>
-          <td>${esc(r.name)}</td>
-          <td><a class="email-link" href="mailto:${esc(r.email)}">${esc(r.email)}</a></td>
-          <td><span style="color:#c53030;font-weight:600">${r.current.toFixed(1)}%</span></td>
-          <td>—</td><td>—</td>
-          <td style="color:#666;font-size:0.82rem">${r.last ? new Date(r.last).toLocaleDateString() : 'never'}</td>
-        </tr>`).join('')
+      ? rows.map(rowHtml).join('')
       : `<tr><td colspan="6" class="empty" style="text-align:center;color:#276749">No students below 70% in ${esc(c?.code || '')} 🎉</td></tr>`;
   }
 }
@@ -1723,13 +1861,16 @@ function renderAssignments() {
 }
 
 // ── At-Risk ──
-function renderAtRisk() {
+async function renderAtRisk() {
+  const cid = course_id;
+  const tbody = document.getElementById('atrisk-tbody');
   const atrisk = enrollments
     .filter(e => {
       const p = parseFloat(e.grades?.current_score || 0);
       return p > 0 && p < 70;
     })
     .map(e => ({
+      uid: e.user_id,
       name: e.user?.name || 'Unknown',
       email: e.user?.email || e.user?.login_id || '',
       current: parseFloat(e.grades?.current_score || 0),
@@ -1737,14 +1878,33 @@ function renderAtRisk() {
     }))
     .sort((a, b) => a.current - b.current);
 
-  document.getElementById('atrisk-tbody').innerHTML = atrisk.map(r => `
-    <tr>
+  if (!atrisk.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">🎉 No students at risk — everyone is doing well!</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = atrisk.map(r => `
+    <tr id="atr-${r.uid}">
       <td><strong>${esc(r.name)}</strong></td>
-      <td>${r.email ? `<a class="email-link" href="mailto:${esc(r.email)}">${esc(r.email)}</a>` : '—'}</td>
+      <td>
+        <span class="email-icon" onclick="openEmail(${r.uid}, '${esc(r.name).replace(/'/g,"\\'")}', '${cid}')">✉️ Compose</span>
+        ${r.email ? `<a class="email-link" href="mailto:${esc(r.email)}" style="margin-left:6px;font-size:0.82rem">mail</a>` : ''}
+      </td>
       <td><span class="pill pill-red">${r.current.toFixed(1)}%</span></td>
-      <td>—</td><td>—</td>
+      <td class="miss-cell"><span style="color:#aaa;font-size:0.82rem">…</span></td>
+      <td class="late-cell"><span style="color:#aaa;font-size:0.82rem">…</span></td>
       <td style="color:#666;font-size:0.82rem">${r.last ? new Date(r.last).toLocaleDateString() : 'never'}</td>
-    </tr>`).join('') || '<tr><td colspan="6" class="empty">🎉 No students at risk — everyone is doing well!</td></tr>';
+    </tr>`).join('');
+
+  // Lazy-load submissions and fill missing/late cells
+  const subs = await getCourseSubmissions(cid);
+  for (const r of atrisk) {
+    const { missing, late } = missingLateForStudent(subs, r.uid);
+    const row = document.getElementById('atr-' + r.uid);
+    if (!row) continue;
+    row.querySelector('.miss-cell').innerHTML = missingLateCellHtml(missing, false);
+    row.querySelector('.late-cell').innerHTML = missingLateCellHtml(late, true);
+  }
 }
 
 // ── Recent Activity ──

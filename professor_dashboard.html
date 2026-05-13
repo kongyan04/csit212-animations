@@ -220,8 +220,8 @@ a.email-link:hover { text-decoration: underline; }
       <label>Course</label><br>
       <select id="course-select"><option value="">— Load your courses first —</option></select>
     </div>
-    <button onclick="loadCurrentSemester()" title="Filter to current semester and auto-select">📅 Current Semester</button>
-    <button onclick="loadAllInSemester()" title="Load every course in the chosen semester as a combined view">📚 Load All in Semester</button>
+    <button onclick="loadAllInSemester()" title="Load every course in the chosen semester as a combined view">📚 Load Courses</button>
+    <button onclick="loadCurrentSemester()" title="Filter to current semester and auto-select">📅 This Semester</button>
   </div>
 </div>
 
@@ -742,7 +742,10 @@ window.addEventListener('load', () => {
   document.getElementById('token').addEventListener('change', e => localStorage.setItem('pd_token', e.target.value));
   document.getElementById('domain').addEventListener('change', e => localStorage.setItem('pd_domain', e.target.value));
   document.getElementById('course-select').addEventListener('change', e => {
-    if (e.target.value) selectCourse(e.target.value);
+    const v = e.target.value;
+    if (!v) return;
+    if (v === '__all__') loadAllInSemester();
+    else selectCourse(v);
   });
 });
 
@@ -795,14 +798,15 @@ async function loadCourses() {
 
 function populateCourseSelect(courses, placeholder) {
   const sel = document.getElementById('course-select');
-  sel.innerHTML = `<option value="">${placeholder}</option>`;
-  courses.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.id;
+  let html = `<option value="">${placeholder}</option>`;
+  if (courses.length > 1) {
+    html += `<option value="__all__">📚 All courses (combined view)</option>`;
+  }
+  for (const c of courses) {
     const term = (c.term && c.term.name) ? ` (${c.term.name})` : '';
-    opt.textContent = `${c.course_code || c.name}${term}`;
-    sel.appendChild(opt);
-  });
+    html += `<option value="${c.id}">${esc(`${c.course_code || c.name}${term}`)}</option>`;
+  }
+  sel.innerHTML = html;
 }
 
 // Return a tag like "SP26" / "SU26" / "FA26" for today's date.

@@ -17,7 +17,10 @@ header p { color: #bee3f8; font-size: 0.82rem; }
 
 .connect-bar {
   background: #fff; border-bottom: 1px solid #e2e8f0;
-  padding: 12px 24px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  padding: 12px 24px; display: flex; flex-direction: column; gap: 10px;
+}
+.connect-row {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
 }
 .connect-bar label { font-size: 0.74rem; color: #666; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.03em; }
@@ -194,30 +197,32 @@ a.email-link:hover { text-decoration: underline; }
 </header>
 
 <div class="connect-bar">
-  <div>
-    <label>Canvas Domain</label><br>
-    <input type="text" id="domain" value="https://montclair.instructure.com" style="width:240px">
+  <div class="connect-row">
+    <div>
+      <label>Canvas Domain</label><br>
+      <input type="text" id="domain" value="https://montclair.instructure.com" style="width:240px">
+    </div>
+    <div>
+      <label>Access Token</label><br>
+      <input type="password" id="token" placeholder="Paste your token">
+    </div>
+    <button onclick="loadCourses()">Connect</button>
+    <span id="conn-status" class="conn-status"></span>
   </div>
-  <div>
-    <label>Access Token</label><br>
-    <input type="password" id="token" placeholder="Paste your token">
+  <div class="connect-row">
+    <div>
+      <label>Semester</label><br>
+      <select id="semester-select" onchange="filterBySemester()" disabled>
+        <option value="__all__">All semesters</option>
+      </select>
+    </div>
+    <div>
+      <label>Course</label><br>
+      <select id="course-select"><option value="">— Load your courses first —</option></select>
+    </div>
+    <button onclick="loadCurrentSemester()" title="Filter to current semester and auto-select">📅 Current Semester</button>
+    <button onclick="loadAllInSemester()" title="Load every course in the chosen semester as a combined view">📚 Load All in Semester</button>
   </div>
-  <div>
-    <label>Semester</label><br>
-    <select id="semester-select" onchange="filterBySemester()" disabled>
-      <option value="__all__">All semesters</option>
-    </select>
-  </div>
-  <div>
-    <label>Course</label><br>
-    <select id="course-select"><option value="">— Load your courses first —</option></select>
-  </div>
-  <button onclick="loadCourses()">Connect</button>
-  <button onclick="loadCurrentSemester()" title="Filter to current semester and auto-select"
-          style="margin-left:6px">📅 Current Semester</button>
-  <button onclick="loadAllInSemester()" title="Load every course in the chosen semester as a combined view"
-          style="margin-left:6px">📚 Load All in Semester</button>
-  <span id="conn-status" class="conn-status"></span>
 </div>
 
 <div id="token-help" class="token-help">

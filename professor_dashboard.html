@@ -344,6 +344,48 @@ a.email-link:hover { text-decoration: underline; }
 <!-- Tasks -->
 <div class="tab-panel" id="tab-tasks">
 
+  <!-- Claude chat panel (Option C: embedded claude.ai) -->
+  <div class="card" style="background:linear-gradient(135deg,#3d2a5c,#7c5cbf);color:#fff;border:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <h2 style="color:#fff;border-left-color:#fff;margin:0">💬 Chat with Claude</h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button onclick="openClaudePanel()"
+                style="padding:7px 14px;background:#fff;color:#3d2a5c;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.82rem">
+          ⬈ Pop out side panel
+        </button>
+        <button onclick="window.open('https://claude.ai/new','_blank')"
+                style="padding:7px 14px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">
+          ↗ New tab
+        </button>
+        <button onclick="reloadClaudeFrame()"
+                style="padding:7px 14px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">
+          ↻ Reload
+        </button>
+      </div>
+    </div>
+    <p style="font-size:0.82rem;color:#e9d8fd;margin:8px 0 12px">
+      Talk to Claude here, then paste structured commands into Quick Task below to act on Canvas.
+    </p>
+    <div id="claude-frame-wrap" style="position:relative;background:#fff;border-radius:10px;overflow:hidden;height:560px">
+      <iframe id="claude-frame" src="https://claude.ai/new"
+              style="width:100%;height:100%;border:0;background:#fff"
+              referrerpolicy="no-referrer-when-downgrade"
+              allow="clipboard-read; clipboard-write"></iframe>
+      <div id="claude-frame-fallback" class="hide"
+           style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;background:#fff;color:#2d3748">
+        <div style="font-size:2.4rem;margin-bottom:10px">🛡️</div>
+        <div style="font-weight:700;font-size:1.05rem;margin-bottom:6px">claude.ai blocked embedding</div>
+        <div style="font-size:0.88rem;color:#4a5568;max-width:480px;line-height:1.5;margin-bottom:14px">
+          Anthropic sends a Content-Security-Policy header that refuses iframe embedding. Use the side panel — it opens claude.ai in a docked window next to this dashboard.
+        </div>
+        <button onclick="openClaudePanel()"
+                style="padding:10px 22px;background:#7c5cbf;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">
+          ⬈ Open Claude side panel
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Smart Task input -->
   <div class="card" style="background:linear-gradient(135deg,#1a365d,#2b6cb0);color:#fff;border:none">
     <h2 style="color:#fff;border-left-color:#fff">⚡ Quick Task</h2>
@@ -1198,6 +1240,57 @@ async function bulkPublish(publish) {
   assignments = all;
   renderAssignments();
 }
+
+// ── Claude chat panel (Option C) ──
+let claudePopup = null;
+
+function openClaudePanel() {
+  const w = 460, h = Math.min(900, screen.availHeight - 80);
+  const left = Math.max(0, screen.availWidth - w - 20);
+  const top = 40;
+  const features = `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes,location=yes,toolbar=no,menubar=no`;
+  if (claudePopup && !claudePopup.closed) {
+    claudePopup.focus();
+    return;
+  }
+  claudePopup = window.open('https://claude.ai/new', 'claude_panel', features);
+  if (!claudePopup) {
+    alert('Popup blocked. Allow popups for this site, or use the "New tab" button.');
+  }
+}
+
+function reloadClaudeFrame() {
+  const f = document.getElementById('claude-frame');
+  if (f) f.src = f.src;
+  document.getElementById('claude-frame-fallback').classList.add('hide');
+}
+
+// Detect iframe block: claude.ai sends X-Frame-Options/CSP, so the iframe's
+// load event still fires but the document is opaque. We can't read it cross-origin,
+// but if the load never fires within a few seconds, show the fallback.
+window.addEventListener('load', () => {
+  const frame = document.getElementById('claude-frame');
+  const fb = document.getElementById('claude-frame-fallback');
+  if (!frame || !fb) return;
+  let loaded = false;
+  frame.addEventListener('load', () => { loaded = true; });
+  setTimeout(() => {
+    if (!loaded) fb.classList.remove('hide');
+  }, 3500);
+  // Also check periodically if frame went blank
+  setTimeout(() => {
+    try {
+      // Cross-origin access throws — that's actually fine, means a doc loaded.
+      void frame.contentDocument;
+      // If we can read contentDocument and it's empty, the frame was refused.
+      if (frame.contentDocument && !frame.contentDocument.body?.children.length) {
+        fb.classList.remove('hide');
+      }
+    } catch (e) {
+      // SecurityError = cross-origin doc actually loaded, leave frame visible.
+    }
+  }, 4500);
+});
 
 // ── Smart Task (keyword-based) ──
 let smartPlan = null;

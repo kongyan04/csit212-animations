@@ -467,6 +467,15 @@ a.email-link:hover { text-decoration: underline; }
         <span id="grade-asn-meta"></span>
       </div>
     </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:10px 12px;background:#edf2f7;border-radius:8px">
+      <button onclick="autoGradeAll()" id="grade-auto-btn"
+              style="padding:8px 18px;background:#7c5cbf;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">
+        🤖 Auto-Grade All
+      </button>
+      <span style="font-size:0.8rem;color:#4a5568">
+        Fills in grades + comments based on submission status. You can edit each row before saving.
+      </span>
+    </div>
     <div id="grade-rows-wrap" style="max-height:520px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px"></div>
     <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
       <button onclick="saveGrades()" id="grade-save-btn"
@@ -1065,6 +1074,8 @@ async function loadGradeRows() {
 
     gradeRowsCache = students.map(st => {
       const s = byUser[st.id];
+      const hasAttachments = !!(s && s.attachments && s.attachments.length);
+      const hasBody = !!(s && (s.body || s.url || (s.submission_type && s.submission_type !== 'none')));
       return {
         user_id: st.id,
         name: st.name,
@@ -1073,52 +1084,132 @@ async function loadGradeRows() {
         original_score: s?.score,
         missing: !!(s && s.missing),
         late: !!(s && s.late),
+        workflow_state: s?.workflow_state || 'unsubmitted',
+        attachments: hasAttachments,
+        body: hasBody,
+        submission_type: s?.submission_type || null,
+        required_type: asn.submission_types || [],
       };
     });
 
-    wrap.innerHTML = `
-      <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
-        <thead style="position:sticky;top:0;background:#edf2f7;z-index:1">
-          <tr>
-            <th style="text-align:left;padding:10px 12px;border-bottom:2px solid #cbd5e0">Student</th>
-            <th style="text-align:center;padding:10px 8px;border-bottom:2px solid #cbd5e0;width:90px">Status</th>
-            <th style="text-align:center;padding:10px 8px;border-bottom:2px solid #cbd5e0;width:110px">Grade</th>
-            <th style="text-align:center;padding:10px 8px;border-bottom:2px solid #cbd5e0;width:220px">Quick</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${gradeRowsCache.map((r, i) => {
-            const badge = r.missing ? '<span style="background:#fed7d7;color:#9b2c2c;padding:2px 8px;border-radius:10px;font-size:0.74rem;font-weight:600">Missing</span>'
-                       : r.late ? '<span style="background:#feebc8;color:#9c4221;padding:2px 8px;border-radius:10px;font-size:0.74rem;font-weight:600">Late</span>'
-                       : r.submitted ? '<span style="background:#c6f6d5;color:#22543d;padding:2px 8px;border-radius:10px;font-size:0.74rem;font-weight:600">Submitted</span>'
-                       : '<span style="color:#a0aec0;font-size:0.78rem">—</span>';
-            return `
-              <tr style="border-bottom:1px solid #edf2f7">
-                <td style="padding:8px 12px">${esc(r.name)}</td>
-                <td style="text-align:center;padding:8px">${badge}</td>
-                <td style="text-align:center;padding:8px">
-                  <input type="text" id="g-row-${i}" value="${esc(r.original_grade || '')}"
-                         placeholder="—"
-                         style="width:80px;padding:5px 8px;border:1px solid #cbd5e0;border-radius:5px;font-size:0.86rem;text-align:center">
-                </td>
-                <td style="text-align:center;padding:8px">
-                  <button onclick="setGradeRow(${i}, ${max})" style="padding:4px 10px;background:#276749;color:#fff;border:none;border-radius:4px;font-size:0.76rem;font-weight:600;cursor:pointer">Full</button>
-                  <button onclick="setGradeRow(${i}, ${Math.round(max/2)})" style="padding:4px 10px;background:#dd6b20;color:#fff;border:none;border-radius:4px;font-size:0.76rem;font-weight:600;cursor:pointer">½</button>
-                  <button onclick="setGradeRow(${i}, 0)" style="padding:4px 10px;background:#718096;color:#fff;border:none;border-radius:4px;font-size:0.76rem;font-weight:600;cursor:pointer">0</button>
-                  <button onclick="setGradeRow(${i}, '')" style="padding:4px 10px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:4px;font-size:0.76rem;font-weight:600;cursor:pointer">Clear</button>
-                </td>
-              </tr>`;
-          }).join('')}
-        </tbody>
-      </table>`;
+    renderGradeTable(max, asn);
   } catch (e) {
     wrap.innerHTML = `<div style="padding:16px;color:#c53030">Error loading submissions: ${esc(e.message)}</div>`;
   }
 }
 
-function setGradeRow(i, val) {
+function renderGradeTable(max, asn) {
+  const wrap = document.getElementById('grade-rows-wrap');
+  wrap.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
+      <thead style="position:sticky;top:0;background:#edf2f7;z-index:1">
+        <tr>
+          <th style="text-align:left;padding:10px 12px;border-bottom:2px solid #cbd5e0">Student</th>
+          <th style="text-align:center;padding:10px 8px;border-bottom:2px solid #cbd5e0;width:90px">Status</th>
+          <th style="text-align:center;padding:10px 8px;border-bottom:2px solid #cbd5e0;width:90px">Grade</th>
+          <th style="text-align:left;padding:10px 8px;border-bottom:2px solid #cbd5e0">Comment to student</th>
+          <th style="text-align:center;padding:10px 8px;border-bottom:2px solid #cbd5e0;width:180px">Quick</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${gradeRowsCache.map((r, i) => {
+          const badge = r.missing ? '<span style="background:#fed7d7;color:#9b2c2c;padding:2px 8px;border-radius:10px;font-size:0.74rem;font-weight:600">Missing</span>'
+                     : r.late ? '<span style="background:#feebc8;color:#9c4221;padding:2px 8px;border-radius:10px;font-size:0.74rem;font-weight:600">Late</span>'
+                     : r.submitted ? '<span style="background:#c6f6d5;color:#22543d;padding:2px 8px;border-radius:10px;font-size:0.74rem;font-weight:600">Submitted</span>'
+                     : '<span style="color:#a0aec0;font-size:0.78rem">—</span>';
+          return `
+            <tr style="border-bottom:1px solid #edf2f7">
+              <td style="padding:8px 12px;vertical-align:top">${esc(r.name)}</td>
+              <td style="text-align:center;padding:8px;vertical-align:top">${badge}</td>
+              <td style="text-align:center;padding:8px;vertical-align:top">
+                <input type="text" id="g-row-${i}" value="${esc(r.original_grade || '')}"
+                       placeholder="—"
+                       style="width:70px;padding:5px 8px;border:1px solid #cbd5e0;border-radius:5px;font-size:0.86rem;text-align:center">
+              </td>
+              <td style="padding:8px;vertical-align:top">
+                <textarea id="c-row-${i}" rows="2" placeholder="(optional)"
+                          style="width:100%;padding:5px 8px;border:1px solid #cbd5e0;border-radius:5px;font-size:0.82rem;font-family:inherit;resize:vertical;min-height:38px"></textarea>
+              </td>
+              <td style="text-align:center;padding:8px;vertical-align:top;white-space:nowrap">
+                <button onclick="setGradeRow(${i}, ${max})" style="padding:3px 8px;background:#276749;color:#fff;border:none;border-radius:4px;font-size:0.74rem;font-weight:600;cursor:pointer">Full</button>
+                <button onclick="setGradeRow(${i}, ${Math.round(max/2)})" style="padding:3px 8px;background:#dd6b20;color:#fff;border:none;border-radius:4px;font-size:0.74rem;font-weight:600;cursor:pointer">½</button>
+                <button onclick="setGradeRow(${i}, 0)" style="padding:3px 8px;background:#718096;color:#fff;border:none;border-radius:4px;font-size:0.74rem;font-weight:600;cursor:pointer">0</button>
+                <button onclick="setGradeRow(${i}, '', true)" style="padding:3px 8px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:4px;font-size:0.74rem;font-weight:600;cursor:pointer">Clear</button>
+              </td>
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function setGradeRow(i, val, clearComment) {
   const inp = document.getElementById(`g-row-${i}`);
   if (inp) inp.value = val === '' ? '' : String(val);
+  if (clearComment) {
+    const c = document.getElementById(`c-row-${i}`);
+    if (c) c.value = '';
+  }
+}
+
+// Decide grade + comment for one row, given the assignment.
+function autoGradeFor(r, max, asnName) {
+  const requiresFile = (r.required_type || []).includes('online_upload');
+  const requiresText = (r.required_type || []).includes('online_text_entry');
+  const requiresUrl  = (r.required_type || []).includes('online_url');
+  const needsContent = requiresFile || requiresText || requiresUrl;
+
+  // No submission at all
+  if (!r.submitted) {
+    return {
+      grade: 0,
+      comment: `No submission received for "${asnName}". Please submit as soon as possible — reach out if you ran into trouble.`,
+    };
+  }
+  // Submitted but no attachment when a file was required
+  if (requiresFile && !r.attachments) {
+    return {
+      grade: 0,
+      comment: `Your submission for "${asnName}" has no attached file. Please re-submit your screenshot — the assignment requires a file upload.`,
+    };
+  }
+  // Submitted but empty content
+  if (needsContent && !r.attachments && !r.body) {
+    return {
+      grade: 0,
+      comment: `Your submission for "${asnName}" appears empty. Please re-submit with your work attached or pasted in.`,
+    };
+  }
+  // Late submission — full credit but flag it
+  if (r.late) {
+    return {
+      grade: max,
+      comment: `Received (late). Full credit awarded this time — please submit on time going forward.`,
+    };
+  }
+  // Submitted, on time, has content
+  return {
+    grade: max,
+    comment: `Received — nice work!`,
+  };
+}
+
+function autoGradeAll() {
+  const aid = document.getElementById('grade-asn-select').value;
+  if (!aid) { setStatus('grade-status', 'Pick an assignment first.', 'err'); return; }
+  const asn = assignments.find(a => String(a.id) === String(aid));
+  if (!asn) return;
+  const max = asn.points_possible ?? 0;
+
+  let filled = 0;
+  gradeRowsCache.forEach((r, i) => {
+    const plan = autoGradeFor(r, max, asn.name);
+    const gInp = document.getElementById(`g-row-${i}`);
+    const cInp = document.getElementById(`c-row-${i}`);
+    if (gInp) gInp.value = String(plan.grade);
+    if (cInp) cInp.value = plan.comment;
+    filled++;
+  });
+  setStatus('grade-status', `Auto-filled ${filled} rows. Review and edit, then click Save Changes.`, 'info');
 }
 
 async function saveGrades() {
@@ -1127,15 +1218,21 @@ async function saveGrades() {
 
   const changes = [];
   gradeRowsCache.forEach((r, i) => {
-    const inp = document.getElementById(`g-row-${i}`);
-    if (!inp) return;
-    const newVal = inp.value.trim();
-    const oldVal = (r.original_grade ?? '').toString();
-    if (newVal !== oldVal) changes.push({ user_id: r.user_id, name: r.name, grade: newVal });
+    const gInp = document.getElementById(`g-row-${i}`);
+    const cInp = document.getElementById(`c-row-${i}`);
+    if (!gInp) return;
+    const newGrade = gInp.value.trim();
+    const newComment = (cInp?.value || '').trim();
+    const oldGrade = (r.original_grade ?? '').toString();
+    const gradeChanged = newGrade !== oldGrade;
+    const hasComment = newComment.length > 0;
+    if (gradeChanged || hasComment) {
+      changes.push({ user_id: r.user_id, name: r.name, grade: newGrade, comment: newComment, gradeChanged });
+    }
   });
 
   if (!changes.length) { setStatus('grade-status', 'No changes to save.', 'warn'); return; }
-  if (!confirm(`Save ${changes.length} grade change${changes.length === 1 ? '' : 's'}?`)) return;
+  if (!confirm(`Save ${changes.length} change${changes.length === 1 ? '' : 's'} (grades + comments)?\nStudents will be notified by Canvas.`)) return;
 
   const btn = document.getElementById('grade-save-btn');
   btn.disabled = true;
@@ -1143,19 +1240,24 @@ async function saveGrades() {
   for (const c of changes) {
     setStatus('grade-status', `Saving ${ok + fail + 1}/${changes.length} — ${c.name}…`, 'info');
     try {
-      await apiPut(`/api/v1/courses/${course_id}/assignments/${aid}/submissions/${c.user_id}`, [
-        ['submission[posted_grade]', c.grade === '' ? '' : c.grade]
-      ]);
+      const params = [];
+      if (c.gradeChanged) {
+        params.push(['submission[posted_grade]', c.grade === '' ? '' : c.grade]);
+      }
+      if (c.comment) {
+        params.push(['comment[text_comment]', c.comment]);
+      }
+      if (!params.length) continue;
+      await apiPut(`/api/v1/courses/${course_id}/assignments/${aid}/submissions/${c.user_id}`, params);
       ok++;
     } catch (e) {
       fail++;
-      console.error('Grade save failed for', c.name, e);
+      console.error('Save failed for', c.name, e);
     }
   }
   btn.disabled = false;
   setStatus('grade-status', `Saved ${ok} / ${changes.length}${fail ? ` · ${fail} failed (see console)` : ''}.`, fail ? 'warn' : 'ok');
   if (ok > 0) {
-    // Refresh originals so future diffs work correctly
     await loadGradeRows();
   }
 }

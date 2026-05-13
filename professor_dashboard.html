@@ -1183,37 +1183,58 @@ function renderMultiOtherTabs() {
   renderMultiTasks();
 }
 
-function showMultiPicker(tabKey, allowAll) {
+function showMultiPicker(tabKey, supportsGrouped) {
   const bar = document.getElementById('picker-' + tabKey);
   if (!bar) return;
   bar.classList.remove('hide');
-  const cur = multi_tab_active[tabKey] ?? (allowAll ? 'all' : '');
+  // Default: if grouped is supported and we're currently in multi-mode, default to "all";
+  // otherwise default to the currently-selected single course (if any).
+  let cur = multi_tab_active[tabKey];
+  if (cur === undefined) {
+    cur = (supportsGrouped && multi_mode) ? 'all' : (multi_mode ? '' : String(course_id || ''));
+  }
   multi_tab_active[tabKey] = cur;
   const opts = [];
-  if (allowAll) opts.push(`<option value="all" ${cur==='all'?'selected':''}>All courses (grouped)</option>`);
-  if (!allowAll) opts.push(`<option value="" ${cur===''?'selected':''}>— Pick a course —</option>`);
+  if (supportsGrouped) opts.push(`<option value="all" ${cur==='all'?'selected':''}>📚 All courses (grouped)</option>`);
+  opts.push(`<option value="__combined__" ${cur==='__combined__'?'selected':''}>📚 All courses (overview)</option>`);
+  if (!supportsGrouped && cur === '') opts.push(`<option value="" selected>— Pick a course —</option>`);
   for (const c of multi_courses) {
     opts.push(`<option value="${c.id}" ${String(c.id)===String(cur)?'selected':''}>${esc(c.code)}</option>`);
   }
-  const note = allowAll
-    ? 'Pick one course or view all grouped.'
-    : 'Picking a course switches to single-course mode.';
   bar.innerHTML = `
     <label>Course:</label>
     <select onchange="onMultiPickerChange('${tabKey}', this.value)">${opts.join('')}</select>
-    <span class="picker-note">${note}</span>`;
+    <span class="picker-note">Switch between courses or view all.</span>`;
 }
 
 function onMultiPickerChange(tabKey, val) {
   multi_tab_active[tabKey] = val;
-  // Tabs that can't operate in multi-mode just switch to single-course mode
-  if ((tabKey === 'gradebook' || tabKey === 'tasks') && val) {
+  // "All courses (overview)" — re-enter multi-mode and show combined overview
+  if (val === '__combined__') {
+    loadAllInSemester();
+    return;
+  }
+  // Tabs that can't operate in multi-mode switch to single-course mode for that course
+  if ((tabKey === 'gradebook' || tabKey === 'tasks') && val && val !== 'all') {
     selectCourse(val);
     return;
   }
-  if (tabKey === 'assignments') renderMultiAssignments();
-  if (tabKey === 'atrisk') renderMultiAtRisk();
-  if (tabKey === 'announcements') renderMultiAnnouncements();
+  // Assignments / At-Risk / Announcements support multi-mode grouped or filtered
+  if (val === 'all') {
+    if (!multi_mode) {
+      // Reload the multi context
+      loadAllInSemester();
+      return;
+    }
+  } else if (val) {
+    // User wants this tab to show one specific course
+    if (!multi_mode) selectCourse(val);
+  }
+  if (multi_mode) {
+    if (tabKey === 'assignments') renderMultiAssignments();
+    if (tabKey === 'atrisk') renderMultiAtRisk();
+    if (tabKey === 'announcements') renderMultiAnnouncements();
+  }
 }
 
 function hideMultiPickers() {
@@ -1409,7 +1430,21 @@ function renderMultiTasks() {
 function removeMultiSectionColumn() {
   const secSel = document.getElementById('section-filter');
   if (secSel) { secSel.classList.add('hide'); secSel.value = ''; }
-  hideMultiPickers();
+  // Hide pickers only if we have no multi context to switch back to
+  if (!multi_courses.length) hideMultiPickers();
+}
+
+function refreshPickersForCurrentCourse(cid) {
+  if (!multi_courses.length) return;
+  ['gradebook','assignments','atrisk','announcements','tasks'].forEach(k => {
+    multi_tab_active[k] = String(cid);
+  });
+  // Re-render each picker so it shows the new selection
+  showMultiPicker('gradebook', false);
+  showMultiPicker('assignments', true);
+  showMultiPicker('atrisk', true);
+  showMultiPicker('announcements', true);
+  showMultiPicker('tasks', false);
 }
 
 // ── Load course data ──
@@ -1440,6 +1475,8 @@ async function selectCourse(cid) {
     loadRecentActivity();
     loadAnnouncements();
     loadGradebook();
+    // After single-course load, keep multi pickers visible (if we have multi context) and show this course as selected
+    refreshPickersForCurrentCourse(cid);
   } catch (e) {
     document.getElementById('overview-stats').innerHTML =
       '<div class="stat-card" style="grid-column:span 4"><span style="color:#c53030">Error: ' + esc(e.message) + '</span></div>';

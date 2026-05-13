@@ -282,7 +282,6 @@ a.email-link:hover { text-decoration: underline; }
           <th onclick="sortStudents('name')">Student</th>
           <th onclick="sortStudents('email')">Email</th>
           <th onclick="sortStudents('current')">Current %</th>
-          <th onclick="sortStudents('letter')">Letter</th>
         </tr>
       </thead>
       <tbody id="students-tbody"></tbody>
@@ -1129,7 +1128,7 @@ function renderMultiStudents() {
         : 0;
       const header = `
         <tr style="background:#edf2f7">
-          <td colspan="4" style="padding:10px 14px">
+          <td colspan="3" style="padding:10px 14px">
             <span style="font-weight:700;color:#1a365d;font-size:0.96rem">📚 ${esc(g.code)}</span>
             <span style="margin-left:12px;color:#4a5568;font-size:0.84rem">
               ${g.rows.length} student(s) · Avg ${groupAvg ? groupAvg.toFixed(1) + '%' : '—'}
@@ -1148,7 +1147,6 @@ function rowHtmlMulti(r) {
     <td>${esc(r.name)}</td>
     <td><span style="color:#666;font-size:0.84rem">${esc(r.email)}</span></td>
     <td>${r.current ? r.current.toFixed(1) + '%' : '—'}</td>
-    <td>${r.current ? `<span class="pill ${pillClass(r.letter)}">${r.letter}</span>` : '—'}</td>
   </tr>`;
 }
 
@@ -1317,8 +1315,7 @@ function renderStudents() {
       <td><strong>${esc(r.name)}</strong></td>
       <td>${r.email ? `<a class="email-link" href="mailto:${esc(r.email)}">${esc(r.email)}</a>` : '<span style="color:#aaa">—</span>'}</td>
       <td>${r.current ? r.current.toFixed(1) + '%' : '<span style="color:#aaa">—</span>'}</td>
-      <td>${r.current ? `<span class="pill ${pillClass(r.letter)}">${r.letter}</span>` : '—'}</td>
-    </tr>`).join('') || '<tr><td colspan="4" class="empty">No students match</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="3" class="empty">No students match</td></tr>';
 }
 
 // ── Assignments ──

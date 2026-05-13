@@ -408,6 +408,106 @@ a.email-link:hover { text-decoration: underline; }
       <div class="lbl">Grade Homework</div>
       <div class="sub">Score one assignment</div>
     </div>
+    <div class="stat-card" onclick="showTaskForm('build')" style="cursor:pointer">
+      <div class="val" style="font-size:2rem">🛠️</div>
+      <div class="lbl">Build Homework</div>
+      <div class="sub">From a short brief</div>
+    </div>
+  </div>
+
+  <!-- Build homework form (brief → draft → edit → create) -->
+  <div class="card task-form hide" id="task-build">
+    <h2>🛠️ Build Homework</h2>
+
+    <!-- Step 1: Brief -->
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">
+        Step 1 — Describe the homework you want
+      </label>
+      <textarea id="build-brief" rows="3"
+                placeholder='e.g. "HW2 about loops, due 5/22, 20 pts, ask them to print a multiplication table"'
+                style="width:100%;padding:10px 14px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px;font-family:inherit;line-height:1.5"></textarea>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+        <button onclick="generateBuildDraft()"
+                style="padding:8px 18px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">
+          ↓ Generate Draft
+        </button>
+        <span style="font-size:0.78rem;color:#4a5568;align-self:center">
+          Topics I recognize: loops, arrays, classes, methods, conditionals, variables, strings, recursion, inheritance, objects
+        </span>
+      </div>
+    </div>
+
+    <!-- Step 2: Editable form -->
+    <div style="border-top:1px solid #e2e8f0;padding-top:14px">
+      <div style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase;margin-bottom:10px">
+        Step 2 — Review & edit
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Title</label>
+          <input type="text" id="build-name" placeholder="e.g., HW2: Loops and Iteration"
+                 style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+        </div>
+        <div>
+          <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Points</label>
+          <input type="number" id="build-points" value="20" min="0"
+                 style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Due Date</label>
+          <input type="datetime-local" id="build-due"
+                 style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+        </div>
+        <div>
+          <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Group</label>
+          <select id="build-group" style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px"></select>
+        </div>
+        <div>
+          <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Submission Type</label>
+          <select id="build-type" style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+            <option value="online_upload">File Upload</option>
+            <option value="online_text_entry">Text Entry</option>
+            <option value="online_upload,online_text_entry">File or Text</option>
+            <option value="online_url">URL</option>
+            <option value="on_paper">On Paper</option>
+            <option value="none">No Submission</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Student-facing instructions</label>
+        <div class="editor-toolbar">
+          <button onclick="fmt('bold')"><b>B</b></button>
+          <button onclick="fmt('italic')"><i>I</i></button>
+          <button onclick="fmt('insertUnorderedList')">• List</button>
+          <button onclick="fmt('insertOrderedList')">1. List</button>
+          <button onclick="insertLink()">🔗 Link</button>
+          <button onclick="insertHeading()">H</button>
+        </div>
+        <div id="build-desc" contenteditable="true" class="rich-editor"
+             style="border:1px solid #cbd5e0;border-top:none;border-radius:0 0 6px 6px;padding:12px;min-height:280px;font-size:0.92rem;line-height:1.5;background:#fff"></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:0.84rem;font-weight:600">
+          <input type="checkbox" id="build-publish" checked>
+          Publish immediately (visible to students)
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="createBuildAssignment()" id="build-create-btn"
+                style="padding:9px 22px;background:#276749;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">
+          ✓ Create on Canvas
+        </button>
+        <button onclick="document.getElementById('task-build').classList.add('hide')"
+                style="padding:9px 22px;background:#edf2f7;color:#666;border:none;border-radius:6px;font-weight:600;cursor:pointer">
+          Cancel
+        </button>
+        <span id="build-status" style="margin-left:8px;font-size:0.84rem"></span>
+      </div>
+    </div>
   </div>
 
   <!-- Grade homework form -->
@@ -993,6 +1093,7 @@ function showTaskForm(which) {
   if (which === 'message') setupMessagePicker();
   if (which === 'bulk') populateBulkAssignments();
   if (which === 'grade') populateGradeAssignments();
+  if (which === 'build') initBuildForm();
 }
 
 // ── Grade Homework form ──
@@ -1359,6 +1460,287 @@ async function createAssignment() {
     renderAssignments();
   } catch (e) {
     setStatus('asn-status', '✗ ' + e.message, 'err');
+  }
+}
+
+// ── Build Homework (brief → draft → edit → create) ──
+const HW_TEMPLATES = {
+  loops: {
+    title: 'Loops and Iteration',
+    overview: 'Practice using <code>for</code>, <code>while</code>, and <code>do-while</code> loops to solve repetitive problems in Java.',
+    requirements: [
+      'Create a Java class with a <code>main</code> method.',
+      'Use at least one <code>for</code> loop and one <code>while</code> loop.',
+      'Use <code>Scanner</code> to read input from the user where applicable.',
+      'Print clearly formatted output.',
+    ],
+    example: 'Sample task: read an integer <code>n</code> from the user and print the multiplication table from 1 to <code>n</code>.',
+  },
+  arrays: {
+    title: 'Arrays',
+    overview: 'Practice declaring, initializing, and manipulating one-dimensional arrays in Java.',
+    requirements: [
+      'Declare an array of an appropriate primitive type.',
+      'Populate the array (from user input, hardcoded, or computed).',
+      'Use a loop to traverse the array.',
+      'Print each element with a clear label.',
+    ],
+    example: 'Sample task: read 10 integers from the user into an array, then print the largest, smallest, and average values.',
+  },
+  classes: {
+    title: 'Classes and Objects',
+    overview: 'Practice designing a class with instance variables, a constructor, and methods.',
+    requirements: [
+      'Define a class with at least three instance variables.',
+      'Write a constructor that initializes all instance variables.',
+      'Include at least two methods (e.g., a getter, a setter, and a <code>toString</code>).',
+      'In a separate driver class, create at least two objects and demonstrate each method.',
+    ],
+    example: 'Sample task: design a <code>Book</code> class with title, author, and price; demonstrate it in a driver.',
+  },
+  methods: {
+    title: 'Methods',
+    overview: 'Practice defining and calling methods, passing parameters, and returning values.',
+    requirements: [
+      'Write at least three static methods.',
+      'At least one method must take parameters and return a value.',
+      'At least one method must be <code>void</code>.',
+      'Call each method from <code>main</code> and demonstrate the output.',
+    ],
+    example: 'Sample task: write methods to compute area of a rectangle, circle, and triangle; demonstrate each in <code>main</code>.',
+  },
+  conditionals: {
+    title: 'Conditionals',
+    overview: 'Practice writing decision-making code using <code>if</code>, <code>else if</code>, <code>else</code>, and <code>switch</code> statements.',
+    requirements: [
+      'Use <code>if/else if/else</code> in at least one branch of the program.',
+      'Use a <code>switch</code> statement somewhere in the program.',
+      'Read input from the user with <code>Scanner</code>.',
+      'Handle edge cases (negative input, zero, very large values).',
+    ],
+    example: 'Sample task: read a numeric grade (0–100) and print the equivalent letter grade following the standard scale.',
+  },
+  variables: {
+    title: 'Variables and Expressions',
+    overview: 'Practice declaring primitive variables, working with arithmetic expressions, and producing formatted output.',
+    requirements: [
+      'Declare variables of at least three different primitive types.',
+      'Use arithmetic operators including <code>+ - * / %</code>.',
+      'Read at least one value from the user.',
+      'Use <code>System.out.printf</code> or string concatenation to format output.',
+    ],
+    example: 'Sample task: read the radius of a circle and print its area and circumference with 2 decimal places.',
+  },
+  strings: {
+    title: 'Strings',
+    overview: 'Practice working with the Java <code>String</code> class and its methods.',
+    requirements: [
+      'Read a string from the user.',
+      'Use at least three different <code>String</code> methods (e.g., <code>length</code>, <code>charAt</code>, <code>substring</code>, <code>toUpperCase</code>, <code>indexOf</code>).',
+      'Use a loop to process the string character by character.',
+      'Print formatted output.',
+    ],
+    example: 'Sample task: read a sentence and count the number of vowels, consonants, and spaces.',
+  },
+  recursion: {
+    title: 'Recursion',
+    overview: 'Practice writing recursive methods with a clear base case and recursive case.',
+    requirements: [
+      'Write a recursive method with a clearly identified base case.',
+      'Call the method from <code>main</code> with a sample input.',
+      'Write a brief comment explaining your base case and recursive case.',
+    ],
+    example: 'Sample task: write a recursive method that computes the factorial of an integer <code>n</code>.',
+  },
+  inheritance: {
+    title: 'Inheritance',
+    overview: 'Practice designing a class hierarchy with a parent class and one or more child classes.',
+    requirements: [
+      'Define a parent class with at least one instance variable and one method.',
+      'Define at least one child class that extends the parent.',
+      'Override at least one method in the child class.',
+      'Use <code>super</code> at least once.',
+      'Demonstrate polymorphism by storing child objects in a parent-type variable.',
+    ],
+    example: 'Sample task: define a <code>Vehicle</code> class and a <code>Car</code> subclass; demonstrate both.',
+  },
+  objects: {
+    title: 'Working with Objects',
+    overview: 'Practice creating and interacting with multiple objects and standard library classes.',
+    requirements: [
+      'Use at least one standard library class (e.g., <code>Scanner</code>, <code>Math</code>, <code>Random</code>).',
+      'Create at least two objects of a class you define.',
+      'Demonstrate calling methods on each object.',
+    ],
+    example: 'Sample task: create three <code>Student</code> objects with names and GPAs; print which one has the highest GPA.',
+  },
+};
+
+function initBuildForm() {
+  // Populate assignment groups dropdown
+  (async () => {
+    try {
+      const token = document.getElementById('token').value.trim();
+      const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+      const res = await fetch(PROXY + `/api/v1/courses/${course_id}/assignment_groups?per_page=100`, {
+        headers: { 'X-Canvas-Token': token, 'X-Canvas-Domain': domain }
+      });
+      const groups = await res.json();
+      const sel = document.getElementById('build-group');
+      sel.innerHTML = groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('');
+      // Default to a "Homework" group if it exists
+      const hw = groups.find(g => /home ?work/i.test(g.name));
+      if (hw) sel.value = hw.id;
+    } catch (e) { console.error(e); }
+  })();
+}
+
+function parseDueFromBrief(brief) {
+  // Match "due 5/22", "due 5/22/26", "due May 22", "due Thursday", "by Friday at 10am", etc.
+  const lower = brief.toLowerCase();
+  // ISO-ish M/D[/YY]
+  let m = lower.match(/(?:due|by)\s+(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?(?:\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?/);
+  if (m) {
+    const mo = +m[1], d = +m[2];
+    let y = m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : new Date().getFullYear();
+    let hh = m[4] ? +m[4] : 23;
+    let mm = m[5] ? +m[5] : (m[4] ? 0 : 59);
+    if (m[6] === 'pm' && hh < 12) hh += 12;
+    if (m[6] === 'am' && hh === 12) hh = 0;
+    return new Date(y, mo - 1, d, hh, mm);
+  }
+  // Day name
+  const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  m = lower.match(/(?:due|by)\s+(sun|mon|tue|wed|thu|fri|sat)[a-z]*(?:\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?/);
+  if (m) {
+    const target = days.findIndex(d => d.startsWith(m[1]));
+    const now = new Date();
+    let diff = (target - now.getDay() + 7) % 7;
+    if (diff === 0) diff = 7;
+    const d = new Date(now); d.setDate(now.getDate() + diff);
+    let hh = m[2] ? +m[2] : 23;
+    let mm = m[3] ? +m[3] : (m[2] ? 0 : 59);
+    if (m[4] === 'pm' && hh < 12) hh += 12;
+    if (m[4] === 'am' && hh === 12) hh = 0;
+    d.setHours(hh, mm, 0, 0);
+    return d;
+  }
+  return null;
+}
+
+function toDatetimeLocal(d) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function generateBuildDraft() {
+  const brief = document.getElementById('build-brief').value.trim();
+  if (!brief) {
+    document.getElementById('build-brief').focus();
+    return;
+  }
+  const lower = brief.toLowerCase();
+
+  // Detect topic
+  let topicKey = null;
+  for (const k of Object.keys(HW_TEMPLATES)) {
+    if (lower.includes(k)) { topicKey = k; break; }
+  }
+  // Variants
+  if (!topicKey) {
+    if (/\bif\b|\belse\b|\bswitch\b/.test(lower)) topicKey = 'conditionals';
+    else if (/\bobject(s)?\b/.test(lower)) topicKey = 'objects';
+    else if (/\bfor\b|\bwhile\b/.test(lower)) topicKey = 'loops';
+  }
+  const tpl = topicKey ? HW_TEMPLATES[topicKey] : null;
+
+  // HW number
+  const hwMatch = brief.match(/\bhw\s*(\d+)\b/i) || brief.match(/\bhomework\s*(\d+)\b/i);
+  const hwNum = hwMatch ? hwMatch[1] : '';
+  const titleTopic = tpl ? tpl.title : (brief.split(/[,.]/)[0].trim().slice(0, 60) || 'New Homework');
+  const title = hwNum ? `HW${hwNum}: ${titleTopic}` : titleTopic;
+
+  // Points
+  const ptsMatch = brief.match(/(\d+)\s*(?:pts?|points?)/i);
+  const points = ptsMatch ? +ptsMatch[1] : 20;
+
+  // Due
+  const dueDate = parseDueFromBrief(brief);
+
+  // Try to pull a custom task description ("ask them to ...", "have students ...", "print ...")
+  let custom = null;
+  const m = brief.match(/(?:ask(?:\s+them)?(?:\s+to)?|have\s+students(?:\s+to)?|that\s+(?:asks?|prints?|computes?|reads?)|to\s+(?:print|read|compute|design|build|write|create)\s+)([^.]+)/i);
+  if (m) custom = m[0].replace(/^(ask(?:\s+them)?(?:\s+to)?|have\s+students(?:\s+to)?|that\s+|to\s+)/i, '').trim();
+
+  // Build HTML description
+  const overview = tpl ? tpl.overview : 'Complete the task described below.';
+  const reqs = tpl ? tpl.requirements : ['Write your Java program following the instructions.', 'Test your program with a few sample inputs.'];
+  const exampleLine = custom ? `<p>${esc(custom.charAt(0).toUpperCase() + custom.slice(1))}.</p>` : (tpl ? `<p>${tpl.example}</p>` : '');
+
+  const html = `
+    <h3>Overview</h3>
+    <p>${overview}</p>
+    ${exampleLine ? `<h3>Task</h3>${exampleLine}` : ''}
+    <h3>Requirements</h3>
+    <ul>
+      ${reqs.map(r => `<li>${r}</li>`).join('')}
+    </ul>
+    <h3>What to Submit</h3>
+    <ul>
+      <li>Your <code>.java</code> source file(s).</li>
+      <li>A screenshot of your program's output running successfully in Eclipse.</li>
+    </ul>
+    <h3>Grading</h3>
+    <ul>
+      <li>Code compiles and runs without errors.</li>
+      <li>Output matches the expected format.</li>
+      <li>Code is reasonably commented and uses meaningful variable names.</li>
+    </ul>
+  `;
+
+  // Fill the form
+  document.getElementById('build-name').value = title;
+  document.getElementById('build-points').value = points;
+  document.getElementById('build-desc').innerHTML = html;
+  if (dueDate) document.getElementById('build-due').value = toDatetimeLocal(dueDate);
+  setStatus('build-status', topicKey ? `Drafted (topic: ${topicKey}). Edit anything below, then click Create on Canvas.` : 'Drafted (generic template). Edit anything below, then click Create on Canvas.', 'info');
+}
+
+async function createBuildAssignment() {
+  const name = document.getElementById('build-name').value.trim();
+  const points = document.getElementById('build-points').value;
+  const due = document.getElementById('build-due').value;
+  const groupId = document.getElementById('build-group').value;
+  const subType = document.getElementById('build-type').value;
+  const desc = document.getElementById('build-desc').innerHTML;
+  const publish = document.getElementById('build-publish').checked;
+  if (!name) { setStatus('build-status', 'Title required — click Generate Draft or type one.', 'err'); return; }
+
+  setStatus('build-status', 'Creating on Canvas…', 'info');
+  try {
+    const params = [
+      ['assignment[name]', name],
+      ['assignment[points_possible]', points],
+      ['assignment[description]', desc],
+      ['assignment[published]', publish ? 'true' : 'false'],
+      ['assignment[grading_type]', 'points'],
+    ];
+    // Submission type may be comma-separated for multi-type
+    for (const t of subType.split(',')) {
+      params.push(['assignment[submission_types][]', t]);
+    }
+    if (due) params.push(['assignment[due_at]', new Date(due).toISOString()]);
+    if (groupId) params.push(['assignment[assignment_group_id]', groupId]);
+    const r = await apiPost(`/api/v1/courses/${course_id}/assignments`, params);
+    setStatus('build-status', `✓ Created: ${r.name} (id ${r.id})`, 'ok');
+    // Refresh assignments list
+    const all = await fetch(PROXY + `/api/v1/courses/${course_id}/assignments?per_page=100`, {
+      headers: { 'X-Canvas-Token': document.getElementById('token').value.trim(), 'X-Canvas-Domain': document.getElementById('domain').value.trim() }
+    }).then(r => r.json());
+    assignments = all;
+    if (typeof renderAssignments === 'function') renderAssignments();
+  } catch (e) {
+    setStatus('build-status', '✗ ' + e.message, 'err');
   }
 }
 

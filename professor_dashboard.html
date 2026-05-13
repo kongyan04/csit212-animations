@@ -263,6 +263,9 @@ a.email-link:hover { text-decoration: underline; }
     <h2>Class Roster</h2>
     <div class="tool-row">
       <input type="text" id="student-search" placeholder="Search by name or email..." oninput="renderStudents()">
+      <select id="section-filter" onchange="renderStudents()" class="hide">
+        <option value="">All sections</option>
+      </select>
       <select id="student-filter" onchange="renderStudents()">
         <option value="">All grades</option>
         <option value="A">A range (≥90%)</option>
@@ -1054,39 +1057,22 @@ function renderMultiOverview(tag) {
 }
 
 function renderMultiStudents() {
+  // Populate / show the section filter
+  const secSel = document.getElementById('section-filter');
+  if (secSel) {
+    secSel.classList.remove('hide');
+    const want = secSel.value;
+    const opts = ['<option value="">All sections (grouped)</option>']
+      .concat(multi_courses.map(c => `<option value="${c.id}">${esc(c.code)}</option>`));
+    secSel.innerHTML = opts.join('');
+    if (want && multi_courses.some(c => String(c.id) === String(want))) secSel.value = want;
+  }
+  const sectionFilter = secSel ? secSel.value : '';
+
   const search = (document.getElementById('student-search').value || '').toLowerCase();
   const filter = document.getElementById('student-filter').value;
-  let rows = multi_courses.flatMap(c => c.enrollments.map(e => ({
-    e, cid: c.id, code: c.code,
-    name: e.user?.name || 'Unknown',
-    email: e.user?.email || e.user?.login_id || '',
-    current: parseFloat(e.grades?.current_score || 0),
-    letter: gradeLetter(parseFloat(e.grades?.current_score || 0)),
-    last: e.last_activity_at || '',
-  })));
-  if (search) rows = rows.filter(r => r.name.toLowerCase().includes(search) || r.email.toLowerCase().includes(search) || r.code.toLowerCase().includes(search));
-  if (filter) {
-    rows = rows.filter(r => {
-      const L = r.letter;
-      if (filter === 'A') return L.startsWith('A');
-      if (filter === 'B') return L.startsWith('B');
-      if (filter === 'C') return L.startsWith('C');
-      if (filter === 'D') return L.startsWith('D');
-      if (filter === 'F') return L === 'F';
-      return true;
-    });
-  }
-  const key = students_sorted_by.key, asc = students_sorted_by.asc;
-  rows.sort((a, b) => {
-    let av = a[key], bv = b[key];
-    if (key === 'current') { av = a.current; bv = b.current; }
-    if (av < bv) return asc ? -1 : 1;
-    if (av > bv) return asc ? 1 : -1;
-    return 0;
-  });
-  document.getElementById('student-count').textContent = `${rows.length} students (across ${multi_courses.length} sections)`;
 
-  // Inject a "Section" header if missing
+  // Inject the Section header column (multi-mode only)
   const thead = document.querySelector('#tab-students thead tr');
   if (thead && !thead.querySelector('th[data-multi]')) {
     const th = document.createElement('th');
@@ -1097,16 +1083,87 @@ function renderMultiStudents() {
     thead.insertBefore(th, thead.firstChild);
   }
 
+  // Decide which courses to render
+  const visibleCourses = sectionFilter
+    ? multi_courses.filter(c => String(c.id) === String(sectionFilter))
+    : multi_courses;
+
+  // Build rows per course so we can group; same filters apply
+  const matchFilters = r => {
+    if (search && !(r.name.toLowerCase().includes(search) || r.email.toLowerCase().includes(search) || r.code.toLowerCase().includes(search))) return false;
+    if (filter) {
+      const L = r.letter;
+      if (filter === 'A') return L.startsWith('A');
+      if (filter === 'B') return L.startsWith('B');
+      if (filter === 'C') return L.startsWith('C');
+      if (filter === 'D') return L.startsWith('D');
+      if (filter === 'F') return L === 'F';
+    }
+    return true;
+  };
+
+  const key = students_sorted_by.key, asc = students_sorted_by.asc;
+  const sortRows = arr => arr.slice().sort((a, b) => {
+    let av = a[key], bv = b[key];
+    if (key === 'current') { av = a.current; bv = b.current; }
+    if (av < bv) return asc ? -1 : 1;
+    if (av > bv) return asc ? 1 : -1;
+    return 0;
+  });
+
+  const groups = visibleCourses.map(c => {
+    const rs = c.enrollments.map(e => ({
+      e, cid: c.id, code: c.code,
+      name: e.user?.name || 'Unknown',
+      email: e.user?.email || e.user?.login_id || '',
+      current: parseFloat(e.grades?.current_score || 0),
+      letter: gradeLetter(parseFloat(e.grades?.current_score || 0)),
+      last: e.last_activity_at || '',
+    })).filter(matchFilters);
+    return { code: c.code, id: c.id, rows: sortRows(rs) };
+  });
+
+  const totalRows = groups.reduce((s, g) => s + g.rows.length, 0);
+  document.getElementById('student-count').textContent = sectionFilter
+    ? `${totalRows} student(s) in ${groups[0]?.code || ''}`
+    : `${totalRows} students across ${visibleCourses.length} section(s)`;
+
   const tbody = document.getElementById('students-tbody');
-  tbody.innerHTML = rows.map(r => `
-    <tr>
-      <td><span style="background:#edf2f7;padding:2px 8px;border-radius:10px;font-size:0.78rem;font-weight:600;cursor:pointer" onclick="selectCourse('${r.cid}')">${esc(r.code)}</span></td>
-      <td>${esc(r.name)}</td>
-      <td><span style="color:#666;font-size:0.84rem">${esc(r.email)}</span></td>
-      <td>${r.current ? r.current.toFixed(1) + '%' : '—'}</td>
-      <td>${r.current ? `<span class="pill ${pillClass(r.letter)}">${r.letter}</span>` : '—'}</td>
-      <td>${r.last ? new Date(r.last).toLocaleDateString() : '<span style="color:#a0aec0">never</span>'}</td>
-    </tr>`).join('');
+  if (sectionFilter) {
+    // Flat list, no group headers
+    tbody.innerHTML = groups[0]?.rows.map(r => rowHtmlMulti(r)).join('') || '';
+  } else {
+    // Grouped by course with a header row before each group
+    tbody.innerHTML = groups.map(g => {
+      const groupAvg = g.rows.length
+        ? (g.rows.filter(r => r.current > 0).reduce((s, r) => s + r.current, 0) /
+           Math.max(1, g.rows.filter(r => r.current > 0).length))
+        : 0;
+      const header = `
+        <tr style="background:#edf2f7">
+          <td colspan="6" style="padding:10px 14px">
+            <span style="font-weight:700;color:#1a365d;font-size:0.96rem">📚 ${esc(g.code)}</span>
+            <span style="margin-left:12px;color:#4a5568;font-size:0.84rem">
+              ${g.rows.length} student(s) · Avg ${groupAvg ? groupAvg.toFixed(1) + '%' : '—'}
+              · <a href="#" onclick="event.preventDefault();selectCourse('${g.id}')" style="color:#2b6cb0">Open this section →</a>
+            </span>
+          </td>
+        </tr>`;
+      const body = g.rows.map(r => rowHtmlMulti(r)).join('');
+      return header + body;
+    }).join('');
+  }
+}
+
+function rowHtmlMulti(r) {
+  return `<tr>
+    <td><span style="background:#edf2f7;padding:2px 8px;border-radius:10px;font-size:0.78rem;font-weight:600;cursor:pointer" onclick="selectCourse('${r.cid}')">${esc(r.code)}</span></td>
+    <td>${esc(r.name)}</td>
+    <td><span style="color:#666;font-size:0.84rem">${esc(r.email)}</span></td>
+    <td>${r.current ? r.current.toFixed(1) + '%' : '—'}</td>
+    <td>${r.current ? `<span class="pill ${pillClass(r.letter)}">${r.letter}</span>` : '—'}</td>
+    <td>${r.last ? new Date(r.last).toLocaleDateString() : '<span style="color:#a0aec0">never</span>'}</td>
+  </tr>`;
 }
 
 function renderMultiOtherTabs() {
@@ -1129,9 +1186,12 @@ function renderMultiOtherTabs() {
 // When semester filter changes or user picks a single course, drop the multi-mode student-table column
 function removeMultiSectionColumn() {
   const thead = document.querySelector('#tab-students thead tr');
-  if (!thead) return;
-  const th = thead.querySelector('th[data-multi]');
-  if (th) th.remove();
+  if (thead) {
+    const th = thead.querySelector('th[data-multi]');
+    if (th) th.remove();
+  }
+  const secSel = document.getElementById('section-filter');
+  if (secSel) { secSel.classList.add('hide'); secSel.value = ''; }
 }
 
 // ── Load course data ──

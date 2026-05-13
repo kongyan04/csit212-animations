@@ -40,6 +40,17 @@ header p { color: #bee3f8; font-size: 0.82rem; }
 .conn-status.err { color: #c53030; }
 .conn-status.warn { color: #c05621; }
 
+.multi-picker-bar {
+  background:#edf2f7; border:1px solid #cbd5e0; border-radius:8px;
+  padding:10px 14px; margin-bottom:14px; display:flex; gap:10px;
+  align-items:center; flex-wrap:wrap;
+}
+.multi-picker-bar label { font-size:0.74rem; font-weight:600;
+  color:#4a5568; text-transform:uppercase; letter-spacing:0.03em; }
+.multi-picker-bar select { padding:6px 10px; border:1px solid #cbd5e0;
+  border-radius:6px; font-size:0.86rem; font-family:inherit; min-width:240px; }
+.multi-picker-bar .picker-note { color:#4a5568; font-size:0.82rem; }
+
 main { max-width: 1400px; margin: 0 auto; padding: 20px; }
 .hide { display: none !important; }
 
@@ -291,6 +302,7 @@ a.email-link:hover { text-decoration: underline; }
 
 <!-- Gradebook -->
 <div class="tab-panel" id="tab-gradebook">
+  <div class="multi-picker-bar hide" id="picker-gradebook"></div>
   <div class="card">
     <h2>Gradebook</h2>
     <div id="gradebook-area" class="loading"><span class="spinner"></span> Loading gradebook...</div>
@@ -299,6 +311,7 @@ a.email-link:hover { text-decoration: underline; }
 
 <!-- Assignments -->
 <div class="tab-panel" id="tab-assignments">
+  <div class="multi-picker-bar hide" id="picker-assignments"></div>
   <div class="card">
     <h2>Assignments</h2>
     <div class="tool-row">
@@ -331,6 +344,7 @@ a.email-link:hover { text-decoration: underline; }
 
 <!-- At-Risk -->
 <div class="tab-panel" id="tab-atrisk">
+  <div class="multi-picker-bar hide" id="picker-atrisk"></div>
   <div class="card">
     <h2>Students Who Need Attention</h2>
     <p style="font-size:0.82rem;color:#666;margin-bottom:14px">Students with grades below 70% OR with missing/late assignments.</p>
@@ -352,6 +366,7 @@ a.email-link:hover { text-decoration: underline; }
 
 <!-- Announcements -->
 <div class="tab-panel" id="tab-announcements">
+  <div class="multi-picker-bar hide" id="picker-announcements"></div>
   <div class="card">
     <h2>Recent Announcements</h2>
     <div id="ann-list"></div>
@@ -360,6 +375,7 @@ a.email-link:hover { text-decoration: underline; }
 
 <!-- Tasks -->
 <div class="tab-panel" id="tab-tasks">
+  <div class="multi-picker-bar hide" id="picker-tasks"></div>
 
   <!-- Smart Task input -->
   <div class="card" style="background:linear-gradient(135deg,#1a365d,#2b6cb0);color:#fff;border:none">
@@ -1150,27 +1166,252 @@ function rowHtmlMulti(r) {
   </tr>`;
 }
 
+// Tracks active course (or 'all') per multi-aware tab
+let multi_tab_active = {};
+
 function renderMultiOtherTabs() {
-  const msg = `<div class="empty" style="padding:30px;text-align:center">
-    <div style="font-size:1.6rem;margin-bottom:6px">📚</div>
-    <div style="font-weight:600;margin-bottom:4px">Multi-course view</div>
-    <div style="color:#666;font-size:0.88rem">This tab requires a single course. Pick a section from the Course dropdown, or click a section tile on the Overview tab.</div>
-  </div>`;
-  const setRow = (tbodyId, colspan) => {
-    const el = document.getElementById(tbodyId);
-    if (el) el.innerHTML = `<tr><td colspan="${colspan}">${msg}</td></tr>`;
-  };
-  const setHtml = id => { const el = document.getElementById(id); if (el) el.innerHTML = msg; };
-  setHtml('gradebook-area');
-  setRow('asn-tbody', 7);
-  setRow('atrisk-tbody', 6);
-  setHtml('ann-list');
+  // Show picker bars on each tab; default each tab to its first appropriate option
+  showMultiPicker('gradebook', false);
+  showMultiPicker('assignments', true);
+  showMultiPicker('atrisk', true);
+  showMultiPicker('announcements', true);
+  showMultiPicker('tasks', false);
+  renderMultiAssignments();
+  renderMultiAtRisk();
+  renderMultiAnnouncements();
+  renderMultiGradebook();
+  renderMultiTasks();
 }
 
-// When semester filter changes or user picks a single course, drop the multi-mode student-table column
+function showMultiPicker(tabKey, allowAll) {
+  const bar = document.getElementById('picker-' + tabKey);
+  if (!bar) return;
+  bar.classList.remove('hide');
+  const cur = multi_tab_active[tabKey]
+    ?? (allowAll ? 'all' : String(multi_courses[0]?.id || ''));
+  multi_tab_active[tabKey] = cur;
+  const opts = [];
+  if (allowAll) opts.push(`<option value="all" ${cur==='all'?'selected':''}>All courses (grouped)</option>`);
+  for (const c of multi_courses) {
+    opts.push(`<option value="${c.id}" ${String(c.id)===String(cur)?'selected':''}>${esc(c.code)}</option>`);
+  }
+  const note = allowAll
+    ? 'Pick one course or view all grouped.'
+    : 'Pick one course to view.';
+  bar.innerHTML = `
+    <label>Course:</label>
+    <select onchange="onMultiPickerChange('${tabKey}', this.value)">${opts.join('')}</select>
+    <span class="picker-note">${note}</span>`;
+}
+
+function onMultiPickerChange(tabKey, val) {
+  multi_tab_active[tabKey] = val;
+  if (tabKey === 'gradebook') renderMultiGradebook();
+  if (tabKey === 'assignments') renderMultiAssignments();
+  if (tabKey === 'atrisk') renderMultiAtRisk();
+  if (tabKey === 'announcements') renderMultiAnnouncements();
+  if (tabKey === 'tasks') renderMultiTasks();
+}
+
+function hideMultiPickers() {
+  ['gradebook','assignments','atrisk','announcements','tasks'].forEach(k => {
+    const el = document.getElementById('picker-' + k);
+    if (el) { el.classList.add('hide'); el.innerHTML = ''; }
+  });
+  multi_tab_active = {};
+}
+
+// ── Lazy fetchers for multi-course data ──
+async function ensureMultiCourseAssignments(courseEntry) {
+  if (courseEntry._assignments) return courseEntry._assignments;
+  try {
+    courseEntry._assignments = await api(`/api/v1/courses/${courseEntry.id}/assignments?per_page=100&include[]=submission`);
+  } catch (e) {
+    courseEntry._assignments = [];
+  }
+  return courseEntry._assignments;
+}
+async function ensureMultiCourseAnnouncements(courseEntry) {
+  if (courseEntry._announcements) return courseEntry._announcements;
+  try {
+    courseEntry._announcements = await api(`/api/v1/announcements?context_codes[]=course_${courseEntry.id}&per_page=20`);
+  } catch (e) {
+    courseEntry._announcements = [];
+  }
+  return courseEntry._announcements;
+}
+
+// ── Multi: Assignments tab ──
+async function renderMultiAssignments() {
+  if (!multi_mode) return;
+  const tbody = document.getElementById('asn-tbody');
+  const cur = multi_tab_active.assignments || 'all';
+  const countEl = document.getElementById('asn-count');
+  tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:14px;color:#666"><span class="spinner"></span> Loading…</td></tr>`;
+
+  const list = cur === 'all' ? multi_courses : multi_courses.filter(c => String(c.id) === String(cur));
+  await Promise.all(list.map(c => ensureMultiCourseAssignments(c)));
+
+  if (cur === 'all') {
+    const rowsHtml = list.map(c => {
+      const asns = c._assignments || [];
+      const header = `<tr style="background:#edf2f7">
+        <td colspan="7" style="padding:10px 14px">
+          <span style="font-weight:700;color:#1a365d">📚 ${esc(c.code)}</span>
+          <span style="margin-left:12px;color:#4a5568;font-size:0.84rem">
+            ${asns.length} assignment(s) · ${asns.filter(a=>a.published).length} published
+            · <a href="#" onclick="event.preventDefault();selectCourse('${c.id}')" style="color:#2b6cb0">Open this section →</a>
+          </span>
+        </td></tr>`;
+      const rows = asns.map(a => assignmentRowHtml(a)).join('') || `<tr><td colspan="7" class="empty">No assignments.</td></tr>`;
+      return header + rows;
+    }).join('');
+    tbody.innerHTML = rowsHtml || `<tr><td colspan="7" class="empty">No courses loaded.</td></tr>`;
+    const total = list.reduce((s, c) => s + (c._assignments?.length || 0), 0);
+    if (countEl) countEl.textContent = `${total} assignment(s) across ${list.length} section(s)`;
+  } else {
+    const c = list[0];
+    const asns = c?._assignments || [];
+    tbody.innerHTML = asns.map(a => assignmentRowHtml(a)).join('') || `<tr><td colspan="7" class="empty">No assignments.</td></tr>`;
+    if (countEl) countEl.textContent = `${asns.length} assignment(s) in ${c?.code || ''}`;
+  }
+}
+
+function assignmentRowHtml(a) {
+  const due = a.due_at ? new Date(a.due_at).toLocaleDateString() : '<span style="color:#aaa">—</span>';
+  const grp = a.assignment_group_id || '';
+  const pub = a.published
+    ? '<span class="pill pill-A">Published</span>'
+    : '<span class="pill pill-F">Unpublished</span>';
+  return `<tr>
+    <td><strong>${esc(a.name)}</strong></td>
+    <td><span style="color:#666;font-size:0.82rem">${esc(grp)}</span></td>
+    <td>${a.points_possible ?? '—'}</td>
+    <td>${due}</td>
+    <td>—</td>
+    <td>—</td>
+    <td>${pub}</td>
+  </tr>`;
+}
+
+// ── Multi: At-Risk tab ──
+function renderMultiAtRisk() {
+  if (!multi_mode) return;
+  const tbody = document.getElementById('atrisk-tbody');
+  const cur = multi_tab_active.atrisk || 'all';
+  const list = cur === 'all' ? multi_courses : multi_courses.filter(c => String(c.id) === String(cur));
+
+  const riskRows = c => c.enrollments.map(e => {
+    const cur = parseFloat(e.grades?.current_score || 0);
+    return { e, cid: c.id, code: c.code, name: e.user?.name || '—', email: e.user?.email || '', current: cur, last: e.last_activity_at || '' };
+  }).filter(r => r.current > 0 && r.current < 70);
+
+  if (cur === 'all') {
+    const html = list.map(c => {
+      const rows = riskRows(c);
+      const header = `<tr style="background:#edf2f7">
+        <td colspan="6" style="padding:10px 14px">
+          <span style="font-weight:700;color:#1a365d">📚 ${esc(c.code)}</span>
+          <span style="margin-left:12px;color:#4a5568;font-size:0.84rem">
+            ${rows.length} at-risk · <a href="#" onclick="event.preventDefault();selectCourse('${c.id}')" style="color:#2b6cb0">Open this section →</a>
+          </span>
+        </td></tr>`;
+      const body = rows.length
+        ? rows.map(r => `<tr>
+            <td>${esc(r.name)}</td>
+            <td><a class="email-link" href="mailto:${esc(r.email)}">${esc(r.email)}</a></td>
+            <td><span style="color:#c53030;font-weight:600">${r.current.toFixed(1)}%</span></td>
+            <td>—</td><td>—</td>
+            <td style="color:#666;font-size:0.82rem">${r.last ? new Date(r.last).toLocaleDateString() : 'never'}</td>
+          </tr>`).join('')
+        : `<tr><td colspan="6" class="empty" style="text-align:center;color:#276749">No students below 70% 🎉</td></tr>`;
+      return header + body;
+    }).join('');
+    tbody.innerHTML = html;
+  } else {
+    const c = list[0];
+    const rows = c ? riskRows(c) : [];
+    tbody.innerHTML = rows.length
+      ? rows.map(r => `<tr>
+          <td>${esc(r.name)}</td>
+          <td><a class="email-link" href="mailto:${esc(r.email)}">${esc(r.email)}</a></td>
+          <td><span style="color:#c53030;font-weight:600">${r.current.toFixed(1)}%</span></td>
+          <td>—</td><td>—</td>
+          <td style="color:#666;font-size:0.82rem">${r.last ? new Date(r.last).toLocaleDateString() : 'never'}</td>
+        </tr>`).join('')
+      : `<tr><td colspan="6" class="empty" style="text-align:center;color:#276749">No students below 70% in ${esc(c?.code || '')} 🎉</td></tr>`;
+  }
+}
+
+// ── Multi: Announcements tab ──
+async function renderMultiAnnouncements() {
+  if (!multi_mode) return;
+  const list = document.getElementById('ann-list');
+  const cur = multi_tab_active.announcements || 'all';
+  list.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+  const courses = cur === 'all' ? multi_courses : multi_courses.filter(c => String(c.id) === String(cur));
+  await Promise.all(courses.map(c => ensureMultiCourseAnnouncements(c)));
+
+  if (cur === 'all') {
+    list.innerHTML = courses.map(c => {
+      const ann = (c._announcements || []).slice(0, 5);
+      const header = `<div style="background:#edf2f7;padding:10px 14px;border-radius:8px;margin:14px 0 8px">
+        <span style="font-weight:700;color:#1a365d">📚 ${esc(c.code)}</span>
+        <span style="margin-left:12px;color:#4a5568;font-size:0.84rem">
+          ${ann.length} recent announcement(s)
+          · <a href="#" onclick="event.preventDefault();selectCourse('${c.id}')" style="color:#2b6cb0">Open this section →</a>
+        </span></div>`;
+      const body = ann.length
+        ? ann.map(a => annHtml(a)).join('')
+        : `<div class="empty" style="padding:14px">No announcements.</div>`;
+      return header + body;
+    }).join('');
+  } else {
+    const c = courses[0];
+    const ann = c?._announcements || [];
+    list.innerHTML = ann.length
+      ? ann.map(a => annHtml(a)).join('')
+      : `<div class="empty" style="padding:20px;text-align:center">No announcements in ${esc(c?.code || '')}.</div>`;
+  }
+}
+
+function annHtml(a) {
+  const date = a.posted_at ? new Date(a.posted_at).toLocaleDateString() : '';
+  return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:start">
+      <strong style="font-size:0.96rem">${esc(a.title || '(no title)')}</strong>
+      <span style="font-size:0.78rem;color:#666">${date}</span>
+    </div>
+    <div style="margin-top:8px;font-size:0.86rem;color:#4a5568;line-height:1.5;max-height:120px;overflow:hidden">${a.message || ''}</div>
+  </div>`;
+}
+
+// ── Multi: Gradebook tab ──
+async function renderMultiGradebook() {
+  if (!multi_mode) return;
+  const area = document.getElementById('gradebook-area');
+  const cid = multi_tab_active.gradebook;
+  if (!cid) {
+    area.innerHTML = `<div class="empty" style="padding:30px;text-align:center">Pick a course from the dropdown above to view its gradebook.</div>`;
+    return;
+  }
+  area.innerHTML = `<div class="loading"><span class="spinner"></span> Switching to course gradebook…</div>`;
+  selectCourse(cid);
+}
+
+// ── Multi: Tasks tab ──
+function renderMultiTasks() {
+  if (!multi_mode) return;
+  const cid = multi_tab_active.tasks;
+  if (!cid) return;
+  // Tasks require a single course context — switch via selectCourse
+  selectCourse(cid);
+}
+
 function removeMultiSectionColumn() {
   const secSel = document.getElementById('section-filter');
   if (secSel) { secSel.classList.add('hide'); secSel.value = ''; }
+  hideMultiPickers();
 }
 
 // ── Load course data ──

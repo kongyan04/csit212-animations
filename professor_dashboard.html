@@ -215,6 +215,8 @@ a.email-link:hover { text-decoration: underline; }
   <button onclick="loadCourses()">Connect</button>
   <button onclick="loadCurrentSemester()" title="Filter to current semester and auto-select"
           style="margin-left:6px">📅 Current Semester</button>
+  <button onclick="loadAllInSemester()" title="Load every course in the chosen semester as a combined view"
+          style="margin-left:6px">📚 Load All in Semester</button>
   <span id="conn-status" class="conn-status"></span>
 </div>
 
@@ -725,6 +727,8 @@ let course_info = null;
 let enrollments = [];
 let assignments = [];
 let students_sorted_by = { key: 'name', asc: true };
+let multi_mode = false;
+let multi_courses = []; // [{id, info, enrollments, code}]
 
 // ── Storage ──
 window.addEventListener('load', () => {
@@ -926,8 +930,206 @@ async function loadCurrentSemester() {
   }
 }
 
+async function loadAllInSemester() {
+  const status = document.getElementById('conn-status');
+  status.textContent = 'Loading…';
+  status.className = 'conn-status';
+  try {
+    if (!allCourses.length) {
+      const courses = await api('/api/v1/courses?per_page=100&include[]=term&enrollment_type=teacher&state[]=available&state[]=completed');
+      allCourses = courses;
+      populateSemesterDropdown();
+    }
+    document.getElementById('token-help').classList.add('hide');
+
+    const sel = document.getElementById('semester-select');
+    let tag = sel.value;
+    if (!tag || tag === '__all__') {
+      tag = currentSemesterTag(new Date());
+      sel.value = tag;
+    }
+    const matches = allCourses.filter(c => (semesterTagFromCourse(c) || '__none__') === tag);
+    if (!matches.length) {
+      status.textContent = `No courses found in ${semesterLabel(tag)}.`;
+      status.className = 'conn-status warn';
+      return;
+    }
+    status.textContent = `Loading ${matches.length} course(s) in ${semesterLabel(tag)}…`;
+
+    // Fetch info + enrollments for every course in parallel
+    const results = await Promise.all(matches.map(async (c) => {
+      try {
+        const [info, enrolls] = await Promise.all([
+          api(`/api/v1/courses/${c.id}?include[]=total_students&include[]=needs_grading_count&include[]=term`),
+          api(`/api/v1/courses/${c.id}/enrollments?type[]=StudentEnrollment&state[]=active&state[]=completed&per_page=100&include[]=user&include[]=current_grading_period_scores`),
+        ]);
+        return { id: c.id, info, enrollments: enrolls, code: c.course_code || c.name };
+      } catch (e) {
+        console.error('Failed loading course', c.id, e);
+        return { id: c.id, info: { course_code: c.course_code || c.name }, enrollments: [], code: c.course_code || c.name, error: e.message };
+      }
+    }));
+
+    multi_mode = true;
+    multi_courses = results;
+    document.getElementById('dashboard').classList.remove('hide');
+    renderMultiOverview(tag);
+    renderMultiStudents();
+    renderMultiOtherTabs();
+    status.textContent = `✓ Loaded ${results.length} course(s) in ${semesterLabel(tag)} — combined view`;
+    status.className = 'conn-status ok';
+  } catch (e) {
+    status.textContent = '✗ ' + e.message;
+    status.className = 'conn-status err';
+  }
+}
+
+function renderMultiOverview(tag) {
+  const totalStudents = multi_courses.reduce((s, c) => s + c.enrollments.length, 0);
+  const allEnrolls = multi_courses.flatMap(c => c.enrollments.map(e => ({ ...e, __code: c.code, __cid: c.id })));
+  const grades = allEnrolls.map(e => parseFloat(e.grades?.current_score || 0));
+  const validGrades = grades.filter(g => g > 0);
+  const avg = validGrades.length ? (validGrades.reduce((a,b)=>a+b,0) / validGrades.length) : 0;
+  const numLow = grades.filter(g => g < 70 && g > 0).length;
+  const numNoActivity = allEnrolls.filter(e => !e.last_activity_at).length;
+  const totalNeedsGrading = multi_courses.reduce((s, c) => s + (c.info.needs_grading_count || 0), 0);
+
+  const stats = [
+    { val: multi_courses.length, lbl: 'Courses', sub: semesterLabel(tag) },
+    { val: totalStudents, lbl: 'Students Total', sub: 'Across all sections' },
+    { val: avg.toFixed(1) + '%', lbl: 'Combined Average', sub: gradeLetter(avg) },
+    { val: numLow, lbl: 'Below 70%', sub: numLow > 0 ? 'Need attention' : 'All on track' },
+    { val: totalNeedsGrading, lbl: 'Need Grading', sub: totalNeedsGrading > 0 ? 'Submissions waiting' : 'All caught up' },
+    { val: numNoActivity, lbl: 'No Activity', sub: numNoActivity > 0 ? 'Reach out' : 'All engaged' },
+  ];
+
+  // Per-course breakdown
+  const perCourse = multi_courses.map(c => {
+    const cGrades = c.enrollments.map(e => parseFloat(e.grades?.current_score || 0)).filter(g => g > 0);
+    const cAvg = cGrades.length ? cGrades.reduce((a,b)=>a+b,0) / cGrades.length : 0;
+    const cLow = c.enrollments.filter(e => {
+      const g = parseFloat(e.grades?.current_score || 0);
+      return g > 0 && g < 70;
+    }).length;
+    return { code: c.code, id: c.id, count: c.enrollments.length, avg: cAvg, low: cLow };
+  });
+
+  document.getElementById('overview-stats').innerHTML = stats.map(s => `
+    <div class="stat-card">
+      <div class="val">${s.val}</div>
+      <div class="lbl">${s.lbl}</div>
+      <div class="sub">${s.sub}</div>
+    </div>`).join('') + perCourse.map(p => `
+    <div class="stat-card" style="cursor:pointer;border-top:3px solid #2b6cb0" onclick="selectCourse('${p.id}')">
+      <div class="val" style="font-size:1.4rem">${esc(p.code)}</div>
+      <div class="lbl">${p.count} students</div>
+      <div class="sub">Avg ${p.avg.toFixed(1)}% · ${p.low} below 70%</div>
+    </div>`).join('');
+
+  // Distribution across all courses
+  const buckets = { 'A': 0, 'A-': 0, 'B+': 0, 'B': 0, 'B-': 0, 'C+': 0, 'C': 0, 'C-': 0, 'F': 0 };
+  allEnrolls.forEach(e => {
+    const p = parseFloat(e.grades?.current_score || 0);
+    if (!p) return;
+    buckets[gradeLetter(p)]++;
+  });
+  const maxCount = Math.max(...Object.values(buckets), 1);
+  document.getElementById('dist-grid').innerHTML = Object.entries(buckets).map(([letter, n]) => `
+    <div class="dist-bar">
+      <div class="dist-fill" style="height:${(n/maxCount)*100}%">${n || ''}</div>
+      <div class="dist-label">${letter}</div>
+    </div>`).join('');
+  const total = Object.values(buckets).reduce((a,b)=>a+b,0);
+  document.getElementById('dist-note').textContent = `${total} students with grades across ${multi_courses.length} course(s).`;
+  document.getElementById('recent-activity').innerHTML = '<div class="empty">Switch to a single course (click a section tile above) to see recent activity.</div>';
+}
+
+function renderMultiStudents() {
+  const search = (document.getElementById('student-search').value || '').toLowerCase();
+  const filter = document.getElementById('student-filter').value;
+  let rows = multi_courses.flatMap(c => c.enrollments.map(e => ({
+    e, cid: c.id, code: c.code,
+    name: e.user?.name || 'Unknown',
+    email: e.user?.email || e.user?.login_id || '',
+    current: parseFloat(e.grades?.current_score || 0),
+    letter: gradeLetter(parseFloat(e.grades?.current_score || 0)),
+    last: e.last_activity_at || '',
+  })));
+  if (search) rows = rows.filter(r => r.name.toLowerCase().includes(search) || r.email.toLowerCase().includes(search) || r.code.toLowerCase().includes(search));
+  if (filter) {
+    rows = rows.filter(r => {
+      const L = r.letter;
+      if (filter === 'A') return L.startsWith('A');
+      if (filter === 'B') return L.startsWith('B');
+      if (filter === 'C') return L.startsWith('C');
+      if (filter === 'D') return L.startsWith('D');
+      if (filter === 'F') return L === 'F';
+      return true;
+    });
+  }
+  const key = students_sorted_by.key, asc = students_sorted_by.asc;
+  rows.sort((a, b) => {
+    let av = a[key], bv = b[key];
+    if (key === 'current') { av = a.current; bv = b.current; }
+    if (av < bv) return asc ? -1 : 1;
+    if (av > bv) return asc ? 1 : -1;
+    return 0;
+  });
+  document.getElementById('student-count').textContent = `${rows.length} students (across ${multi_courses.length} sections)`;
+
+  // Inject a "Section" header if missing
+  const thead = document.querySelector('#tab-students thead tr');
+  if (thead && !thead.querySelector('th[data-multi]')) {
+    const th = document.createElement('th');
+    th.textContent = 'Section';
+    th.setAttribute('data-multi', '1');
+    th.style.cursor = 'pointer';
+    th.onclick = () => sortStudents('code');
+    thead.insertBefore(th, thead.firstChild);
+  }
+
+  const tbody = document.getElementById('students-tbody');
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td><span style="background:#edf2f7;padding:2px 8px;border-radius:10px;font-size:0.78rem;font-weight:600;cursor:pointer" onclick="selectCourse('${r.cid}')">${esc(r.code)}</span></td>
+      <td>${esc(r.name)}</td>
+      <td><span style="color:#666;font-size:0.84rem">${esc(r.email)}</span></td>
+      <td>${r.current ? r.current.toFixed(1) + '%' : '—'}</td>
+      <td>${r.current ? `<span class="pill ${pillClass(r.letter)}">${r.letter}</span>` : '—'}</td>
+      <td>${r.last ? new Date(r.last).toLocaleDateString() : '<span style="color:#a0aec0">never</span>'}</td>
+    </tr>`).join('');
+}
+
+function renderMultiOtherTabs() {
+  const msg = `<div class="empty" style="padding:30px;text-align:center">
+    <div style="font-size:1.6rem;margin-bottom:6px">📚</div>
+    <div style="font-weight:600;margin-bottom:4px">Multi-course view</div>
+    <div style="color:#666;font-size:0.88rem">This tab requires a single course. Pick a section from the Course dropdown, or click a section tile on the Overview tab.</div>
+  </div>`;
+  const setRow = (tbodyId, colspan) => {
+    const el = document.getElementById(tbodyId);
+    if (el) el.innerHTML = `<tr><td colspan="${colspan}">${msg}</td></tr>`;
+  };
+  const setHtml = id => { const el = document.getElementById(id); if (el) el.innerHTML = msg; };
+  setHtml('gradebook-area');
+  setRow('asn-tbody', 7);
+  setRow('atrisk-tbody', 6);
+  setHtml('ann-list');
+}
+
+// When semester filter changes or user picks a single course, drop the multi-mode student-table column
+function removeMultiSectionColumn() {
+  const thead = document.querySelector('#tab-students thead tr');
+  if (!thead) return;
+  const th = thead.querySelector('th[data-multi]');
+  if (th) th.remove();
+}
+
 // ── Load course data ──
 async function selectCourse(cid) {
+  multi_mode = false;
+  multi_courses = [];
+  removeMultiSectionColumn();
   course_id = cid;
   document.getElementById('dashboard').classList.remove('hide');
   document.getElementById('overview-stats').innerHTML = '<div class="stat-card"><div class="loading"><span class="spinner"></span> Loading course...</div></div>';
@@ -1026,6 +1228,8 @@ function sortStudents(key) {
 }
 
 function renderStudents() {
+  if (multi_mode) { renderMultiStudents(); return; }
+  removeMultiSectionColumn();
   const search = (document.getElementById('student-search').value || '').toLowerCase();
   const filter = document.getElementById('student-filter').value;
   let rows = enrollments.map(e => ({

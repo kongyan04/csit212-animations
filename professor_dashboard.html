@@ -1187,17 +1187,17 @@ function showMultiPicker(tabKey, allowAll) {
   const bar = document.getElementById('picker-' + tabKey);
   if (!bar) return;
   bar.classList.remove('hide');
-  const cur = multi_tab_active[tabKey]
-    ?? (allowAll ? 'all' : String(multi_courses[0]?.id || ''));
+  const cur = multi_tab_active[tabKey] ?? (allowAll ? 'all' : '');
   multi_tab_active[tabKey] = cur;
   const opts = [];
   if (allowAll) opts.push(`<option value="all" ${cur==='all'?'selected':''}>All courses (grouped)</option>`);
+  if (!allowAll) opts.push(`<option value="" ${cur===''?'selected':''}>— Pick a course —</option>`);
   for (const c of multi_courses) {
     opts.push(`<option value="${c.id}" ${String(c.id)===String(cur)?'selected':''}>${esc(c.code)}</option>`);
   }
   const note = allowAll
     ? 'Pick one course or view all grouped.'
-    : 'Pick one course to view.';
+    : 'Picking a course switches to single-course mode.';
   bar.innerHTML = `
     <label>Course:</label>
     <select onchange="onMultiPickerChange('${tabKey}', this.value)">${opts.join('')}</select>
@@ -1206,11 +1206,14 @@ function showMultiPicker(tabKey, allowAll) {
 
 function onMultiPickerChange(tabKey, val) {
   multi_tab_active[tabKey] = val;
-  if (tabKey === 'gradebook') renderMultiGradebook();
+  // Tabs that can't operate in multi-mode just switch to single-course mode
+  if ((tabKey === 'gradebook' || tabKey === 'tasks') && val) {
+    selectCourse(val);
+    return;
+  }
   if (tabKey === 'assignments') renderMultiAssignments();
   if (tabKey === 'atrisk') renderMultiAtRisk();
   if (tabKey === 'announcements') renderMultiAnnouncements();
-  if (tabKey === 'tasks') renderMultiTasks();
 }
 
 function hideMultiPickers() {
@@ -1387,25 +1390,20 @@ function annHtml(a) {
 }
 
 // ── Multi: Gradebook tab ──
-async function renderMultiGradebook() {
+function renderMultiGradebook() {
   if (!multi_mode) return;
   const area = document.getElementById('gradebook-area');
-  const cid = multi_tab_active.gradebook;
-  if (!cid) {
-    area.innerHTML = `<div class="empty" style="padding:30px;text-align:center">Pick a course from the dropdown above to view its gradebook.</div>`;
-    return;
-  }
-  area.innerHTML = `<div class="loading"><span class="spinner"></span> Switching to course gradebook…</div>`;
-  selectCourse(cid);
+  area.innerHTML = `<div class="empty" style="padding:30px;text-align:center">
+    <div style="font-size:1.6rem;margin-bottom:6px">📋</div>
+    <div style="font-weight:600;margin-bottom:4px">Pick a course above</div>
+    <div style="color:#666;font-size:0.88rem">Gradebook is per-course; selecting one will switch the dashboard to single-course mode.</div>
+  </div>`;
 }
 
 // ── Multi: Tasks tab ──
 function renderMultiTasks() {
-  if (!multi_mode) return;
-  const cid = multi_tab_active.tasks;
-  if (!cid) return;
-  // Tasks require a single course context — switch via selectCourse
-  selectCourse(cid);
+  // Nothing to render — the picker is the entire UI for this tab in multi-mode.
+  // Switching only happens via onMultiPickerChange.
 }
 
 function removeMultiSectionColumn() {

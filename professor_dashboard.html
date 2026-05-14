@@ -83,25 +83,40 @@ details.atrisk-list li { margin:2px 0; color:#4a5568; font-size:0.82rem; }
   border:1px solid #cbd5e0; display:inline-block; }
 .email-icon:hover { background:#2b6cb0; color:#fff; }
 
-main { max-width: 1400px; margin: 0 auto; padding: 20px; }
+main {
+  max-width: 1400px; margin: 0 auto; padding: 20px;
+  display: grid; grid-template-columns: 200px 1fr; gap: 20px;
+  align-items: start;
+}
 .hide { display: none !important; }
 
-/* Tab bar */
+/* Sidebar tab menu */
 .tab-bar {
-  display: flex; gap: 0; border-bottom: 2px solid #e2e8f0;
-  margin-bottom: 20px; overflow-x: auto;
+  display: flex; flex-direction: column; gap: 2px;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 8px; position: sticky; top: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .tab-btn {
-  padding: 12px 20px; border: none; background: transparent;
-  font-size: 0.85rem; font-weight: 600; cursor: pointer;
-  color: #666; border-bottom: 3px solid transparent;
-  white-space: nowrap; font-family: inherit;
+  text-align: left; padding: 10px 14px; border: none; background: transparent;
+  font-size: 0.86rem; font-weight: 600; cursor: pointer;
+  color: #4a5568; border-radius: 6px; font-family: inherit;
+  transition: background 0.1s, color 0.1s;
 }
-.tab-btn:hover { color: #2b6cb0; }
-.tab-btn.active { color: #2b6cb0; border-bottom-color: #2b6cb0; }
+.tab-btn:hover { background: #edf2f7; color: #2b6cb0; }
+.tab-btn.active {
+  background: #2b6cb0; color: #fff;
+  box-shadow: inset 3px 0 0 #1a365d;
+}
 
+.tab-content { min-width: 0; }  /* prevents grid blowout */
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
+
+@media (max-width: 768px) {
+  main { grid-template-columns: 1fr; }
+  .tab-bar { flex-direction: row; flex-wrap: wrap; position: static; }
+}
 
 /* Stats grid */
 .stats-grid {
@@ -281,6 +296,8 @@ a.email-link:hover { text-decoration: underline; }
   <button class="tab-btn" onclick="showTab('tasks')">✏️ Tasks</button>
   <button class="tab-btn" onclick="showTab('syllabus')">📜 Syllabus</button>
 </div>
+
+<div class="tab-content">
 
 <!-- Overview -->
 <div class="tab-panel active" id="tab-overview">
@@ -993,8 +1010,10 @@ a.email-link:hover { text-decoration: underline; }
   </div>
 </div>
 
-<div style="text-align:center;padding:10px;color:#a0aec0;font-size:0.72rem;font-family:monospace">
-  build: 2026-05-13-syllabus-v1
+</div><!-- /.tab-content -->
+
+<div style="grid-column:1/-1;text-align:center;padding:10px;color:#a0aec0;font-size:0.72rem;font-family:monospace">
+  build: 2026-05-14-sidebar-v1
 </div>
 </main>
 

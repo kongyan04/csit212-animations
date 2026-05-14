@@ -1403,22 +1403,25 @@ function renderMultiStudents() {
 
   const key = students_sorted_by.key, asc = students_sorted_by.asc;
   const sortRows = arr => arr.slice().sort((a, b) => {
-    let av = a[key], bv = b[key];
-    if (key === 'current') { av = a.current; bv = b.current; }
-    if (av < bv) return asc ? -1 : 1;
-    if (av > bv) return asc ? 1 : -1;
-    return 0;
+    const k = (key === 'name') ? 'sortName' : key;
+    let av = a[k], bv = b[k];
+    if (typeof av === 'string') return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+    return asc ? av - bv : bv - av;
   });
 
   const groups = visibleCourses.map(c => {
-    const rs = c.enrollments.map(e => ({
-      e, cid: c.id, code: c.code,
-      name: e.user?.name || 'Unknown',
-      email: e.user?.email || e.user?.login_id || '',
-      current: parseFloat(e.grades?.current_score || 0),
-      letter: gradeLetter(parseFloat(e.grades?.current_score || 0)),
-      last: e.last_activity_at || '',
-    })).filter(matchFilters);
+    const rs = c.enrollments.map(e => {
+      const displayName = e.user?.name || 'Unknown';
+      return {
+        e, cid: c.id, code: c.code,
+        name: displayName,
+        sortName: lastNameKey(e.user?.sortable_name, displayName),
+        email: e.user?.email || e.user?.login_id || '',
+        current: parseFloat(e.grades?.current_score || 0),
+        letter: gradeLetter(parseFloat(e.grades?.current_score || 0)),
+        last: e.last_activity_at || '',
+      };
+    }).filter(matchFilters);
     return { code: c.code, id: c.id, rows: sortRows(rs) };
   });
 

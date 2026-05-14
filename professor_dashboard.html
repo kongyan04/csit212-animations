@@ -1680,10 +1680,23 @@ async function createMultiAssignment() {
   for (const t of targets) {
     setStatus('multi-asn-status', `Creating in ${t.code} (${ok + fail + 1}/${targets.length})…`, 'info');
     try {
+      // Copy any file attachments referenced in the description into the target course
+      // and rewrite the description so the file links point to the new copies.
+      let descFinal = desc;
+      if (pastCarryover && lastPastCourseId && desc) {
+        const fileIds = extractFileIdsFromHtml(desc);
+        if (fileIds.length) {
+          setStatus('multi-asn-status', `Copying ${fileIds.length} file(s) to ${t.code}…`, 'info');
+          const { html, copied, failed } = await copyFilesAndRewriteDescription(desc, lastPastCourseId, t.id);
+          descFinal = html;
+          console.log(`Files for ${t.code}: ${copied} copied, ${failed} failed.`);
+        }
+      }
+
       const params = [
         ['assignment[name]', name],
         ['assignment[points_possible]', points],
-        ['assignment[description]', desc],
+        ['assignment[description]', descFinal],
         ['assignment[published]', publish ? 'true' : 'false'],
         ['assignment[grading_type]', pastCarryover?.grading_type || 'points'],
       ];
@@ -1760,6 +1773,61 @@ async function createMultiAssignment() {
 // (stub kept so removed renderMultiAssignments call sites don't error)
 async function renderMultiAssignments() { renderAssignmentComposerCourses(); }
 async function ensureMultiCourseAssignments() { /* no longer used for view */ }
+
+// ── File attachment copy helpers ──
+function extractFileIdsFromHtml(html) {
+  if (!html) return [];
+  const ids = new Set();
+  // Match /files/12345 or /files/12345/download, /preview, etc.
+  const re = /\/files\/(\d+)/g;
+  let m;
+  while ((m = re.exec(html)) !== null) ids.add(m[1]);
+  return Array.from(ids);
+}
+
+async function getCourseRootFolderId(cid) {
+  const f = await api(`/api/v1/courses/${cid}/folders/root`);
+  return f.id;
+}
+
+async function copyOneFileToCourse(sourceFileId, targetCid, targetFolderId) {
+  // Canvas API: copy a file from anywhere to a target folder (requires read on source)
+  return await apiPost(`/api/v1/folders/${targetFolderId}/copy_file`, [
+    ['source_file_id', String(sourceFileId)],
+    ['on_duplicate', 'rename'],
+  ]);
+}
+
+async function copyFilesAndRewriteDescription(html, sourceCid, targetCid) {
+  const ids = extractFileIdsFromHtml(html);
+  if (!ids.length) return { html, copied: 0, failed: 0 };
+  const folderId = await getCourseRootFolderId(targetCid);
+  const idMap = {}; // old file id -> new file id
+  let copied = 0, failed = 0;
+  for (const oldId of ids) {
+    try {
+      const f = await copyOneFileToCourse(oldId, targetCid, folderId);
+      idMap[oldId] = f.id;
+      copied++;
+    } catch (e) {
+      failed++;
+      console.warn(`File copy failed for source file ${oldId}:`, e);
+    }
+  }
+  // Rewrite the description:
+  //  - "/courses/<sourceCid>/files/<oldId>" → "/courses/<targetCid>/files/<newId>"
+  //  - "/files/<oldId>" (no course prefix) → "/courses/<targetCid>/files/<newId>"
+  let out = html;
+  out = out.replace(/\/courses\/\d+\/files\/(\d+)/g, (full, oldId) => {
+    const newId = idMap[oldId];
+    return newId ? `/courses/${targetCid}/files/${newId}` : full;
+  });
+  out = out.replace(/(^|[^d])\/files\/(\d+)/g, (full, pre, oldId) => {
+    const newId = idMap[oldId];
+    return newId ? `${pre}/courses/${targetCid}/files/${newId}` : full;
+  });
+  return { html: out, copied, failed };
+}
 
 // ── Copy assignment from the most recent past offering of the same course ──
 let pastAsnCache = {};       // cid -> full assignment list (with all fields)
@@ -1903,7 +1971,9 @@ async function fillFormFromPastAssignment() {
   };
   const descLen = (a.description || '').length;
   const rubricNote = (a.rubric?.length) ? `, rubric (${a.rubric.length} criteria)` : '';
-  setStatus('copy-past-status', `✓ Loaded "${a.name}" — name, ${descLen.toLocaleString()} chars of description${rubricNote}, points, submission type, grading, and other settings. Set a due date and click Create Assignment.`, 'ok');
+  const fileIds = extractFileIdsFromHtml(a.description || '');
+  const fileNote = fileIds.length ? `, ${fileIds.length} file attachment(s)` : '';
+  setStatus('copy-past-status', `✓ Loaded "${a.name}" — name, ${descLen.toLocaleString()} chars of description${rubricNote}${fileNote}, points, submission type, grading, and other settings. Files will be copied into each target course on Create. Set a due date and click Create Assignment.`, 'ok');
 }
 
 // ── Announcement composer (multi-course) ──

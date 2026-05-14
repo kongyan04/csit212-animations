@@ -2817,9 +2817,16 @@ async function loadAnnouncements() {
 // ── Gradebook ──
 async function loadGradebook() {
   const el = document.getElementById('gradebook-area');
+  if (!course_id) {
+    el.innerHTML = '<div class="empty" style="padding:30px;text-align:center;color:#666">Pick a course to load its gradebook.</div>';
+    return;
+  }
+  el.innerHTML = '<div class="loading" style="padding:30px;text-align:center"><span class="spinner"></span> Loading gradebook…</div>';
+  const requestedCid = course_id;  // pin to detect a course-switch mid-fetch
   try {
     // Get submission scores per assignment
     const subs = await api(`/api/v1/courses/${course_id}/students/submissions?student_ids[]=all&per_page=100`);
+    if (requestedCid !== course_id) return;  // user switched away — stale, skip render
     const map = {}; // userId -> assignmentId -> score
     subs.forEach(s => {
       if (!map[s.user_id]) map[s.user_id] = {};
@@ -2857,7 +2864,8 @@ async function loadGradebook() {
     html += '<div style="font-size:0.74rem;color:#666;margin-top:8px">Showing first 20 assignments. <span class="pill pill-yellow">📥</span> = Submitted (ungraded), <span class="pill pill-red">M</span> = Missing</div>';
     el.innerHTML = html;
   } catch (e) {
-    el.innerHTML = '<div style="color:#c53030">Error loading gradebook: ' + esc(e.message) + '</div>';
+    console.error('[loadGradebook] failed for course', course_id, e);
+    el.innerHTML = '<div style="color:#c53030;padding:14px">Error loading gradebook: ' + esc(e.message) + '</div>';
   }
 }
 

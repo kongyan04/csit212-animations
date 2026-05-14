@@ -343,34 +343,81 @@ a.email-link:hover { text-decoration: underline; }
 
 <!-- Assignments -->
 <div class="tab-panel" id="tab-assignments">
-  <div class="multi-picker-bar hide" id="picker-assignments"></div>
   <div class="card">
-    <h2>Assignments</h2>
-    <div class="tool-row">
-      <input type="text" id="asn-search" placeholder="Search assignments..." oninput="renderAssignments()">
-      <select id="asn-filter" onchange="renderAssignments()">
-        <option value="">All</option>
-        <option value="published">Published only</option>
-        <option value="unpublished">Unpublished only</option>
-        <option value="due">With due dates</option>
-        <option value="upcoming">Upcoming (next 30 days)</option>
-      </select>
-      <span class="count" id="asn-count"></span>
+    <h2>📝 New Assignment</h2>
+    <p style="font-size:0.84rem;color:#666;margin-bottom:14px">Create one assignment and post it to any combination of your loaded courses.</p>
+
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Name</label>
+        <input type="text" id="multi-asn-name" placeholder="e.g., HW2: Loops and Iteration"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Points</label>
+        <input type="number" id="multi-asn-points" value="20" min="0"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+      </div>
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Group</th>
-          <th>Points</th>
-          <th>Due Date</th>
-          <th>Submitted</th>
-          <th>Avg Score</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody id="asn-tbody"></tbody>
-    </table>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Due Date</label>
+        <input type="datetime-local" id="multi-asn-due"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Submission Type</label>
+        <select id="multi-asn-type" style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+          <option value="online_upload">File Upload</option>
+          <option value="online_text_entry">Text Entry</option>
+          <option value="online_upload,online_text_entry">File or Text</option>
+          <option value="online_url">URL</option>
+          <option value="on_paper">On Paper</option>
+          <option value="none">No Submission</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Post to which course(s)?</label>
+      <div style="display:flex;gap:8px;align-items:center;margin:6px 0">
+        <button type="button" onclick="multiAsnSelectAll(true)" style="padding:4px 12px;background:#edf2f7;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Select all</button>
+        <button type="button" onclick="multiAsnSelectAll(false)" style="padding:4px 12px;background:#edf2f7;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Clear</button>
+        <span id="multi-asn-courses-count" style="font-size:0.78rem;color:#666"></span>
+      </div>
+      <div id="multi-asn-courses" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:8px;min-height:54px"></div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Description / Instructions</label>
+      <div class="editor-toolbar">
+        <button onclick="document.execCommand('bold',false,null)"><b>B</b></button>
+        <button onclick="document.execCommand('italic',false,null)"><i>I</i></button>
+        <button onclick="document.execCommand('underline',false,null)"><u>U</u></button>
+        <button onclick="document.execCommand('insertUnorderedList',false,null)">• List</button>
+        <button onclick="document.execCommand('insertOrderedList',false,null)">1. List</button>
+        <button onclick="(function(){const u=prompt('URL:');if(u)document.execCommand('createLink',false,u);})()">🔗 Link</button>
+        <button onclick="document.execCommand('formatBlock',false,'h3')">H</button>
+      </div>
+      <div id="multi-asn-desc" contenteditable="true" class="rich-editor"
+           style="border:1px solid #cbd5e0;border-top:none;border-radius:0 0 6px 6px;padding:12px;min-height:200px;font-size:0.92rem;line-height:1.5;background:#fff"></div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.86rem;font-weight:600">
+        <input type="checkbox" id="multi-asn-publish" checked>
+        Publish immediately (visible to students)
+      </label>
+    </div>
+
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="createMultiAssignment()" id="multi-asn-create-btn"
+              style="padding:10px 24px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">📝 Create Assignment</button>
+      <button onclick="resetMultiAssignmentForm()"
+              style="padding:10px 22px;background:#edf2f7;color:#4a5568;border:none;border-radius:6px;font-weight:600;cursor:pointer">Reset</button>
+      <span id="multi-asn-status" style="margin-left:8px;font-size:0.86rem"></span>
+    </div>
   </div>
 </div>
 
@@ -1274,15 +1321,14 @@ let multi_tab_active = {};
 function renderMultiOtherTabs() {
   // Show picker bars on each tab; default each tab to its first appropriate option
   showMultiPicker('gradebook', false);
-  showMultiPicker('assignments', true);
   showMultiPicker('atrisk', true);
   showMultiPicker('tasks', false);
-  renderMultiAssignments();
   renderMultiAtRisk();
   renderMultiGradebook();
   renderMultiTasks();
-  // Announcements tab is a composer — populate the course checkboxes
+  // Composer tabs — populate the course checkboxes
   renderAnnouncementComposerCourses();
+  renderAssignmentComposerCourses();
 }
 
 function showMultiPicker(tabKey, supportsGrouped) {
@@ -1332,13 +1378,12 @@ function onMultiPickerChange(tabKey, val) {
     if (!multi_mode) selectCourse(val);
   }
   if (multi_mode) {
-    if (tabKey === 'assignments') renderMultiAssignments();
     if (tabKey === 'atrisk') renderMultiAtRisk();
   }
 }
 
 function hideMultiPickers() {
-  ['gradebook','assignments','atrisk','tasks'].forEach(k => {
+  ['gradebook','atrisk','tasks'].forEach(k => {
     const el = document.getElementById('picker-' + k);
     if (el) { el.classList.add('hide'); el.innerHTML = ''; }
   });
@@ -1548,6 +1593,95 @@ function renderMultiAtRisk() {
   }
 }
 
+// ── Assignment composer (multi-course) ──
+function renderAssignmentComposerCourses() {
+  const wrap = document.getElementById('multi-asn-courses');
+  if (!wrap) return;
+  const pool = multi_courses.length
+    ? multi_courses.map(c => ({ id: c.id, code: c.code }))
+    : (course_id ? [{ id: course_id, code: course_info?.course_code || 'Current course' }] : []);
+  if (!pool.length) {
+    wrap.innerHTML = '<div style="color:#666;font-size:0.86rem;padding:6px">Connect and load a course or semester first.</div>';
+    document.getElementById('multi-asn-courses-count').textContent = '';
+    return;
+  }
+  wrap.innerHTML = pool.map(c => `
+    <label class="course-chip">
+      <input type="checkbox" class="round-check" value="${c.id}" data-code="${esc(c.code)}" onchange="updateMultiAsnCount()">
+      <span>${esc(c.code)}</span>
+    </label>
+  `).join('');
+  updateMultiAsnCount();
+}
+
+function updateMultiAsnCount() {
+  const n = document.querySelectorAll('#multi-asn-courses input[type=checkbox]:checked').length;
+  const total = document.querySelectorAll('#multi-asn-courses input[type=checkbox]').length;
+  const el = document.getElementById('multi-asn-courses-count');
+  if (el) el.textContent = `${n} of ${total} selected`;
+}
+
+function multiAsnSelectAll(on) {
+  document.querySelectorAll('#multi-asn-courses input[type=checkbox]').forEach(cb => { cb.checked = on; });
+  updateMultiAsnCount();
+}
+
+function resetMultiAssignmentForm() {
+  document.getElementById('multi-asn-name').value = '';
+  document.getElementById('multi-asn-points').value = '20';
+  document.getElementById('multi-asn-due').value = '';
+  document.getElementById('multi-asn-desc').innerHTML = '';
+  document.getElementById('multi-asn-publish').checked = true;
+  multiAsnSelectAll(false);
+  setStatus('multi-asn-status', '', '');
+}
+
+async function createMultiAssignment() {
+  const name = document.getElementById('multi-asn-name').value.trim();
+  const points = document.getElementById('multi-asn-points').value;
+  const due = document.getElementById('multi-asn-due').value;
+  const subType = document.getElementById('multi-asn-type').value;
+  const desc = document.getElementById('multi-asn-desc').innerHTML.trim();
+  const publish = document.getElementById('multi-asn-publish').checked;
+  const checked = Array.from(document.querySelectorAll('#multi-asn-courses input[type=checkbox]:checked'));
+  if (!name) { setStatus('multi-asn-status', 'Name required.', 'err'); return; }
+  if (!checked.length) { setStatus('multi-asn-status', 'Pick at least one course.', 'err'); return; }
+  const targets = checked.map(c => ({ id: c.value, code: c.dataset.code }));
+  if (!confirm(`Create "${name}" in ${targets.length} course(s)?\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
+
+  const btn = document.getElementById('multi-asn-create-btn');
+  btn.disabled = true;
+  let ok = 0, fail = 0;
+  for (const t of targets) {
+    setStatus('multi-asn-status', `Creating in ${t.code} (${ok + fail + 1}/${targets.length})…`, 'info');
+    try {
+      const params = [
+        ['assignment[name]', name],
+        ['assignment[points_possible]', points],
+        ['assignment[description]', desc],
+        ['assignment[published]', publish ? 'true' : 'false'],
+        ['assignment[grading_type]', 'points'],
+      ];
+      for (const st of subType.split(',')) params.push(['assignment[submission_types][]', st]);
+      if (due) params.push(['assignment[due_at]', new Date(due).toISOString()]);
+      await apiPost(`/api/v1/courses/${t.id}/assignments`, params);
+      ok++;
+    } catch (e) {
+      fail++;
+      console.error('Assignment create failed for', t.code, e);
+    }
+  }
+  btn.disabled = false;
+  setStatus('multi-asn-status', `Created in ${ok} of ${targets.length}${fail ? ` · ${fail} failed (see console)` : ''}.`, fail ? 'warn' : 'ok');
+  if (ok > 0 && !fail) {
+    setTimeout(resetMultiAssignmentForm, 1500);
+  }
+}
+
+// (stub kept so removed renderMultiAssignments call sites don't error)
+async function renderMultiAssignments() { renderAssignmentComposerCourses(); }
+async function ensureMultiCourseAssignments() { /* no longer used for view */ }
+
 // ── Announcement composer (multi-course) ──
 function renderAnnouncementComposerCourses() {
   const wrap = document.getElementById('multi-ann-courses');
@@ -1654,16 +1788,16 @@ function removeMultiSectionColumn() {
 
 function refreshPickersForCurrentCourse(cid) {
   if (!multi_courses.length) return;
-  ['gradebook','assignments','atrisk','tasks'].forEach(k => {
+  ['gradebook','atrisk','tasks'].forEach(k => {
     multi_tab_active[k] = String(cid);
   });
   // Re-render each picker so it shows the new selection
   showMultiPicker('gradebook', false);
-  showMultiPicker('assignments', true);
   showMultiPicker('atrisk', true);
   showMultiPicker('tasks', false);
-  // Announcement composer: refresh its course checkboxes
+  // Composer tabs: refresh their course checkboxes
   renderAnnouncementComposerCourses();
+  renderAssignmentComposerCourses();
 }
 
 // ── Load course data ──
@@ -1978,6 +2112,7 @@ function showTab(id) {
   document.getElementById('tab-' + id).classList.add('active');
   event.currentTarget.classList.add('active');
   if (id === 'announcements') renderAnnouncementComposerCourses();
+  if (id === 'assignments') renderAssignmentComposerCourses();
 }
 
 function esc(s) {

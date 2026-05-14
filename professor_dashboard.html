@@ -292,6 +292,7 @@ a.email-link:hover { text-decoration: underline; }
   <button class="tab-btn" onclick="showTab('assignments')">📝 Assignments</button>
   <button class="tab-btn" onclick="showTab('atrisk')">⚠️ At-Risk</button>
   <button class="tab-btn" onclick="showTab('announcements')">📢 Announcements</button>
+  <button class="tab-btn" onclick="showTab('inbox')">✉️ Inbox</button>
   <button class="tab-btn" onclick="showTab('tasks')">✏️ Tasks</button>
   <button class="tab-btn" onclick="showTab('syllabus')">📜 Syllabus</button>
 </div>
@@ -531,6 +532,28 @@ a.email-link:hover { text-decoration: underline; }
               style="padding:10px 22px;background:#edf2f7;color:#4a5568;border:none;border-radius:6px;font-weight:600;cursor:pointer">Reset</button>
       <span id="multi-ann-status" style="margin-left:8px;font-size:0.86rem"></span>
     </div>
+  </div>
+</div>
+
+<!-- Inbox -->
+<div class="tab-panel" id="tab-inbox">
+  <div class="card">
+    <h2 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>✉️ Canvas Inbox</span>
+      <span style="display:flex;gap:6px">
+        <select id="inbox-scope" onchange="loadInbox()"
+                style="padding:6px 10px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.86rem">
+          <option value="inbox">Inbox</option>
+          <option value="unread">Unread</option>
+          <option value="sent">Sent</option>
+          <option value="starred">Starred</option>
+          <option value="archived">Archived</option>
+        </select>
+        <button onclick="loadInbox()" style="padding:6px 14px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">↻ Refresh</button>
+      </span>
+    </h2>
+    <p style="font-size:0.84rem;color:#666;margin-bottom:10px">Reads conversations from your Canvas inbox. Click a thread to expand.</p>
+    <div id="inbox-list" class="loading"><span class="spinner"></span> Loading…</div>
   </div>
 </div>
 
@@ -1750,6 +1773,128 @@ function renderMultiAtRisk() {
   }
 }
 
+// ── Inbox tab ──
+let inboxCache = {};
+
+async function loadInbox() {
+  const list = document.getElementById('inbox-list');
+  const scope = document.getElementById('inbox-scope').value;
+  list.innerHTML = '<div class="loading" style="padding:30px;text-align:center"><span class="spinner"></span> Loading conversations…</div>';
+  try {
+    const convos = await api(`/api/v1/conversations?scope=${scope}&per_page=50&include[]=participant_avatars`);
+    if (!convos.length) {
+      list.innerHTML = `<div class="empty" style="padding:40px;text-align:center;color:#a0aec0">No conversations in ${scope}.</div>`;
+      return;
+    }
+    list.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:0.88rem">
+      <thead><tr style="background:#edf2f7">
+        <th style="text-align:left;padding:10px 12px;width:36px"></th>
+        <th style="text-align:left;padding:10px 12px">From</th>
+        <th style="text-align:left;padding:10px 12px">Subject / Snippet</th>
+        <th style="text-align:right;padding:10px 12px;width:140px">Date</th>
+      </tr></thead><tbody>
+      ${convos.map(c => convRowHtml(c)).join('')}
+      </tbody></table>`;
+    convos.forEach(c => { inboxCache[c.id] = c; });
+  } catch (e) {
+    list.innerHTML = `<div style="color:#c53030;padding:14px">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+function convRowHtml(c) {
+  const unread = c.workflow_state === 'unread';
+  const senders = (c.participants || []).slice(0, 3).map(p => p.name).join(', ') || '—';
+  const subject = c.subject || '(no subject)';
+  const snippet = (c.last_message || '').slice(0, 100);
+  const when = c.last_message_at ? new Date(c.last_message_at).toLocaleString() : '';
+  const dot = unread ? '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2b6cb0"></span>' : '';
+  const weight = unread ? '700' : '500';
+  return `<tr style="border-bottom:1px solid #edf2f7;cursor:pointer;font-weight:${weight}" onclick="openThread(${c.id}, this)">
+    <td style="padding:10px 12px;text-align:center">${dot}</td>
+    <td style="padding:10px 12px">${esc(senders)}</td>
+    <td style="padding:10px 12px">
+      <div>${esc(subject)}</div>
+      <div style="color:#888;font-size:0.82rem;font-weight:400;margin-top:2px">${esc(snippet)}${c.message_count > 1 ? ` · ${c.message_count} messages` : ''}</div>
+    </td>
+    <td style="padding:10px 12px;text-align:right;color:#666;font-size:0.8rem;white-space:nowrap">${when}</td>
+  </tr>`;
+}
+
+async function openThread(convId, rowEl) {
+  // Toggle: if next row is the detail, close it
+  const next = rowEl.nextElementSibling;
+  if (next && next.classList.contains('thread-detail')) { next.remove(); return; }
+  const detail = document.createElement('tr');
+  detail.className = 'thread-detail';
+  detail.innerHTML = `<td colspan="4" style="padding:14px;background:#f7fafc">
+    <div class="loading"><span class="spinner"></span> Loading thread…</div>
+  </td>`;
+  rowEl.parentNode.insertBefore(detail, rowEl.nextElementSibling);
+  try {
+    const c = await api(`/api/v1/conversations/${convId}?auto_mark_as_read=true`);
+    const msgs = (c.messages || []).slice().reverse(); // oldest first
+    const participants = c.participants || [];
+    const html = `
+      <td colspan="4" style="padding:14px;background:#f7fafc;border-bottom:1px solid #cbd5e0">
+        <div style="font-weight:700;margin-bottom:6px;color:#1a365d">${esc(c.subject || '(no subject)')}</div>
+        <div style="font-size:0.82rem;color:#666;margin-bottom:12px">${participants.length} participant(s) · ${msgs.length} message(s)</div>
+        <div style="max-height:420px;overflow-y:auto;padding-right:6px">
+          ${msgs.map(m => {
+            const author = participants.find(p => p.id === m.author_id)?.name || `User ${m.author_id}`;
+            const when = m.created_at ? new Date(m.created_at).toLocaleString() : '';
+            return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-bottom:8px">
+              <div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#4a5568">
+                <strong>${esc(author)}</strong>
+                <span>${when}</span>
+              </div>
+              <div style="margin-top:6px;white-space:pre-wrap;font-size:0.88rem;line-height:1.5">${esc(m.body || '')}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px">
+          <textarea id="reply-${convId}" rows="3" placeholder="Reply…"
+                    style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;font-family:inherit"></textarea>
+          <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+            <button onclick="sendReply(${convId})" style="padding:7px 18px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.84rem">Reply</button>
+            <button onclick="archiveConv(${convId})" style="padding:7px 14px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.84rem">Archive</button>
+            <span id="reply-status-${convId}" style="font-size:0.82rem"></span>
+          </div>
+        </div>
+      </td>`;
+    detail.innerHTML = html;
+  } catch (e) {
+    detail.innerHTML = `<td colspan="4" style="padding:14px;color:#c53030">Error: ${esc(e.message)}</td>`;
+  }
+}
+
+async function sendReply(convId) {
+  const txt = document.getElementById('reply-' + convId).value.trim();
+  const status = document.getElementById('reply-status-' + convId);
+  if (!txt) { status.textContent = 'Type a message first.'; status.style.color = '#c53030'; return; }
+  status.textContent = 'Sending…';
+  status.style.color = '#4a5568';
+  try {
+    await apiPost(`/api/v1/conversations/${convId}/add_message`, [['body', txt]]);
+    status.textContent = '✓ Sent.';
+    status.style.color = '#276749';
+    document.getElementById('reply-' + convId).value = '';
+    setTimeout(loadInbox, 1000);
+  } catch (e) {
+    status.textContent = '✗ ' + e.message;
+    status.style.color = '#c53030';
+  }
+}
+
+async function archiveConv(convId) {
+  if (!confirm('Archive this conversation?')) return;
+  try {
+    await apiPut(`/api/v1/conversations/${convId}`, [['conversation[workflow_state]', 'archived']]);
+    loadInbox();
+  } catch (e) {
+    alert('Archive failed: ' + e.message);
+  }
+}
+
 // ── Syllabus tab ──
 function renderSyllabusCourses() {
   const wrap = document.getElementById('multi-syll-courses');
@@ -2882,6 +3027,7 @@ function showTab(id) {
   if (id === 'announcements') renderAnnouncementComposerCourses();
   if (id === 'assignments') renderAssignmentComposerCourses();
   if (id === 'syllabus') renderSyllabusCourses();
+  if (id === 'inbox') loadInbox();
 }
 
 function esc(s) {

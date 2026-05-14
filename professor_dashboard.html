@@ -1796,6 +1796,7 @@ async function fetchInboxPage(path) {
 
 async function loadInbox() {
   const list = document.getElementById('inbox-list');
+  list.classList.remove('loading');
   const scope = document.getElementById('inbox-scope').value;
   inboxState = { days: 30, all: [], nextUrl: null, scope };
   list.innerHTML = '<div class="loading" style="padding:30px;text-align:center"><span class="spinner"></span> Loading conversations…</div>';
@@ -1812,6 +1813,7 @@ async function loadInbox() {
 
 function renderInbox() {
   const list = document.getElementById('inbox-list');
+  list.classList.remove('loading');
   const cutoff = Date.now() - inboxState.days * 86400000;
   const visible = inboxState.all.filter(c => {
     const t = c.last_message_at ? new Date(c.last_message_at).getTime() : 0;
@@ -1826,8 +1828,14 @@ function renderInbox() {
     return;
   }
   const canLoadMore = hiddenOlder > 0 || !!inboxState.nextUrl;
-  list.innerHTML = `<div style="font-size:0.78rem;color:#666;margin-bottom:8px">
-    Showing ${visible.length} conversation(s) from the past ${inboxState.days} days${hiddenOlder ? ` · ${hiddenOlder} older hidden` : ''}.
+  list.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+    <span style="font-size:0.82rem;color:#4a5568">
+      Showing <b>${visible.length}</b> conversation(s) from the past <b>${inboxState.days} days</b>${hiddenOlder ? ` · ${hiddenOlder} older hidden` : ''}.
+    </span>
+    ${canLoadMore ? `<button onclick="loadMoreInbox()" id="inbox-load-more"
+      style="padding:6px 16px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">
+      ↓ Load older (+30 days)
+    </button>` : '<span style="color:#a0aec0;font-size:0.78rem">— end —</span>'}
   </div>
   <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
     <thead><tr style="background:#edf2f7">
@@ -1837,11 +1845,7 @@ function renderInbox() {
       <th style="text-align:right;padding:10px 12px;width:140px">Date</th>
     </tr></thead><tbody>
     ${visible.map(c => convRowHtml(c)).join('')}
-    </tbody></table>
-    ${canLoadMore ? `<div style="margin-top:14px;text-align:center"><button onclick="loadMoreInbox()" id="inbox-load-more"
-      style="padding:8px 22px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">
-      ↓ Load older (+30 days)
-    </button></div>` : '<div style="margin-top:10px;text-align:center;color:#a0aec0;font-size:0.78rem">— end —</div>'}`;
+    </tbody></table>`;
 }
 
 async function loadMoreInbox() {

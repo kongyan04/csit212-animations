@@ -937,10 +937,35 @@ a.email-link:hover { text-decoration: underline; }
     <span id="syll-past-status" style="font-size:0.82rem;color:#744210;margin-left:10px"></span>
   </div>
 
+  <!-- Current syllabus preview (read-only) -->
+  <div class="card" id="syll-preview-card">
+    <h2 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>👁️ Current Syllabus on Canvas</span>
+      <span id="syll-preview-context" style="font-size:0.82rem;color:#666;font-weight:400"></span>
+    </h2>
+    <p style="font-size:0.84rem;color:#666;margin-bottom:14px">
+      Read-only view of the first checked course's syllabus, exactly as it is on Canvas.
+    </p>
+    <div id="syll-preview"
+         style="border:1px solid #e2e8f0;border-radius:6px;padding:18px;background:#fafafa;min-height:240px;max-height:520px;overflow-y:auto;font-size:0.92rem;line-height:1.6">
+      <div style="color:#a0aec0;text-align:center;padding:40px">Pick a target course above to view its current syllabus.</div>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button onclick="copyPreviewToEditor()" id="syll-preview-edit-btn"
+              style="padding:7px 16px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.84rem">
+        ✏️ Edit this syllabus →
+      </button>
+      <button onclick="openOnCanvas()" id="syll-canvas-btn"
+              style="padding:7px 16px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.84rem">
+        ↗ Open syllabus on Canvas
+      </button>
+    </div>
+  </div>
+
   <!-- Editor + Save -->
   <div class="card">
     <h2 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <span>📜 Syllabus</span>
+      <span>📜 Edit Syllabus</span>
       <button onclick="loadCurrentSyllabus()" id="syll-reload-btn"
               style="padding:6px 14px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">
         ↻ Reload current
@@ -1753,22 +1778,54 @@ function getCheckedSyllabusTargets() {
     .map(cb => ({ id: cb.value, code: cb.dataset.code }));
 }
 
+let syllabusPreviewState = { courseId: null, html: '', courseObj: null };
+
 function onSyllabusCheckChange() {
-  // When the first checked target changes, refresh past panel and load that course's syllabus
+  // When the first checked target changes, refresh past panel and preview
   refreshSyllabusPastPanel();
   const first = getCheckedSyllabusTargets()[0];
-  if (first) loadSyllabusInto(first.id);
+  if (first) loadSyllabusPreview(first.id);
+  else {
+    document.getElementById('syll-preview').innerHTML = '<div style="color:#a0aec0;text-align:center;padding:40px">Pick a target course above to view its current syllabus.</div>';
+    document.getElementById('syll-preview-context').textContent = '';
+    syllabusPreviewState = { courseId: null, html: '', courseObj: null };
+  }
 }
 
-async function loadSyllabusInto(cid) {
-  setStatus('syll-status', 'Loading…', 'info');
+async function loadSyllabusPreview(cid) {
+  const previewEl = document.getElementById('syll-preview');
+  const ctxEl = document.getElementById('syll-preview-context');
+  previewEl.innerHTML = '<div class="loading" style="padding:30px;text-align:center"><span class="spinner"></span> Loading…</div>';
   try {
     const c = await api(`/api/v1/courses/${cid}?include[]=syllabus_body`);
-    document.getElementById('syll-body').innerHTML = c.syllabus_body || '';
-    setStatus('syll-status', `✓ Loaded syllabus from ${esc(c.course_code || c.name)}.`, 'ok');
+    syllabusPreviewState = { courseId: cid, html: c.syllabus_body || '', courseObj: c };
+    ctxEl.textContent = `${c.course_code || c.name}${c.term?.name ? ' · ' + c.term.name : ''}`;
+    if (!c.syllabus_body || !c.syllabus_body.trim()) {
+      previewEl.innerHTML = '<div style="color:#a0aec0;text-align:center;padding:40px">No syllabus has been set for this course.</div>';
+    } else {
+      previewEl.innerHTML = c.syllabus_body;
+    }
   } catch (e) {
-    setStatus('syll-status', '✗ ' + e.message, 'err');
+    previewEl.innerHTML = `<div style="color:#c53030;padding:14px">Error: ${esc(e.message)}</div>`;
+    ctxEl.textContent = '';
   }
+}
+
+function copyPreviewToEditor() {
+  if (!syllabusPreviewState.courseId) {
+    setStatus('syll-status', 'No preview loaded.', 'err');
+    return;
+  }
+  document.getElementById('syll-body').innerHTML = syllabusPreviewState.html;
+  setStatus('syll-status', `✓ Copied current syllabus into the editor. Make changes, then Save.`, 'ok');
+  document.getElementById('syll-body').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function openOnCanvas() {
+  const cid = syllabusPreviewState.courseId;
+  if (!cid) return;
+  const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+  window.open(`${domain}/courses/${cid}/assignments/syllabus`, '_blank');
 }
 
 function loadCurrentSyllabus() {
@@ -1777,7 +1834,11 @@ function loadCurrentSyllabus() {
     setStatus('syll-status', 'Pick a target course first.', 'err');
     return;
   }
-  loadSyllabusInto(first.id);
+  // Refresh preview AND pull into editor
+  loadSyllabusPreview(first.id).then(() => {
+    document.getElementById('syll-body').innerHTML = syllabusPreviewState.html;
+    setStatus('syll-status', `✓ Loaded ${esc(syllabusPreviewState.courseObj?.course_code || '')} into editor.`, 'ok');
+  });
 }
 
 async function saveSyllabus() {

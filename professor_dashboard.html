@@ -905,6 +905,10 @@ a.email-link:hover { text-decoration: underline; }
   </div>
 </div>
 
+
+<div style="text-align:center;padding:10px;color:#a0aec0;font-size:0.72rem;font-family:monospace">
+  build: 2026-05-13-quiz-detect-v2
+</div>
 </main>
 
 <!-- Email composer modal -->
@@ -2069,6 +2073,10 @@ async function fillFormFromPastAssignment() {
     setStatus('copy-past-status', '✗ ' + e.message, 'err');
     return;
   }
+  console.log('[copy-from-past] assignment record:', a);
+  console.log('[copy-from-past] isQuizAssignment(a) →', isQuizAssignment(a),
+    '| quiz_id:', a.quiz_id, '| is_quiz_lti_assignment:', a.is_quiz_lti_assignment,
+    '| submission_types:', a.submission_types, '| name:', a.name);
 
   const quizCard = document.getElementById('quiz-options-card');
   const isQuiz = isQuizAssignment(a);

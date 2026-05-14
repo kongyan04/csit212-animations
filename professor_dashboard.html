@@ -282,6 +282,7 @@ a.email-link:hover { text-decoration: underline; }
   <button class="tab-btn" onclick="showTab('atrisk')">⚠️ At-Risk</button>
   <button class="tab-btn" onclick="showTab('announcements')">📢 Announcements</button>
   <button class="tab-btn" onclick="showTab('tasks')">✏️ Tasks</button>
+  <button class="tab-btn" onclick="showTab('syllabus')">📜 Syllabus</button>
 </div>
 
 <!-- Overview -->
@@ -906,8 +907,71 @@ a.email-link:hover { text-decoration: underline; }
 </div>
 
 
+<!-- Syllabus -->
+<div class="tab-panel" id="tab-syllabus">
+
+  <!-- Target courses -->
+  <div class="card" style="background:linear-gradient(180deg,#ebf8ff,#fff);border-left:4px solid #2b6cb0">
+    <h2 style="margin-bottom:6px">🎯 Target course(s)</h2>
+    <p style="font-size:0.82rem;color:#1a365d;margin-bottom:10px">
+      Pick which course(s) to view or update. The first checked course's syllabus loads into the editor.
+    </p>
+    <div style="display:flex;gap:8px;align-items:center;margin:6px 0">
+      <button type="button" onclick="multiSyllSelectAll(true)" style="padding:4px 12px;background:#fff;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Select all</button>
+      <button type="button" onclick="multiSyllSelectAll(false)" style="padding:4px 12px;background:#fff;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Clear</button>
+      <span id="multi-syll-courses-count" style="font-size:0.78rem;color:#1a365d;font-weight:600"></span>
+    </div>
+    <div id="multi-syll-courses" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#fff;border:1px solid #cbd5e0;border-radius:8px;min-height:54px"></div>
+  </div>
+
+  <!-- Copy syllabus from past semester -->
+  <div class="card" style="background:#fffbeb;border-left:4px solid #d69e2e">
+    <h2 style="margin-bottom:6px">📋 Copy syllabus from a past semester</h2>
+    <p style="font-size:0.82rem;color:#744210;margin-bottom:10px">
+      <span id="syll-past-context">Pick a target course above first…</span>
+    </p>
+    <button onclick="loadSyllabusFromPast()" id="syll-load-past-btn"
+            style="padding:8px 18px;background:#d69e2e;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">
+      ↓ Load past syllabus into editor
+    </button>
+    <span id="syll-past-status" style="font-size:0.82rem;color:#744210;margin-left:10px"></span>
+  </div>
+
+  <!-- Editor + Save -->
+  <div class="card">
+    <h2 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>📜 Syllabus</span>
+      <button onclick="loadCurrentSyllabus()" id="syll-reload-btn"
+              style="padding:6px 14px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">
+        ↻ Reload current
+      </button>
+    </h2>
+    <p style="font-size:0.84rem;color:#666;margin-bottom:14px">
+      Edit the syllabus content below, then click Save to push to every checked target course.
+    </p>
+    <div class="editor-toolbar">
+      <button onclick="document.execCommand('bold',false,null)"><b>B</b></button>
+      <button onclick="document.execCommand('italic',false,null)"><i>I</i></button>
+      <button onclick="document.execCommand('underline',false,null)"><u>U</u></button>
+      <button onclick="document.execCommand('insertUnorderedList',false,null)">• List</button>
+      <button onclick="document.execCommand('insertOrderedList',false,null)">1. List</button>
+      <button onclick="(function(){const u=prompt('URL:');if(u)document.execCommand('createLink',false,u);})()">🔗 Link</button>
+      <button onclick="document.execCommand('formatBlock',false,'h2')">H2</button>
+      <button onclick="document.execCommand('formatBlock',false,'h3')">H3</button>
+    </div>
+    <div id="syll-body" contenteditable="true" class="rich-editor"
+         style="border:1px solid #cbd5e0;border-top:none;border-radius:0 0 6px 6px;padding:14px;min-height:420px;font-size:0.92rem;line-height:1.55;background:#fff"></div>
+
+    <div style="display:flex;gap:8px;align-items:center;margin-top:14px">
+      <button onclick="saveSyllabus()" id="syll-save-btn"
+              style="padding:10px 24px;background:#276749;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">💾 Save Syllabus</button>
+      <span id="syll-status" style="margin-left:8px;font-size:0.86rem"></span>
+    </div>
+  </div>
+</div>
+
 <div style="text-align:center;padding:10px;color:#a0aec0;font-size:0.72rem;font-family:monospace">
-  build: 2026-05-13-quiz-detect-v2
+  build: 2026-05-13-syllabus-v1
 </div>
 </main>
 
@@ -1383,6 +1447,7 @@ function renderMultiOtherTabs() {
   // Composer tabs — populate the course checkboxes
   renderAnnouncementComposerCourses();
   renderAssignmentComposerCourses();
+  renderSyllabusCourses();
 }
 
 function showMultiPicker(tabKey, supportsGrouped) {
@@ -1644,6 +1709,141 @@ function renderMultiAtRisk() {
     tbody.innerHTML = rows.length
       ? rows.map(rowHtml).join('')
       : `<tr><td colspan="4" class="empty" style="text-align:center;color:#276749">No students below 70% in ${esc(c?.code || '')} 🎉</td></tr>`;
+  }
+}
+
+// ── Syllabus tab ──
+function renderSyllabusCourses() {
+  const wrap = document.getElementById('multi-syll-courses');
+  if (!wrap) return;
+  const pool = multi_courses.length
+    ? multi_courses.map(c => ({ id: c.id, code: c.code }))
+    : (course_id ? [{ id: course_id, code: course_info?.course_code || 'Current course' }] : []);
+  if (!pool.length) {
+    wrap.innerHTML = '<div style="color:#666;font-size:0.86rem;padding:6px">Connect and load a course or semester first.</div>';
+    document.getElementById('multi-syll-courses-count').textContent = '';
+    refreshSyllabusPastPanel();
+    return;
+  }
+  wrap.innerHTML = pool.map(c => `
+    <label class="course-chip">
+      <input type="checkbox" class="round-check" value="${c.id}" data-code="${esc(c.code)}" onchange="updateMultiSyllCount();onSyllabusCheckChange();">
+      <span>${esc(c.code)}</span>
+    </label>
+  `).join('');
+  updateMultiSyllCount();
+  refreshSyllabusPastPanel();
+}
+
+function updateMultiSyllCount() {
+  const n = document.querySelectorAll('#multi-syll-courses input[type=checkbox]:checked').length;
+  const total = document.querySelectorAll('#multi-syll-courses input[type=checkbox]').length;
+  const el = document.getElementById('multi-syll-courses-count');
+  if (el) el.textContent = `${n} of ${total} selected`;
+}
+
+function multiSyllSelectAll(on) {
+  document.querySelectorAll('#multi-syll-courses input[type=checkbox]').forEach(cb => { cb.checked = on; });
+  updateMultiSyllCount();
+  onSyllabusCheckChange();
+}
+
+function getCheckedSyllabusTargets() {
+  return Array.from(document.querySelectorAll('#multi-syll-courses input[type=checkbox]:checked'))
+    .map(cb => ({ id: cb.value, code: cb.dataset.code }));
+}
+
+function onSyllabusCheckChange() {
+  // When the first checked target changes, refresh past panel and load that course's syllabus
+  refreshSyllabusPastPanel();
+  const first = getCheckedSyllabusTargets()[0];
+  if (first) loadSyllabusInto(first.id);
+}
+
+async function loadSyllabusInto(cid) {
+  setStatus('syll-status', 'Loading…', 'info');
+  try {
+    const c = await api(`/api/v1/courses/${cid}?include[]=syllabus_body`);
+    document.getElementById('syll-body').innerHTML = c.syllabus_body || '';
+    setStatus('syll-status', `✓ Loaded syllabus from ${esc(c.course_code || c.name)}.`, 'ok');
+  } catch (e) {
+    setStatus('syll-status', '✗ ' + e.message, 'err');
+  }
+}
+
+function loadCurrentSyllabus() {
+  const first = getCheckedSyllabusTargets()[0];
+  if (!first) {
+    setStatus('syll-status', 'Pick a target course first.', 'err');
+    return;
+  }
+  loadSyllabusInto(first.id);
+}
+
+async function saveSyllabus() {
+  const targets = getCheckedSyllabusTargets();
+  if (!targets.length) { setStatus('syll-status', 'Pick at least one course.', 'err'); return; }
+  const body = document.getElementById('syll-body').innerHTML;
+  if (!confirm(`Save this syllabus to ${targets.length} course(s)?\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
+
+  const btn = document.getElementById('syll-save-btn');
+  btn.disabled = true;
+  let ok = 0, fail = 0;
+  for (const t of targets) {
+    setStatus('syll-status', `Saving ${ok + fail + 1}/${targets.length} — ${t.code}…`, 'info');
+    try {
+      await apiPut(`/api/v1/courses/${t.id}`, [['course[syllabus_body]', body]]);
+      ok++;
+    } catch (e) {
+      fail++;
+      console.error('Syllabus save failed for', t.code, e);
+    }
+  }
+  btn.disabled = false;
+  setStatus('syll-status', `Saved ${ok} of ${targets.length}${fail ? ` · ${fail} failed (see console)` : ''}.`, fail ? 'warn' : 'ok');
+}
+
+// ── Copy syllabus from past semester ──
+let detectedPastSyllabusCourse = null;
+
+function refreshSyllabusPastPanel() {
+  const ctx = document.getElementById('syll-past-context');
+  if (!ctx) return;
+  const targets = getCheckedSyllabusTargets();
+  if (!targets.length) {
+    ctx.textContent = 'Pick a target course above first — then I\'ll find its last semester.';
+    detectedPastSyllabusCourse = null;
+    return;
+  }
+  const base = courseCodeBase(targets[0].code);
+  const targetIds = new Set(targets.map(t => String(t.id)));
+  const candidates = (allCourses || []).filter(c => {
+    if (targetIds.has(String(c.id))) return false;
+    return courseCodeBase(c.course_code) === base;
+  });
+  candidates.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  detectedPastSyllabusCourse = candidates[0] || null;
+  if (!detectedPastSyllabusCourse) {
+    ctx.textContent = `No prior offering of ${targets[0].code} was found in your other courses.`;
+  } else {
+    const term = (detectedPastSyllabusCourse.term && detectedPastSyllabusCourse.term.name) || 'past semester';
+    ctx.innerHTML = `Pulling from: <strong>${esc(detectedPastSyllabusCourse.course_code || detectedPastSyllabusCourse.name)}</strong> (${esc(term)}).`;
+  }
+}
+
+async function loadSyllabusFromPast() {
+  if (!detectedPastSyllabusCourse) {
+    setStatus('syll-past-status', 'No past course detected.', 'err');
+    return;
+  }
+  const cid = detectedPastSyllabusCourse.id;
+  setStatus('syll-past-status', 'Loading…', 'info');
+  try {
+    const c = await api(`/api/v1/courses/${cid}?include[]=syllabus_body`);
+    document.getElementById('syll-body').innerHTML = c.syllabus_body || '';
+    setStatus('syll-past-status', `✓ Loaded from ${esc(c.course_code || c.name)}. Edit if needed and click Save.`, 'ok');
+  } catch (e) {
+    setStatus('syll-past-status', '✗ ' + e.message, 'err');
   }
 }
 
@@ -2259,6 +2459,7 @@ function refreshPickersForCurrentCourse(cid) {
   // Composer tabs: refresh their course checkboxes
   renderAnnouncementComposerCourses();
   renderAssignmentComposerCourses();
+  renderSyllabusCourses();
 }
 
 // ── Load course data ──
@@ -2574,6 +2775,7 @@ function showTab(id) {
   event.currentTarget.classList.add('active');
   if (id === 'announcements') renderAnnouncementComposerCourses();
   if (id === 'assignments') renderAssignmentComposerCourses();
+  if (id === 'syllabus') renderSyllabusCourses();
 }
 
 function esc(s) {

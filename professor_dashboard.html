@@ -250,9 +250,6 @@ a.email-link:hover { text-decoration: underline; }
       <input type="password" id="token" placeholder="Paste your token">
     </div>
     <button onclick="loadCourses()">Connect</button>
-    <span id="conn-status" class="conn-status"></span>
-  </div>
-  <div class="connect-row">
     <div>
       <label>Semester</label><br>
       <select id="semester-select" onchange="filterBySemester()" disabled>
@@ -264,7 +261,7 @@ a.email-link:hover { text-decoration: underline; }
       <select id="course-select"><option value="">— Load your courses first —</option></select>
     </div>
     <button onclick="loadAllInSemester()" title="Load every course in the chosen semester as a combined view">📚 Load Courses</button>
-    <button onclick="loadCurrentSemester()" title="Filter to current semester and auto-select">📅 This Semester</button>
+    <span id="conn-status" class="conn-status"></span>
   </div>
 </div>
 

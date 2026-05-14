@@ -2654,7 +2654,8 @@ function renderStudents() {
   const search = (document.getElementById('student-search').value || '').toLowerCase();
   let rows = enrollments.map(e => ({
     e,
-    name: e.user?.sortable_name || e.user?.name || 'Unknown',
+    name: e.user?.name || 'Unknown',                   // display: "First Last"
+    sortName: e.user?.sortable_name || e.user?.name || '', // sort key: "Last, First"
     email: e.user?.email || e.user?.login_id || '',
     current: parseFloat(e.grades?.current_score || 0),
     letter: gradeLetter(parseFloat(e.grades?.current_score || 0)),
@@ -2665,7 +2666,8 @@ function renderStudents() {
 
   const { key, asc } = students_sorted_by;
   rows.sort((a, b) => {
-    let va = a[key], vb = b[key];
+    const k = (key === 'name') ? 'sortName' : key;
+    let va = a[k], vb = b[k];
     if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
     return asc ? va - vb : vb - va;
   });

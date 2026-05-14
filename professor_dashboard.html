@@ -1802,8 +1802,32 @@ async function loadSyllabusPreview(cid) {
     ctxEl.textContent = `${c.course_code || c.name}${c.term?.name ? ' · ' + c.term.name : ''}`;
     if (!c.syllabus_body || !c.syllabus_body.trim()) {
       previewEl.innerHTML = '<div style="color:#a0aec0;text-align:center;padding:40px">No syllabus has been set for this course.</div>';
+      return;
+    }
+    // Detect Simple Syllabus / external-tool stub
+    const body = c.syllabus_body;
+    const isStub = /simple\s*syllabus|montclair\s*syllabus|external_tools|simplesyllabus\.com/i.test(body)
+      || body.replace(/<[^>]*>/g, '').trim().length < 200;
+
+    const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+    const canvasSyllabusUrl = `${domain}/courses/${cid}/assignments/syllabus`;
+    if (isStub) {
+      previewEl.innerHTML = `
+        <div style="background:#fffbeb;border:1px solid #f6e05e;border-radius:6px;padding:12px;margin-bottom:14px;font-size:0.84rem;color:#744210">
+          <strong>📋 External syllabus tool detected.</strong>
+          This course uses Simple Syllabus / Montclair Syllabus — the content lives on a third-party site.
+          Trying to embed Canvas's syllabus page below. If it shows "refused to connect", click <strong>Open syllabus on Canvas</strong> to pop it out.
+        </div>
+        <iframe id="syll-iframe" src="${canvasSyllabusUrl}"
+                style="width:100%;height:520px;border:1px solid #cbd5e0;border-radius:6px;background:#fff"
+                referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <details style="margin-top:14px">
+          <summary style="cursor:pointer;font-size:0.84rem;color:#4a5568;font-weight:600">Raw syllabus_body (what's stored in Canvas)</summary>
+          <div style="margin-top:10px;padding:14px;background:#f7fafc;border-radius:6px;font-size:0.86rem">${body}</div>
+        </details>
+      `;
     } else {
-      previewEl.innerHTML = c.syllabus_body;
+      previewEl.innerHTML = body;
     }
   } catch (e) {
     previewEl.innerHTML = `<div style="color:#c53030;padding:14px">Error: ${esc(e.message)}</div>`;
@@ -1825,7 +1849,13 @@ function openOnCanvas() {
   const cid = syllabusPreviewState.courseId;
   if (!cid) return;
   const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
-  window.open(`${domain}/courses/${cid}/assignments/syllabus`, '_blank');
+  const url = `${domain}/courses/${cid}/assignments/syllabus`;
+  const w = Math.min(900, screen.availWidth - 100);
+  const h = Math.min(900, screen.availHeight - 80);
+  const left = Math.max(0, screen.availWidth - w - 20);
+  const top = 40;
+  const features = `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes,location=yes,menubar=no,toolbar=no`;
+  window.open(url, 'canvas_syllabus_panel', features);
 }
 
 function loadCurrentSyllabus() {

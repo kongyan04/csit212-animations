@@ -1710,7 +1710,7 @@ async function createMultiAssignment() {
   const targets = checked.map(c => ({ id: c.value, code: c.dataset.code }));
 
   // Quiz copy path — uses Canvas content migrations
-  if (pastCarryover?.is_quiz && pastCarryover?.quiz_id) {
+  if (pastCarryover?.is_quiz && (pastCarryover?.quiz_id || pastCarryover?.source_asn_id)) {
     const placement = document.getElementById('quiz-placement').value || '';
     const quizDue = document.getElementById('quiz-due').value || '';
     const placementLabel = placement ? ` as ${placement.charAt(0).toUpperCase() + placement.slice(1)}` : ' (source group)';
@@ -1722,10 +1722,10 @@ async function createMultiAssignment() {
     for (const t of targets) {
       setStatus('multi-asn-status', `[${qok + qfail + 1}/${targets.length}] ${t.code}: starting migration…`, 'info');
       try {
-        await copyQuizViaMigration(pastCarryover.source_cid, pastCarryover.quiz_id, t.id,
+        await copyQuizViaMigration(pastCarryover.source_cid, pastCarryover.source_asn_id, pastCarryover.quiz_id, t.id,
           msg => setStatus('multi-asn-status', `[${qok + qfail + 1}/${targets.length}] ${t.code}: ${msg}`, 'info'));
         // Place after migration
-        const newAsn = await findCopiedQuizAssignment(t.id, pastCarryover.name);
+        const newAsn = await findCopiedAssignment(t.id, pastCarryover.name);
         if (newAsn) {
           setStatus('multi-asn-status', `[${qok + qfail + 1}/${targets.length}] ${t.code}: setting placement…`, 'info');
           await placeCopiedQuiz(t.id, newAsn.id, placement, quizDue, publish);
@@ -1904,18 +1904,35 @@ async function copyFilesAndRewriteDescription(html, sourceCid, targetCid) {
 // ── Quiz detection + content-migration helpers ──
 function isQuizAssignment(a) {
   if (!a) return false;
+  // Classic quizzes
   if (a.quiz_id) return true;
+  if (a.is_quiz_assignment) return true;
   if ((a.submission_types || []).includes('online_quiz')) return true;
+  // New Quizzes (LTI-based)
+  if (a.is_quiz_lti_assignment) return true;
+  const ext = a.external_tool_tag_attributes;
+  if (ext) {
+    const ct = (ext.content_type || '') + ' ' + (ext.url || '');
+    if (/quiz/i.test(ct)) return true;
+  }
+  // Heuristic fallback — name contains the word "quiz" or "exam"
+  if (/\b(quiz|midterm|final exam)\b/i.test(a.name || '')) return true;
   return false;
 }
 
-async function copyQuizViaMigration(srcCid, quizId, targetCid, statusFn) {
+async function copyQuizViaMigration(srcCid, sourceAsnId, quizId, targetCid, statusFn) {
   if (statusFn) statusFn('Starting migration…');
-  const mig = await apiPost(`/api/v1/courses/${targetCid}/content_migrations`, [
+  const params = [
     ['migration_type', 'course_copy_importer'],
     ['settings[source_course_id]', String(srcCid)],
-    ['select[quizzes][]', String(quizId)],
-  ]);
+  ];
+  if (quizId) {
+    params.push(['select[quizzes][]', String(quizId)]);
+  } else if (sourceAsnId) {
+    // New Quizzes are migrated as assignments
+    params.push(['select[assignments][]', String(sourceAsnId)]);
+  }
+  const mig = await apiPost(`/api/v1/courses/${targetCid}/content_migrations`, params);
   const mid = mig.id;
   const start = Date.now();
   while (Date.now() - start < 5 * 60 * 1000) { // 5-min cap
@@ -1931,11 +1948,11 @@ async function copyQuizViaMigration(srcCid, quizId, targetCid, statusFn) {
   throw new Error('Migration timed out after 5 minutes.');
 }
 
-async function findCopiedQuizAssignment(targetCid, name) {
+async function findCopiedAssignment(targetCid, name) {
   const asns = await api(`/api/v1/courses/${targetCid}/assignments?per_page=200`);
-  // Prefer exact name match with a quiz_id, else any quiz with matching name
-  return asns.find(a => a.name === name && a.quiz_id)
-      || asns.filter(a => a.quiz_id).slice(-1)[0]
+  // Prefer exact name match
+  return asns.find(a => a.name === name)
+      || asns.filter(a => isQuizAssignment(a)).slice(-1)[0]
       || null;
 }
 
@@ -2088,6 +2105,7 @@ async function fillFormFromPastAssignment() {
   pastCarryover = {
     is_quiz: isQuiz,
     quiz_id: a.quiz_id || null,
+    source_asn_id: a.id,
     source_cid: cid,
     name: a.name,
     grading_type: a.grading_type || 'points',

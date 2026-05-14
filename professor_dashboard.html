@@ -1039,6 +1039,17 @@ let enrollments = [];
 let assignments = [];
 let students_sorted_by = { key: 'name', asc: true };
 
+// Produce a "Last, First" key for sorting by last name even when Canvas's
+// sortable_name isn't included in the response.
+function lastNameKey(sortable, fullName) {
+  if (sortable && sortable.includes(',')) return sortable.toLowerCase();
+  const parts = (fullName || '').trim().split(/\s+/);
+  if (parts.length < 2) return (fullName || '').toLowerCase();
+  const last = parts[parts.length - 1];
+  const rest = parts.slice(0, -1).join(' ');
+  return (last + ', ' + rest).toLowerCase();
+}
+
 function onStudentSortChange(v) {
   if (v === 'name') students_sorted_by = { key: 'name', asc: true };
   else if (v === 'current_desc') students_sorted_by = { key: 'current', asc: false };
@@ -2652,15 +2663,18 @@ function renderStudents() {
   if (multi_mode) { renderMultiStudents(); return; }
   removeMultiSectionColumn();
   const search = (document.getElementById('student-search').value || '').toLowerCase();
-  let rows = enrollments.map(e => ({
-    e,
-    name: e.user?.name || 'Unknown',                   // display: "First Last"
-    sortName: e.user?.sortable_name || e.user?.name || '', // sort key: "Last, First"
-    email: e.user?.email || e.user?.login_id || '',
-    current: parseFloat(e.grades?.current_score || 0),
-    letter: gradeLetter(parseFloat(e.grades?.current_score || 0)),
-    last: e.last_activity_at || '',
-  }));
+  let rows = enrollments.map(e => {
+    const displayName = e.user?.name || 'Unknown';
+    return {
+      e,
+      name: displayName,                            // "First Last"
+      sortName: lastNameKey(e.user?.sortable_name, displayName),
+      email: e.user?.email || e.user?.login_id || '',
+      current: parseFloat(e.grades?.current_score || 0),
+      letter: gradeLetter(parseFloat(e.grades?.current_score || 0)),
+      last: e.last_activity_at || '',
+    };
+  });
 
   if (search) rows = rows.filter(r => r.name.toLowerCase().includes(search) || r.email.toLowerCase().includes(search));
 

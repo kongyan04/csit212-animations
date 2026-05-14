@@ -376,6 +376,33 @@ a.email-link:hover { text-decoration: underline; }
     <span id="copy-past-status" style="font-size:0.82rem;color:#744210;margin-top:8px;display:inline-block"></span>
   </div>
 
+  <!-- Quiz copy options (shown only when the picked past item is a quiz) -->
+  <div class="card hide" id="quiz-options-card" style="background:#f3e8ff;border-left:4px solid #805ad5">
+    <h2 style="margin-bottom:6px">📝 Quiz copy options</h2>
+    <p style="font-size:0.82rem;color:#553c9a;margin-bottom:10px">
+      This past item is a <strong>quiz</strong>. Quizzes copy via Canvas content migration (carries questions, settings, and files). Pick where it should land in each target course.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end">
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Place as</label>
+        <select id="quiz-placement"
+                style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px">
+          <option value="">Keep source's assignment group</option>
+          <option value="midterm">Midterm</option>
+          <option value="final">Final</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Due date (optional)</label>
+        <input type="datetime-local" id="quiz-due"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px">
+      </div>
+    </div>
+    <div style="margin-top:12px;font-size:0.78rem;color:#553c9a">
+      Migrations are asynchronous — each target takes ~30s–2min while Canvas processes the copy.
+    </div>
+  </div>
+
   <div class="card">
     <h2>📝 New Assignment</h2>
     <p style="font-size:0.84rem;color:#666;margin-bottom:14px">Fill in the assignment details below (or load them from a past semester above). Click Create to post to the target courses.</p>
@@ -1664,6 +1691,10 @@ function resetMultiAssignmentForm() {
   const asnSel = document.getElementById('copy-past-asn');
   if (asnSel) asnSel.value = '';
   setStatus('copy-past-status', '', '');
+  const quizCard = document.getElementById('quiz-options-card');
+  if (quizCard) quizCard.classList.add('hide');
+  const ql = document.getElementById('quiz-placement'); if (ql) ql.value = '';
+  const qd = document.getElementById('quiz-due'); if (qd) qd.value = '';
 }
 
 async function createMultiAssignment() {
@@ -1677,6 +1708,42 @@ async function createMultiAssignment() {
   if (!name) { setStatus('multi-asn-status', 'Name required.', 'err'); return; }
   if (!checked.length) { setStatus('multi-asn-status', 'Pick at least one course.', 'err'); return; }
   const targets = checked.map(c => ({ id: c.value, code: c.dataset.code }));
+
+  // Quiz copy path — uses Canvas content migrations
+  if (pastCarryover?.is_quiz && pastCarryover?.quiz_id) {
+    const placement = document.getElementById('quiz-placement').value || '';
+    const quizDue = document.getElementById('quiz-due').value || '';
+    const placementLabel = placement ? ` as ${placement.charAt(0).toUpperCase() + placement.slice(1)}` : ' (source group)';
+    if (!confirm(`Copy quiz "${pastCarryover.name}" to ${targets.length} course(s)${placementLabel}?\n\nMigrations are async — this may take 30s–2min per course.\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
+
+    const btn = document.getElementById('multi-asn-create-btn');
+    btn.disabled = true;
+    let qok = 0, qfail = 0;
+    for (const t of targets) {
+      setStatus('multi-asn-status', `[${qok + qfail + 1}/${targets.length}] ${t.code}: starting migration…`, 'info');
+      try {
+        await copyQuizViaMigration(pastCarryover.source_cid, pastCarryover.quiz_id, t.id,
+          msg => setStatus('multi-asn-status', `[${qok + qfail + 1}/${targets.length}] ${t.code}: ${msg}`, 'info'));
+        // Place after migration
+        const newAsn = await findCopiedQuizAssignment(t.id, pastCarryover.name);
+        if (newAsn) {
+          setStatus('multi-asn-status', `[${qok + qfail + 1}/${targets.length}] ${t.code}: setting placement…`, 'info');
+          await placeCopiedQuiz(t.id, newAsn.id, placement, quizDue, publish);
+        }
+        qok++;
+      } catch (e) {
+        qfail++;
+        console.error('Quiz copy failed for', t.code, e);
+      }
+    }
+    btn.disabled = false;
+    setStatus('multi-asn-status', `Quiz copied to ${qok} of ${targets.length}${qfail ? ` · ${qfail} failed (see console)` : ''}.`, qfail ? 'warn' : 'ok');
+    if (qok > 0 && !qfail) {
+      setTimeout(resetMultiAssignmentForm, 2000);
+    }
+    return;
+  }
+
   if (!confirm(`Create "${name}" in ${targets.length} course(s)?\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
 
   const btn = document.getElementById('multi-asn-create-btn');
@@ -1834,6 +1901,58 @@ async function copyFilesAndRewriteDescription(html, sourceCid, targetCid) {
   return { html: out, copied, failed };
 }
 
+// ── Quiz detection + content-migration helpers ──
+function isQuizAssignment(a) {
+  if (!a) return false;
+  if (a.quiz_id) return true;
+  if ((a.submission_types || []).includes('online_quiz')) return true;
+  return false;
+}
+
+async function copyQuizViaMigration(srcCid, quizId, targetCid, statusFn) {
+  if (statusFn) statusFn('Starting migration…');
+  const mig = await apiPost(`/api/v1/courses/${targetCid}/content_migrations`, [
+    ['migration_type', 'course_copy_importer'],
+    ['settings[source_course_id]', String(srcCid)],
+    ['select[quizzes][]', String(quizId)],
+  ]);
+  const mid = mig.id;
+  const start = Date.now();
+  while (Date.now() - start < 5 * 60 * 1000) { // 5-min cap
+    await new Promise(r => setTimeout(r, 3000));
+    const m = await api(`/api/v1/courses/${targetCid}/content_migrations/${mid}`);
+    const pct = m.progress != null ? ` ${Math.round(m.progress)}%` : '';
+    if (statusFn) statusFn(`Canvas migration: ${m.workflow_state}${pct}`);
+    if (m.workflow_state === 'completed') return m;
+    if (m.workflow_state === 'failed') {
+      throw new Error('Migration failed: ' + (m.migration_issues_count ? `${m.migration_issues_count} issues` : 'unknown'));
+    }
+  }
+  throw new Error('Migration timed out after 5 minutes.');
+}
+
+async function findCopiedQuizAssignment(targetCid, name) {
+  const asns = await api(`/api/v1/courses/${targetCid}/assignments?per_page=200`);
+  // Prefer exact name match with a quiz_id, else any quiz with matching name
+  return asns.find(a => a.name === name && a.quiz_id)
+      || asns.filter(a => a.quiz_id).slice(-1)[0]
+      || null;
+}
+
+async function placeCopiedQuiz(targetCid, asnId, placement, dueDate, published) {
+  const params = [];
+  if (dueDate) params.push(['assignment[due_at]', new Date(dueDate).toISOString()]);
+  if (placement) {
+    const groups = await api(`/api/v1/courses/${targetCid}/assignment_groups?per_page=50`);
+    const grp = groups.find(g => g.name?.toLowerCase().includes(placement.toLowerCase()));
+    if (grp) params.push(['assignment[assignment_group_id]', String(grp.id)]);
+  }
+  if (published) params.push(['assignment[published]', 'true']);
+  if (params.length) {
+    await apiPut(`/api/v1/courses/${targetCid}/assignments/${asnId}`, params);
+  }
+}
+
 // ── Copy assignment from the most recent past offering of the same course ──
 let pastAsnCache = {};       // cid -> full assignment list (with all fields)
 let pastAsnGroups = {};      // cid -> assignment_groups list (for name→id translation)
@@ -1934,6 +2053,14 @@ async function fillFormFromPastAssignment() {
     return;
   }
 
+  const quizCard = document.getElementById('quiz-options-card');
+  const isQuiz = isQuizAssignment(a);
+  if (isQuiz) {
+    quizCard.classList.remove('hide');
+  } else {
+    quizCard.classList.add('hide');
+  }
+
   document.getElementById('multi-asn-name').value = a.name || '';
   document.getElementById('multi-asn-points').value = a.points_possible ?? 20;
   document.getElementById('multi-asn-desc').innerHTML = a.description || '';
@@ -1959,6 +2086,10 @@ async function fillFormFromPastAssignment() {
   // Stash extras for the create call to pass through
   const groupName = (pastAsnGroups[cid] || []).find(g => g.id === a.assignment_group_id)?.name;
   pastCarryover = {
+    is_quiz: isQuiz,
+    quiz_id: a.quiz_id || null,
+    source_cid: cid,
+    name: a.name,
     grading_type: a.grading_type || 'points',
     allowed_extensions: a.allowed_extensions || null,
     allowed_attempts: a.allowed_attempts,
@@ -1979,7 +2110,11 @@ async function fillFormFromPastAssignment() {
   const rubricNote = (a.rubric?.length) ? `, rubric (${a.rubric.length} criteria)` : '';
   const fileIds = extractFileIdsFromHtml(a.description || '');
   const fileNote = fileIds.length ? `, ${fileIds.length} file attachment(s)` : '';
-  setStatus('copy-past-status', `✓ Loaded "${a.name}" — name, ${descLen.toLocaleString()} chars of description${rubricNote}${fileNote}, points, submission type, grading, and other settings. Files will be copied into each target course on Create. Set a due date and click Create Assignment.`, 'ok');
+  if (isQuiz) {
+    setStatus('copy-past-status', `✓ Loaded quiz "${a.name}". Pick a placement (or keep source group), set an optional due date in the purple panel below, then click Create Assignment.`, 'ok');
+  } else {
+    setStatus('copy-past-status', `✓ Loaded "${a.name}" — name, ${descLen.toLocaleString()} chars of description${rubricNote}${fileNote}, points, submission type, grading. Files copied per target on Create. Set a due date and click Create Assignment.`, 'ok');
+  }
 }
 
 // ── Announcement composer (multi-course) ──

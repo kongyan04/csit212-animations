@@ -1715,7 +1715,35 @@ async function createMultiAssignment() {
         }
       }
 
-      await apiPost(`/api/v1/courses/${t.id}/assignments`, params);
+      const created = await apiPost(`/api/v1/courses/${t.id}/assignments`, params);
+
+      // After creating the assignment, attach the rubric (if any) via the rubric association endpoint
+      if (pastCarryover?.rubric?.length && created?.id) {
+        try {
+          const rParams = [
+            ['rubric_association[association_type]', 'Assignment'],
+            ['rubric_association[association_id]', String(created.id)],
+            ['rubric_association[use_for_grading]', pastCarryover.use_rubric_for_grading ? 'true' : 'false'],
+            ['rubric_association[purpose]', 'grading'],
+            ['rubric[title]', pastCarryover.rubric_settings?.title || (name + ' Rubric')],
+            ['rubric[free_form_criterion_comments]', pastCarryover.rubric_settings?.free_form_criterion_comments ? 'true' : 'false'],
+          ];
+          pastCarryover.rubric.forEach((crit, idx) => {
+            rParams.push([`rubric[criteria][${idx}][id]`, crit.id || String(idx)]);
+            rParams.push([`rubric[criteria][${idx}][description]`, crit.description || '']);
+            rParams.push([`rubric[criteria][${idx}][long_description]`, crit.long_description || '']);
+            rParams.push([`rubric[criteria][${idx}][points]`, String(crit.points || 0)]);
+            (crit.ratings || []).forEach((rt, j) => {
+              rParams.push([`rubric[criteria][${idx}][ratings][${j}][description]`, rt.description || '']);
+              rParams.push([`rubric[criteria][${idx}][ratings][${j}][long_description]`, rt.long_description || '']);
+              rParams.push([`rubric[criteria][${idx}][ratings][${j}][points]`, String(rt.points || 0)]);
+            });
+          });
+          await apiPost(`/api/v1/courses/${t.id}/rubrics`, rParams);
+        } catch (e) {
+          console.warn('Rubric attach failed for', t.code, e);
+        }
+      }
       ok++;
     } catch (e) {
       fail++;
@@ -1816,13 +1844,21 @@ function populatePastAssignmentDropdown(cid) {
     + list.map(a => `<option value="${a.id}">${esc(a.name)} (${a.points_possible ?? 0} pts)</option>`).join('');
 }
 
-function fillFormFromPastAssignment() {
+async function fillFormFromPastAssignment() {
   const aid = document.getElementById('copy-past-asn').value;
   const cid = lastPastCourseId;
   if (!aid || !cid) return; // change event with no pick
-  const list = pastAsnCache[cid] || [];
-  const a = list.find(x => String(x.id) === String(aid));
-  if (!a) { setStatus('copy-past-status', 'Assignment not found.', 'err'); return; }
+
+  setStatus('copy-past-status', 'Loading full assignment details…', 'info');
+  // Fetch the FULL single-assignment record — the list endpoint often abbreviates
+  // descriptions and omits rubric data. Include rubric so we can carry it over too.
+  let a;
+  try {
+    a = await api(`/api/v1/courses/${cid}/assignments/${aid}?include[]=rubric`);
+  } catch (e) {
+    setStatus('copy-past-status', '✗ ' + e.message, 'err');
+    return;
+  }
 
   document.getElementById('multi-asn-name').value = a.name || '';
   document.getElementById('multi-asn-points').value = a.points_possible ?? 20;
@@ -1860,8 +1896,14 @@ function fillFormFromPastAssignment() {
     grade_group_students_individually: !!a.grade_group_students_individually,
     require_lockdown_browser: !!a.require_lockdown_browser,
     group_name: groupName || null,
+    rubric: a.rubric || null,
+    rubric_settings: a.rubric_settings || null,
+    use_rubric_for_grading: !!a.use_rubric_for_grading,
+    hide_in_gradebook: !!a.hide_in_gradebook,
   };
-  setStatus('copy-past-status', `✓ Loaded "${a.name}" — all fields copied except due date. Set a date and click Create Assignment.`, 'ok');
+  const descLen = (a.description || '').length;
+  const rubricNote = (a.rubric?.length) ? `, rubric (${a.rubric.length} criteria)` : '';
+  setStatus('copy-past-status', `✓ Loaded "${a.name}" — name, ${descLen.toLocaleString()} chars of description${rubricNote}, points, submission type, grading, and other settings. Set a due date and click Create Assignment.`, 'ok');
 }
 
 // ── Announcement composer (multi-course) ──

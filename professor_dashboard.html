@@ -343,18 +343,33 @@ a.email-link:hover { text-decoration: underline; }
 
 <!-- Assignments -->
 <div class="tab-panel" id="tab-assignments">
+
+  <!-- Target courses (moved to top so all panels below react to the selection) -->
+  <div class="card" style="background:linear-gradient(180deg,#ebf8ff,#fff);border-left:4px solid #2b6cb0">
+    <h2 style="margin-bottom:6px">🎯 Target course(s)</h2>
+    <p style="font-size:0.82rem;color:#1a365d;margin-bottom:10px">
+      Pick which course(s) this assignment should be created in. The past-semester panel below will look for past offerings of whichever course you select.
+    </p>
+    <div style="display:flex;gap:8px;align-items:center;margin:6px 0">
+      <button type="button" onclick="multiAsnSelectAll(true)" style="padding:4px 12px;background:#fff;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Select all</button>
+      <button type="button" onclick="multiAsnSelectAll(false)" style="padding:4px 12px;background:#fff;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Clear</button>
+      <span id="multi-asn-courses-count" style="font-size:0.78rem;color:#1a365d;font-weight:600"></span>
+    </div>
+    <div id="multi-asn-courses" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#fff;border:1px solid #cbd5e0;border-radius:8px;min-height:54px"></div>
+  </div>
+
   <!-- Copy-from-past panel -->
   <div class="card" style="background:#fffbeb;border-left:4px solid #d69e2e">
     <h2 style="margin-bottom:6px">📋 Copy an assignment from the last semester</h2>
     <p style="font-size:0.82rem;color:#744210;margin-bottom:10px">
-      <span id="copy-past-context">Load a course first…</span>
+      <span id="copy-past-context">Pick a target course above first…</span>
     </p>
     <div style="display:grid;grid-template-columns:1fr;gap:10px;align-items:end">
       <div>
         <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Pick an assignment to copy</label>
         <select id="copy-past-asn" onchange="fillFormFromPastAssignment()"
                 style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px">
-          <option value="">— Loading… —</option>
+          <option value="">— Pick a target course above first —</option>
         </select>
       </div>
     </div>
@@ -363,7 +378,7 @@ a.email-link:hover { text-decoration: underline; }
 
   <div class="card">
     <h2>📝 New Assignment</h2>
-    <p style="font-size:0.84rem;color:#666;margin-bottom:14px">Create one assignment and post it to any combination of your loaded courses.</p>
+    <p style="font-size:0.84rem;color:#666;margin-bottom:14px">Fill in the assignment details below (or load them from a past semester above). Click Create to post to the target courses.</p>
 
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
       <div>
@@ -395,16 +410,6 @@ a.email-link:hover { text-decoration: underline; }
           <option value="none">No Submission</option>
         </select>
       </div>
-    </div>
-
-    <div style="margin-bottom:14px">
-      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Post to which course(s)?</label>
-      <div style="display:flex;gap:8px;align-items:center;margin:6px 0">
-        <button type="button" onclick="multiAsnSelectAll(true)" style="padding:4px 12px;background:#edf2f7;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Select all</button>
-        <button type="button" onclick="multiAsnSelectAll(false)" style="padding:4px 12px;background:#edf2f7;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Clear</button>
-        <span id="multi-asn-courses-count" style="font-size:0.78rem;color:#666"></span>
-      </div>
-      <div id="multi-asn-courses" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:8px;min-height:54px"></div>
     </div>
 
     <div style="margin-bottom:14px">
@@ -1849,17 +1854,11 @@ function getActiveTargetCourses() {
 function detectLastPastCourse() {
   if (!allCourses?.length) return null;
   const checked = getActiveTargetCourses();
-  const referenceCode = checked[0]?.code
-    || multi_courses[0]?.code
-    || course_info?.course_code
-    || '';
-  const base = courseCodeBase(referenceCode);
+  if (!checked.length) return null;            // require an explicit pick
+  const base = courseCodeBase(checked[0].code);
   if (!base) return null;
-  const targetIds = new Set([
-    ...checked.map(c => String(c.id)),
-    ...multi_courses.map(c => String(c.id)),
-    String(course_id || ''),
-  ]);
+  // Exclude every checked target so we don't suggest copying from itself
+  const targetIds = new Set(checked.map(c => String(c.id)));
   const candidates = allCourses.filter(c => {
     if (targetIds.has(String(c.id))) return false;
     return courseCodeBase(c.course_code) === base;
@@ -1873,9 +1872,16 @@ async function refreshPastAssignmentCopyPanel() {
   const ctx = document.getElementById('copy-past-context');
   const asnSel = document.getElementById('copy-past-asn');
   if (!ctx || !asnSel) return;
+  const checked = getActiveTargetCourses();
+  if (!checked.length) {
+    ctx.textContent = 'Pick a target course above first — then I\'ll find the last semester for that course.';
+    asnSel.innerHTML = '<option value="">— Pick a target course above first —</option>';
+    lastPastCourseId = null;
+    return;
+  }
   const past = detectLastPastCourse();
   if (!past) {
-    ctx.textContent = 'No past offering of this course was found.';
+    ctx.textContent = `No prior offering of ${checked[0].code} was found in your other courses.`;
     asnSel.innerHTML = '<option value="">— No past course —</option>';
     lastPastCourseId = null;
     return;

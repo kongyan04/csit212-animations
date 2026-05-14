@@ -307,13 +307,10 @@ a.email-link:hover { text-decoration: underline; }
       <select id="section-filter" onchange="renderStudents()" class="hide">
         <option value="">All sections</option>
       </select>
-      <select id="student-filter" onchange="renderStudents()">
-        <option value="">All grades</option>
-        <option value="A">A range (≥90%)</option>
-        <option value="B">B range (80-89%)</option>
-        <option value="C">C range (70-79%)</option>
-        <option value="D">D range (60-69%)</option>
-        <option value="F">F (<60%)</option>
+      <select id="student-sort" onchange="onStudentSortChange(this.value)">
+        <option value="name">Display by last name</option>
+        <option value="current_desc">Display by grade (high → low)</option>
+        <option value="current_asc">Display by grade (low → high)</option>
       </select>
       <span class="count" id="student-count"></span>
     </div>
@@ -1041,6 +1038,13 @@ let course_info = null;
 let enrollments = [];
 let assignments = [];
 let students_sorted_by = { key: 'name', asc: true };
+
+function onStudentSortChange(v) {
+  if (v === 'name') students_sorted_by = { key: 'name', asc: true };
+  else if (v === 'current_desc') students_sorted_by = { key: 'current', asc: false };
+  else if (v === 'current_asc') students_sorted_by = { key: 'current', asc: true };
+  renderStudents();
+}
 let multi_mode = false;
 let multi_courses = []; // [{id, info, enrollments, code}]
 
@@ -1375,24 +1379,14 @@ function renderMultiStudents() {
   const sectionFilter = secSel ? secSel.value : '';
 
   const search = (document.getElementById('student-search').value || '').toLowerCase();
-  const filter = document.getElementById('student-filter').value;
 
   // Decide which courses to render
   const visibleCourses = sectionFilter
     ? multi_courses.filter(c => String(c.id) === String(sectionFilter))
     : multi_courses;
 
-  // Build rows per course so we can group; same filters apply
   const matchFilters = r => {
     if (search && !(r.name.toLowerCase().includes(search) || r.email.toLowerCase().includes(search) || r.code.toLowerCase().includes(search))) return false;
-    if (filter) {
-      const L = r.letter;
-      if (filter === 'A') return L.startsWith('A');
-      if (filter === 'B') return L.startsWith('B');
-      if (filter === 'C') return L.startsWith('C');
-      if (filter === 'D') return L.startsWith('D');
-      if (filter === 'F') return L === 'F';
-    }
     return true;
   };
 
@@ -2658,10 +2652,9 @@ function renderStudents() {
   if (multi_mode) { renderMultiStudents(); return; }
   removeMultiSectionColumn();
   const search = (document.getElementById('student-search').value || '').toLowerCase();
-  const filter = document.getElementById('student-filter').value;
   let rows = enrollments.map(e => ({
     e,
-    name: e.user?.name || 'Unknown',
+    name: e.user?.sortable_name || e.user?.name || 'Unknown',
     email: e.user?.email || e.user?.login_id || '',
     current: parseFloat(e.grades?.current_score || 0),
     letter: gradeLetter(parseFloat(e.grades?.current_score || 0)),
@@ -2669,18 +2662,7 @@ function renderStudents() {
   }));
 
   if (search) rows = rows.filter(r => r.name.toLowerCase().includes(search) || r.email.toLowerCase().includes(search));
-  if (filter) {
-    rows = rows.filter(r => {
-      const p = r.current;
-      if (filter === 'A') return p >= 90;
-      if (filter === 'B') return p >= 80 && p < 90;
-      if (filter === 'C') return p >= 70 && p < 80;
-      if (filter === 'D') return p >= 60 && p < 70;
-      if (filter === 'F') return p < 60;
-    });
-  }
 
-  // Sort
   const { key, asc } = students_sorted_by;
   rows.sort((a, b) => {
     let va = a[key], vb = b[key];

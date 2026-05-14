@@ -1414,6 +1414,7 @@ function renderMultiStudents() {
       const displayName = e.user?.name || 'Unknown';
       return {
         e, cid: c.id, code: c.code,
+        uid: e.user_id || e.user?.id,
         name: displayName,
         sortName: lastNameKey(e.user?.sortable_name, displayName),
         email: e.user?.email || e.user?.login_id || '',
@@ -1458,9 +1459,13 @@ function renderMultiStudents() {
 }
 
 function rowHtmlMulti(r) {
+  const safeName = esc(r.name).replace(/'/g, "\\'");
+  const emailCell = r.email
+    ? `<a class="email-link" href="#" onclick="event.preventDefault();openEmail(${r.uid}, '${safeName}', '${r.cid}')" style="font-size:0.84rem">${esc(r.email)}</a>`
+    : '<span style="color:#aaa">—</span>';
   return `<tr>
     <td>${esc(r.name)}</td>
-    <td><span style="color:#666;font-size:0.84rem">${esc(r.email)}</span></td>
+    <td>${emailCell}</td>
     <td>${r.current ? r.current.toFixed(1) + '%' : '—'}</td>
     <td>${r.current ? `<span class="pill ${pillClass(r.letter)}">${r.letter}</span>` : '—'}</td>
   </tr>`;
@@ -2670,7 +2675,8 @@ function renderStudents() {
     const displayName = e.user?.name || 'Unknown';
     return {
       e,
-      name: displayName,                            // "First Last"
+      uid: e.user_id || e.user?.id,
+      name: displayName,
       sortName: lastNameKey(e.user?.sortable_name, displayName),
       email: e.user?.email || e.user?.login_id || '',
       current: parseFloat(e.grades?.current_score || 0),
@@ -2690,13 +2696,15 @@ function renderStudents() {
   });
 
   document.getElementById('student-count').textContent = rows.length + ' student' + (rows.length !== 1 ? 's' : '');
-  document.getElementById('students-tbody').innerHTML = rows.map(r => `
-    <tr>
+  document.getElementById('students-tbody').innerHTML = rows.map(r => {
+    const safeName = esc(r.name).replace(/'/g, "\\'");
+    return `<tr>
       <td><strong>${esc(r.name)}</strong></td>
-      <td>${r.email ? `<a class="email-link" href="mailto:${esc(r.email)}">${esc(r.email)}</a>` : '<span style="color:#aaa">—</span>'}</td>
+      <td>${r.email ? `<a class="email-link" href="#" onclick="event.preventDefault();openEmail(${r.uid}, '${safeName}', '${course_id}')">${esc(r.email)}</a>` : '<span style="color:#aaa">—</span>'}</td>
       <td>${r.current ? r.current.toFixed(1) + '%' : '<span style="color:#aaa">—</span>'}</td>
       <td>${r.current ? `<span class="pill ${pillClass(r.letter)}">${r.letter}</span>` : '—'}</td>
-    </tr>`).join('') || '<tr><td colspan="4" class="empty">No students match</td></tr>';
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" class="empty">No students match</td></tr>';
 }
 
 // ── Assignments ──

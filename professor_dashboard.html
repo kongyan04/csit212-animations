@@ -343,6 +343,35 @@ a.email-link:hover { text-decoration: underline; }
 
 <!-- Assignments -->
 <div class="tab-panel" id="tab-assignments">
+  <!-- Copy-from-past panel -->
+  <div class="card" style="background:#fffbeb;border-left:4px solid #d69e2e">
+    <h2 style="margin-bottom:6px">📋 Copy from a past semester</h2>
+    <p style="font-size:0.82rem;color:#744210;margin-bottom:12px">
+      Pick a past offering of the same course, choose an assignment, and fill the form below. The due date is not copied.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end">
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Past course</label>
+        <select id="copy-past-course" onchange="loadPastAssignments(this.value)"
+                style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px">
+          <option value="">— Pick a past course —</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Assignment</label>
+        <select id="copy-past-asn"
+                style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px">
+          <option value="">— Pick a past course first —</option>
+        </select>
+      </div>
+      <button onclick="fillFormFromPastAssignment()"
+              style="padding:9px 18px;background:#d69e2e;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">
+        ↓ Fill form
+      </button>
+    </div>
+    <span id="copy-past-status" style="font-size:0.82rem;color:#744210;margin-top:8px;display:inline-block"></span>
+  </div>
+
   <div class="card">
     <h2>📝 New Assignment</h2>
     <p style="font-size:0.84rem;color:#666;margin-bottom:14px">Create one assignment and post it to any combination of your loaded courses.</p>
@@ -1603,6 +1632,7 @@ function renderAssignmentComposerCourses() {
   if (!pool.length) {
     wrap.innerHTML = '<div style="color:#666;font-size:0.86rem;padding:6px">Connect and load a course or semester first.</div>';
     document.getElementById('multi-asn-courses-count').textContent = '';
+    populatePastCourses();
     return;
   }
   wrap.innerHTML = pool.map(c => `
@@ -1612,6 +1642,7 @@ function renderAssignmentComposerCourses() {
     </label>
   `).join('');
   updateMultiAsnCount();
+  populatePastCourses();
 }
 
 function updateMultiAsnCount() {
@@ -1619,6 +1650,8 @@ function updateMultiAsnCount() {
   const total = document.querySelectorAll('#multi-asn-courses input[type=checkbox]').length;
   const el = document.getElementById('multi-asn-courses-count');
   if (el) el.textContent = `${n} of ${total} selected`;
+  // Refresh past-course list since the "reference" course may have changed
+  populatePastCourses();
 }
 
 function multiAsnSelectAll(on) {
@@ -1681,6 +1714,103 @@ async function createMultiAssignment() {
 // (stub kept so removed renderMultiAssignments call sites don't error)
 async function renderMultiAssignments() { renderAssignmentComposerCourses(); }
 async function ensureMultiCourseAssignments() { /* no longer used for view */ }
+
+// ── Copy assignment from a past offering of the same course ──
+let pastAsnCache = {}; // cid -> array of {id, name, points, description, submission_types, published}
+
+function courseCodeBase(code) {
+  if (!code) return '';
+  const m = code.toUpperCase().match(/^([A-Z]+ ?\d+)/);
+  return m ? m[1].replace(/\s+/g, '') : '';
+}
+
+function getActiveTargetCourses() {
+  return Array.from(document.querySelectorAll('#multi-asn-courses input[type=checkbox]:checked'))
+    .map(cb => ({ id: cb.value, code: cb.dataset.code }));
+}
+
+function populatePastCourses() {
+  const sel = document.getElementById('copy-past-course');
+  if (!sel || !allCourses?.length) return;
+  // Determine target base code from any checked target, or fall back to multi/single course context
+  const checked = getActiveTargetCourses();
+  let referenceCode = checked[0]?.code
+    || multi_courses[0]?.code
+    || course_info?.course_code
+    || '';
+  const base = courseCodeBase(referenceCode);
+  if (!base) {
+    sel.innerHTML = '<option value="">— Load a target course first —</option>';
+    return;
+  }
+  // Find all courses with the same base. Exclude any currently checked as a target.
+  const targetIds = new Set(checked.map(c => String(c.id)));
+  const candidates = allCourses.filter(c => {
+    if (targetIds.has(String(c.id))) return false;
+    return courseCodeBase(c.course_code) === base;
+  });
+  candidates.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  sel.innerHTML = '<option value="">— Pick a past course —</option>'
+    + candidates.map(c => {
+      const term = (c.term && c.term.name) ? ` (${c.term.name})` : '';
+      return `<option value="${c.id}">${esc(c.course_code || c.name)}${esc(term)}</option>`;
+    }).join('');
+  if (!candidates.length) {
+    sel.innerHTML = `<option value="">— No past ${base} courses found —</option>`;
+  }
+}
+
+async function loadPastAssignments(cid) {
+  const asnSel = document.getElementById('copy-past-asn');
+  if (!cid) { asnSel.innerHTML = '<option value="">— Pick a past course first —</option>'; return; }
+  asnSel.innerHTML = '<option value="">Loading…</option>';
+  try {
+    if (!pastAsnCache[cid]) {
+      pastAsnCache[cid] = await api(`/api/v1/courses/${cid}/assignments?per_page=100`);
+    }
+    const list = pastAsnCache[cid];
+    if (!list.length) {
+      asnSel.innerHTML = '<option value="">— No assignments in this course —</option>';
+      return;
+    }
+    asnSel.innerHTML = '<option value="">— Pick an assignment —</option>'
+      + list.map(a => `<option value="${a.id}">${esc(a.name)} (${a.points_possible ?? 0} pts)</option>`).join('');
+  } catch (e) {
+    asnSel.innerHTML = `<option value="">Error: ${esc(e.message)}</option>`;
+  }
+}
+
+function fillFormFromPastAssignment() {
+  const cid = document.getElementById('copy-past-course').value;
+  const aid = document.getElementById('copy-past-asn').value;
+  if (!cid || !aid) {
+    setStatus('copy-past-status', 'Pick a past course and an assignment first.', 'err');
+    return;
+  }
+  const list = pastAsnCache[cid] || [];
+  const a = list.find(x => String(x.id) === String(aid));
+  if (!a) { setStatus('copy-past-status', 'Assignment not found in cache.', 'err'); return; }
+
+  document.getElementById('multi-asn-name').value = a.name || '';
+  document.getElementById('multi-asn-points').value = a.points_possible ?? 20;
+  document.getElementById('multi-asn-desc').innerHTML = a.description || '';
+  // Submission type: pick the first matching option; if multiple, try combined
+  const types = (a.submission_types || []).filter(t => t !== 'none');
+  const typeSel = document.getElementById('multi-asn-type');
+  if (types.length === 1) {
+    typeSel.value = types[0];
+  } else if (types.length === 2 && types.includes('online_upload') && types.includes('online_text_entry')) {
+    typeSel.value = 'online_upload,online_text_entry';
+  } else if (types.length) {
+    typeSel.value = types[0];
+  } else {
+    typeSel.value = 'none';
+  }
+  // Don't copy due date — clear it
+  document.getElementById('multi-asn-due').value = '';
+  // Keep publish checkbox as-is
+  setStatus('copy-past-status', `✓ Loaded "${a.name}". Set a new due date and click Create Assignment.`, 'ok');
+}
 
 // ── Announcement composer (multi-course) ──
 function renderAnnouncementComposerCourses() {

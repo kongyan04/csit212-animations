@@ -386,8 +386,6 @@ a.email-link:hover { text-decoration: underline; }
           <th>Student</th>
           <th>Email</th>
           <th>Current %</th>
-          <th>Missing</th>
-          <th>Late</th>
           <th>Last Activity</th>
         </tr>
       </thead>
@@ -1505,40 +1503,32 @@ async function sendEmail() {
 }
 
 // ── Multi: At-Risk tab ──
-async function renderMultiAtRisk() {
+function renderMultiAtRisk() {
   if (!multi_mode) return;
   const tbody = document.getElementById('atrisk-tbody');
   const cur = multi_tab_active.atrisk || 'all';
   const list = cur === 'all' ? multi_courses : multi_courses.filter(c => String(c.id) === String(cur));
-
-  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:14px;color:#666"><span class="spinner"></span> Loading submissions…</td></tr>`;
-  await Promise.all(list.map(c => getCourseSubmissions(c.id)));
 
   const riskRows = c => c.enrollments.map(e => {
     const cur = parseFloat(e.grades?.current_score || 0);
     return { uid: e.user_id, cid: c.id, code: c.code, name: e.user?.name || '—', email: e.user?.email || '', current: cur, last: e.last_activity_at || '' };
   }).filter(r => r.current > 0 && r.current < 70);
 
-  const rowHtml = r => {
-    const { missing, late } = missingLateForStudent(submissionsCache[r.cid] || [], r.uid);
-    return `<tr>
-      <td>${esc(r.name)}</td>
-      <td>
-        <span class="email-icon" onclick="openEmail(${r.uid}, '${esc(r.name).replace(/'/g,"\\'")}', '${r.cid}')">✉️ Compose</span>
-        ${r.email ? `<a class="email-link" href="mailto:${esc(r.email)}" style="margin-left:6px;font-size:0.82rem">mail</a>` : ''}
-      </td>
-      <td><span style="color:#c53030;font-weight:600">${r.current.toFixed(1)}%</span></td>
-      <td>${missingLateCellHtml(missing, false)}</td>
-      <td>${missingLateCellHtml(late, true)}</td>
-      <td style="color:#666;font-size:0.82rem">${r.last ? new Date(r.last).toLocaleDateString() : 'never'}</td>
-    </tr>`;
-  };
+  const rowHtml = r => `<tr>
+    <td>${esc(r.name)}</td>
+    <td>
+      <span class="email-icon" onclick="openEmail(${r.uid}, '${esc(r.name).replace(/'/g,"\\'")}', '${r.cid}')">✉️ Compose</span>
+      ${r.email ? `<a class="email-link" href="mailto:${esc(r.email)}" style="margin-left:6px;font-size:0.82rem">mail</a>` : ''}
+    </td>
+    <td><span style="color:#c53030;font-weight:600">${r.current.toFixed(1)}%</span></td>
+    <td style="color:#666;font-size:0.82rem">${r.last ? new Date(r.last).toLocaleDateString() : 'never'}</td>
+  </tr>`;
 
   if (cur === 'all') {
-    const html = list.map(c => {
+    tbody.innerHTML = list.map(c => {
       const rows = riskRows(c);
       const header = `<tr style="background:#edf2f7">
-        <td colspan="6" style="padding:10px 14px">
+        <td colspan="4" style="padding:10px 14px">
           <span style="font-weight:700;color:#1a365d">📚 ${esc(c.code)}</span>
           <span style="margin-left:12px;color:#4a5568;font-size:0.84rem">
             ${rows.length} at-risk · <a href="#" onclick="event.preventDefault();selectCourse('${c.id}')" style="color:#2b6cb0">Open this section →</a>
@@ -1546,16 +1536,15 @@ async function renderMultiAtRisk() {
         </td></tr>`;
       const body = rows.length
         ? rows.map(rowHtml).join('')
-        : `<tr><td colspan="6" class="empty" style="text-align:center;color:#276749">No students below 70% 🎉</td></tr>`;
+        : `<tr><td colspan="4" class="empty" style="text-align:center;color:#276749">No students below 70% 🎉</td></tr>`;
       return header + body;
     }).join('');
-    tbody.innerHTML = html;
   } else {
     const c = list[0];
     const rows = c ? riskRows(c) : [];
     tbody.innerHTML = rows.length
       ? rows.map(rowHtml).join('')
-      : `<tr><td colspan="6" class="empty" style="text-align:center;color:#276749">No students below 70% in ${esc(c?.code || '')} 🎉</td></tr>`;
+      : `<tr><td colspan="4" class="empty" style="text-align:center;color:#276749">No students below 70% in ${esc(c?.code || '')} 🎉</td></tr>`;
   }
 }
 
@@ -1861,7 +1850,7 @@ function renderAssignments() {
 }
 
 // ── At-Risk ──
-async function renderAtRisk() {
+function renderAtRisk() {
   const cid = course_id;
   const tbody = document.getElementById('atrisk-tbody');
   const atrisk = enrollments
@@ -1879,32 +1868,20 @@ async function renderAtRisk() {
     .sort((a, b) => a.current - b.current);
 
   if (!atrisk.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">🎉 No students at risk — everyone is doing well!</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">🎉 No students at risk — everyone is doing well!</td></tr>';
     return;
   }
 
   tbody.innerHTML = atrisk.map(r => `
-    <tr id="atr-${r.uid}">
+    <tr>
       <td><strong>${esc(r.name)}</strong></td>
       <td>
         <span class="email-icon" onclick="openEmail(${r.uid}, '${esc(r.name).replace(/'/g,"\\'")}', '${cid}')">✉️ Compose</span>
         ${r.email ? `<a class="email-link" href="mailto:${esc(r.email)}" style="margin-left:6px;font-size:0.82rem">mail</a>` : ''}
       </td>
       <td><span class="pill pill-red">${r.current.toFixed(1)}%</span></td>
-      <td class="miss-cell"><span style="color:#aaa;font-size:0.82rem">…</span></td>
-      <td class="late-cell"><span style="color:#aaa;font-size:0.82rem">…</span></td>
       <td style="color:#666;font-size:0.82rem">${r.last ? new Date(r.last).toLocaleDateString() : 'never'}</td>
     </tr>`).join('');
-
-  // Lazy-load submissions and fill missing/late cells
-  const subs = await getCourseSubmissions(cid);
-  for (const r of atrisk) {
-    const { missing, late } = missingLateForStudent(subs, r.uid);
-    const row = document.getElementById('atr-' + r.uid);
-    if (!row) continue;
-    row.querySelector('.miss-cell').innerHTML = missingLateCellHtml(missing, false);
-    row.querySelector('.late-cell').innerHTML = missingLateCellHtml(late, true);
-  }
 }
 
 // ── Recent Activity ──

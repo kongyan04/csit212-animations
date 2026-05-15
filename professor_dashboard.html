@@ -1330,8 +1330,8 @@ async function loadAllInSemester() {
     document.getElementById('dashboard').classList.remove('hide');
     renderMultiStudents();
     renderMultiOtherTabs();
-    status.textContent = `✓ Loaded ${results.length} course(s) in ${semesterLabel(tag)} — combined view`;
-    status.className = 'conn-status ok';
+    status.textContent = '';
+    status.className = 'conn-status';
   } catch (e) {
     status.textContent = '✗ ' + e.message;
     status.className = 'conn-status err';

@@ -1564,6 +1564,17 @@ async function loadAllInSemester() {
 
     multi_mode = true;
     multi_courses = results;
+    // Clear stale single-course + per-tab state so previously-loaded
+    // semester data doesn't leak into Gradebook / Tasks / pickers.
+    course_id = '';
+    course_info = null;
+    enrollments = [];
+    assignments = [];
+    multi_tab_active = {};
+    gradebookSubsCache = {};
+    submissionsCache = {};
+    pastAsnCache = {};
+    pastAsnGroups = {};
     document.getElementById('dashboard').classList.remove('hide');
     renderMultiStudents();
     renderMultiOtherTabs();

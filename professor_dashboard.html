@@ -3688,7 +3688,9 @@ async function loadAnnouncements() {
 }
 
 // ── Gradebook ──
-async function loadGradebook() {
+let gradebookSubsCache = {}; // courseId -> submissions array
+
+async function loadGradebook(forceFetch) {
   const el = document.getElementById('gradebook-area');
   el.classList.remove('loading');  // strip the flex layout from the initial markup
   if (!course_id) {
@@ -3697,12 +3699,28 @@ async function loadGradebook() {
   }
   // Capture sort mode BEFORE the spinner wipes the DOM
   const sortMode = (document.getElementById('gradebook-sort')?.value) || 'name';
+  const cached = gradebookSubsCache[course_id];
+  if (cached && !forceFetch) {
+    // Re-render from cache instantly — sort changes don't need a network call
+    renderGradebookFromSubs(cached, sortMode);
+    return;
+  }
   el.innerHTML = '<div class="loading" style="padding:30px;text-align:center"><span class="spinner"></span> Loading gradebook…</div>';
-  const requestedCid = course_id;  // pin to detect a course-switch mid-fetch
+  const requestedCid = course_id;
   try {
-    // Get submission scores per assignment
     const subs = await api(`/api/v1/courses/${course_id}/students/submissions?student_ids[]=all&per_page=100`);
-    if (requestedCid !== course_id) return;  // user switched away — stale, skip render
+    if (requestedCid !== course_id) return;
+    gradebookSubsCache[course_id] = subs;
+    renderGradebookFromSubs(subs, sortMode);
+  } catch (e) {
+    console.error('[loadGradebook] failed for course', course_id, e);
+    el.innerHTML = '<div style="color:#c53030;padding:14px">Error loading gradebook: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderGradebookFromSubs(subs, sortMode) {
+  const el = document.getElementById('gradebook-area');
+  try {
     const map = {}; // userId -> assignmentId -> score
     subs.forEach(s => {
       if (!map[s.user_id]) map[s.user_id] = {};
@@ -3761,8 +3779,8 @@ async function loadGradebook() {
     html += '</tbody></table></div>';
     el.innerHTML = html;
   } catch (e) {
-    console.error('[loadGradebook] failed for course', course_id, e);
-    el.innerHTML = '<div style="color:#c53030;padding:14px">Error loading gradebook: ' + esc(e.message) + '</div>';
+    console.error('[renderGradebookFromSubs] failed', e);
+    el.innerHTML = '<div style="color:#c53030;padding:14px">Error rendering gradebook: ' + esc(e.message) + '</div>';
   }
 }
 

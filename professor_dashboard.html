@@ -233,6 +233,7 @@ a.email-link:hover { text-decoration: underline; }
   font-family: inherit; color: #2d3748;
 }
 .editor-toolbar button:hover { background: #edf2f7; color: #2b6cb0; }
+.editor-toolbar button.active { background: #2b6cb0; color: #fff; border-color: #2b6cb0; }
 .rich-editor:focus { outline: 2px solid #2b6cb0; outline-offset: -2px; }
 .rich-editor h2 { font-size: 1.05rem; margin: 8px 0; color: #1a365d; }
 .rich-editor h3 { font-size: 0.95rem; margin: 8px 0; color: #2b6cb0; }
@@ -558,35 +559,43 @@ a.email-link:hover { text-decoration: underline; }
     </h2>
 
     <!-- New message composer (hidden by default) -->
-    <div id="new-msg-panel" class="hide" style="background:#f7fafc;border:1px solid #cbd5e0;border-radius:8px;padding:14px;margin-bottom:14px">
-      <div style="margin-bottom:10px">
+    <div id="new-msg-panel" class="hide" style="background:#f7fafc;border:1px solid #cbd5e0;border-radius:8px;padding:12px 14px;margin-bottom:14px">
+      <div style="margin-bottom:8px">
         <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">To</label>
-        <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
-          <select id="new-msg-picker" style="flex:1;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem">
+        <div style="display:flex;gap:6px;align-items:center;margin-top:3px">
+          <select id="new-msg-picker" style="flex:1;padding:7px 10px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem">
             <option value="">— Pick a student —</option>
           </select>
-          <button type="button" onclick="addRecipientFromPicker()" style="padding:7px 14px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">+ Add</button>
+          <button type="button" onclick="addRecipientFromPicker()" style="padding:6px 14px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">+ Add</button>
         </div>
-        <div id="new-msg-recipients" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:24px"></div>
+        <div id="new-msg-recipients" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
       </div>
-      <div style="margin-bottom:10px">
+      <div style="margin-bottom:8px">
         <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Subject</label>
         <input type="text" id="new-msg-subject" placeholder="Subject"
-               style="width:100%;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px">
+               style="width:100%;padding:7px 10px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:3px">
       </div>
-      <div style="margin-bottom:10px">
+      <div style="margin-bottom:8px">
         <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Message</label>
-        <div class="editor-toolbar">
-          <button onclick="document.execCommand('bold',false,null)" title="Bold"><b>B</b></button>
-          <button onclick="document.execCommand('italic',false,null)" title="Italic"><i>I</i></button>
-          <button onclick="document.execCommand('underline',false,null)" title="Underline"><u>U</u></button>
-          <button onclick="document.execCommand('insertUnorderedList',false,null)">• List</button>
-          <button onclick="document.execCommand('insertOrderedList',false,null)">1. List</button>
+        <div class="editor-toolbar" id="new-msg-toolbar">
+          <button data-cmd="bold" onclick="execCmd(event,'bold')" title="Bold"><b>B</b></button>
+          <button data-cmd="italic" onclick="execCmd(event,'italic')" title="Italic"><i>I</i></button>
+          <button data-cmd="underline" onclick="execCmd(event,'underline')" title="Underline"><u>U</u></button>
+          <button data-cmd="insertUnorderedList" onclick="execCmd(event,'insertUnorderedList')">• List</button>
+          <button data-cmd="insertOrderedList" onclick="execCmd(event,'insertOrderedList')">1. List</button>
           <button onclick="(function(){const u=prompt('URL:');if(u)document.execCommand('createLink',false,u);})()">🔗 Link</button>
           <button onclick="document.execCommand('formatBlock',false,'h3')">H</button>
         </div>
         <div id="new-msg-body" contenteditable="true" class="rich-editor"
              style="border:1px solid #cbd5e0;border-top:none;border-radius:0 0 6px 6px;padding:12px;min-height:160px;font-size:0.92rem;line-height:1.5;background:#fff"></div>
+      </div>
+      <div style="margin-bottom:8px">
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Attach files</label>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:3px">
+          <input type="file" id="new-msg-file-input" multiple onchange="onAttachFiles(this.files)"
+                 style="font-size:0.84rem">
+        </div>
+        <div id="new-msg-attachments" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <button onclick="sendNewMessage()" id="new-msg-send-btn"
@@ -1819,6 +1828,36 @@ function renderMultiAtRisk() {
 
 // ── Inbox: New Message composer ──
 let newMsgRecipients = [];   // {id, name, courseId (for context)}
+let newMsgAttachments = [];  // [{id, name}]  Canvas file ids after upload
+
+function execCmd(ev, cmd) {
+  ev.preventDefault();  // keep editor focused so queryCommandState works
+  document.execCommand(cmd, false, null);
+  updateNewMsgToolbar();
+  document.getElementById('new-msg-body').focus();
+}
+
+function updateNewMsgToolbar() {
+  const tb = document.getElementById('new-msg-toolbar');
+  if (!tb) return;
+  tb.querySelectorAll('button[data-cmd]').forEach(btn => {
+    const cmd = btn.dataset.cmd;
+    let active = false;
+    try { active = document.queryCommandState(cmd); } catch (e) {}
+    btn.classList.toggle('active', active);
+  });
+}
+
+function bindNewMsgToolbar() {
+  const editor = document.getElementById('new-msg-body');
+  if (!editor) return;
+  ['mouseup','keyup','focus','input'].forEach(ev => {
+    editor.addEventListener(ev, updateNewMsgToolbar);
+  });
+  document.addEventListener('selectionchange', () => {
+    if (document.activeElement === editor) updateNewMsgToolbar();
+  });
+}
 
 function gatherAllEnrolledStudents() {
   // Build a deduped list of {id, name, courseId, courseCode} from loaded courses
@@ -1855,18 +1894,26 @@ function populateNewMessagePicker() {
 
 function toggleNewMessage(forceClose) {
   const panel = document.getElementById('new-msg-panel');
+  const inboxList = document.getElementById('inbox-list');
   const willOpen = forceClose ? false : panel.classList.contains('hide');
   if (willOpen) {
     panel.classList.remove('hide');
+    if (inboxList) inboxList.classList.add('hide');
     populateNewMessagePicker();
+    bindNewMsgToolbar();
     document.getElementById('new-msg-picker').focus();
   } else {
     panel.classList.add('hide');
+    if (inboxList) inboxList.classList.remove('hide');
     document.getElementById('new-msg-subject').value = '';
     document.getElementById('new-msg-body').innerHTML = '';
     document.getElementById('new-msg-picker').value = '';
+    const fi = document.getElementById('new-msg-file-input'); if (fi) fi.value = '';
     newMsgRecipients = [];
+    newMsgAttachments = [];
     renderRecipientChips();
+    renderAttachmentChips();
+    updateNewMsgToolbar();
     setStatus('new-msg-status', '', '');
   }
 }
@@ -1893,6 +1940,88 @@ function addRecipientFromPicker() {
 function removeRecipient(i) {
   newMsgRecipients.splice(i, 1);
   renderRecipientChips();
+}
+
+function renderAttachmentChips() {
+  const el = document.getElementById('new-msg-attachments');
+  if (!el) return;
+  if (!newMsgAttachments.length) { el.innerHTML = ''; return; }
+  el.innerHTML = newMsgAttachments.map((a, i) => `
+    <span style="display:inline-flex;align-items:center;gap:6px;background:#fffbeb;border:1px solid #d69e2e;color:#744210;padding:4px 10px;border-radius:14px;font-size:0.82rem;font-weight:600">
+      ${a.uploading ? '<span class="spinner" style="width:10px;height:10px"></span>' : '📎'} ${esc(a.name)}
+      ${a.id ? `<span onclick="removeAttachment(${i})" style="cursor:pointer;color:#666;font-size:0.82rem;margin-left:2px" title="Remove">×</span>` : ''}
+    </span>
+  `).join('');
+}
+
+function removeAttachment(i) {
+  newMsgAttachments.splice(i, 1);
+  renderAttachmentChips();
+}
+
+// Canvas's 2-step file upload: register → upload binary to S3.
+async function uploadFileToCanvas(file) {
+  const token = document.getElementById('token').value.trim();
+  const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+  // Step 1: register
+  const r1 = await fetch(PROXY + '/api/v1/users/self/files', {
+    method: 'POST',
+    headers: {
+      'X-Canvas-Token': token, 'X-Canvas-Domain': domain,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      name: file.name,
+      size: String(file.size),
+      content_type: file.type || 'application/octet-stream',
+      parent_folder_path: 'conversation attachments',
+      on_duplicate: 'rename',
+    }),
+  });
+  if (!r1.ok) throw new Error('register: HTTP ' + r1.status);
+  const meta = await r1.json();
+  if (!meta.upload_url) throw new Error('No upload URL from Canvas');
+  // Step 2: upload binary to the (typically AWS) URL
+  const form = new FormData();
+  for (const [k, v] of Object.entries(meta.upload_params || {})) form.append(k, v);
+  form.append('file', file);
+  const r2 = await fetch(meta.upload_url, { method: 'POST', body: form });
+  if (!r2.ok) throw new Error('upload: HTTP ' + r2.status);
+  const text = await r2.text();
+  let fileObj;
+  try { fileObj = JSON.parse(text); }
+  catch (e) { throw new Error('Non-JSON upload response'); }
+  if (!fileObj.id) throw new Error('No file id returned');
+  return fileObj;
+}
+
+async function onAttachFiles(fileList) {
+  if (!fileList || !fileList.length) return;
+  // Add placeholders immediately so the user sees progress
+  const placeholders = [];
+  for (const f of fileList) {
+    const ph = { id: null, name: f.name, uploading: true };
+    newMsgAttachments.push(ph);
+    placeholders.push({ ph, f });
+  }
+  renderAttachmentChips();
+  for (const { ph, f } of placeholders) {
+    try {
+      const obj = await uploadFileToCanvas(f);
+      ph.id = obj.id;
+      ph.uploading = false;
+    } catch (e) {
+      console.error('Upload failed for', f.name, e);
+      // Remove failed placeholder
+      const idx = newMsgAttachments.indexOf(ph);
+      if (idx >= 0) newMsgAttachments.splice(idx, 1);
+      setStatus('new-msg-status', `✗ Upload failed for ${f.name}: ${e.message}`, 'err');
+    }
+    renderAttachmentChips();
+  }
+  // Reset file input so the same file can be re-picked if removed
+  const fi = document.getElementById('new-msg-file-input');
+  if (fi) fi.value = '';
 }
 
 function renderRecipientChips() {
@@ -1937,6 +2066,7 @@ async function sendNewMessage() {
         ['group_conversation', 'false'],  // one separate convo per recipient
       ];
       recips.forEach(r => params.push(['recipients[]', String(r.id)]));
+      newMsgAttachments.filter(a => a.id).forEach(a => params.push(['attachment_ids[]', String(a.id)]));
       await apiPost('/api/v1/conversations', params);
       ok += recips.length;
     } catch (e) {

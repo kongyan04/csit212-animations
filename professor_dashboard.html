@@ -2222,14 +2222,16 @@ async function loadMoreInbox() {
 
 function convRowHtml(c) {
   const unread = c.workflow_state === 'unread';
+  const starred = !!c.starred;
   const senders = (c.participants || []).slice(0, 3).map(p => p.name).join(', ') || '—';
   const subject = c.subject || '(no subject)';
   const snippet = (c.last_message || '').slice(0, 100);
   const when = c.last_message_at ? new Date(c.last_message_at).toLocaleString() : '';
-  const dot = unread ? '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2b6cb0"></span>' : '';
+  const dot = unread ? '<span title="Unread" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2b6cb0"></span>' : '';
+  const star = starred ? '<span title="Starred" style="color:#d69e2e">★</span>' : '';
   const weight = unread ? '700' : '500';
   return `<tr style="border-bottom:1px solid #edf2f7;cursor:pointer;font-weight:${weight}" onclick="openThread(${c.id}, this)">
-    <td style="padding:10px 12px;text-align:center">${dot}</td>
+    <td style="padding:10px 12px;text-align:center;white-space:nowrap">${dot} ${star}</td>
     <td style="padding:10px 12px">${esc(senders)}</td>
     <td style="padding:10px 12px">
       <div>${esc(subject)}</div>
@@ -2251,8 +2253,10 @@ async function openThread(convId, rowEl) {
   rowEl.parentNode.insertBefore(detail, rowEl.nextElementSibling);
   try {
     const c = await api(`/api/v1/conversations/${convId}?auto_mark_as_read=true`);
+    inboxCache[convId] = c;
     const msgs = (c.messages || []).slice().reverse(); // oldest first
     const participants = c.participants || [];
+    const starred = !!c.starred;
     const html = `
       <td colspan="4" style="padding:14px;background:#f7fafc;border-bottom:1px solid #cbd5e0">
         <div style="font-weight:700;margin-bottom:6px;color:#1a365d">${esc(c.subject || '(no subject)')}</div>
@@ -2261,20 +2265,41 @@ async function openThread(convId, rowEl) {
           ${msgs.map(m => {
             const author = participants.find(p => p.id === m.author_id)?.name || `User ${m.author_id}`;
             const when = m.created_at ? new Date(m.created_at).toLocaleString() : '';
+            const atts = (m.attachments || []);
+            const attHtml = atts.length ? `
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">
+                ${atts.map(a => `
+                  <a href="${a.url}" target="_blank" rel="noopener"
+                     style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:#edf2f7;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;color:#2b6cb0;text-decoration:none">
+                    📎 ${esc(a.display_name || a.filename || 'attachment')}${a.size ? ` <span style="color:#999">(${(a.size/1024).toFixed(1)} KB)</span>` : ''}
+                  </a>
+                `).join('')}
+              </div>` : '';
+            const mediaHtml = (m.media_comment) ? `
+              <div style="margin-top:6px;font-size:0.78rem;color:#666">🎤 media attachment (open in Canvas)</div>` : '';
             return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-bottom:8px">
               <div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#4a5568">
                 <strong>${esc(author)}</strong>
                 <span>${when}</span>
               </div>
               <div style="margin-top:6px;white-space:pre-wrap;font-size:0.88rem;line-height:1.5">${esc(m.body || '')}</div>
+              ${attHtml}${mediaHtml}
             </div>`;
           }).join('')}
         </div>
         <div style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px">
           <textarea id="reply-${convId}" rows="3" placeholder="Reply…"
                     style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;font-family:inherit"></textarea>
-          <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+          <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <button onclick="sendReply(${convId})" style="padding:7px 18px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.84rem">Reply</button>
+            <button onclick="toggleStar(${convId})" id="star-${convId}"
+                    style="padding:7px 14px;background:${starred ? '#fffbeb' : '#edf2f7'};color:${starred ? '#744210' : '#4a5568'};border:1px solid ${starred ? '#d69e2e' : '#cbd5e0'};border-radius:6px;font-weight:600;cursor:pointer;font-size:0.84rem">
+              ${starred ? '★ Starred' : '☆ Star'}
+            </button>
+            <button onclick="markUnread(${convId})"
+                    style="padding:7px 14px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.84rem">
+              📥 Mark unread
+            </button>
             <button onclick="archiveConv(${convId})" style="padding:7px 14px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.84rem">Archive</button>
             <span id="reply-status-${convId}" style="font-size:0.82rem"></span>
           </div>
@@ -2301,6 +2326,45 @@ async function sendReply(convId) {
   } catch (e) {
     status.textContent = '✗ ' + e.message;
     status.style.color = '#c53030';
+  }
+}
+
+async function toggleStar(convId) {
+  const c = inboxCache[convId];
+  const newVal = !c?.starred;
+  const btn = document.getElementById('star-' + convId);
+  if (btn) { btn.disabled = true; btn.textContent = newVal ? 'Starring…' : 'Unstarring…'; }
+  try {
+    const updated = await apiPut(`/api/v1/conversations/${convId}`, [
+      ['conversation[starred]', newVal ? 'true' : 'false']
+    ]);
+    inboxCache[convId] = updated;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = newVal ? '★ Starred' : '☆ Star';
+      btn.style.background = newVal ? '#fffbeb' : '#edf2f7';
+      btn.style.color = newVal ? '#744210' : '#4a5568';
+      btn.style.borderColor = newVal ? '#d69e2e' : '#cbd5e0';
+    }
+    // Update the row in the list (so the ★ shows immediately)
+    const idx = inboxState.all.findIndex(x => x.id === convId);
+    if (idx >= 0) { inboxState.all[idx].starred = newVal; renderInbox(); }
+  } catch (e) {
+    alert('Star failed: ' + e.message);
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function markUnread(convId) {
+  try {
+    const updated = await apiPut(`/api/v1/conversations/${convId}`, [
+      ['conversation[workflow_state]', 'unread']
+    ]);
+    inboxCache[convId] = updated;
+    const idx = inboxState.all.findIndex(x => x.id === convId);
+    if (idx >= 0) { inboxState.all[idx].workflow_state = 'unread'; renderInbox(); }
+  } catch (e) {
+    alert('Mark unread failed: ' + e.message);
   }
 }
 

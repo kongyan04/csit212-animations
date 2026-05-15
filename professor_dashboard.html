@@ -2325,6 +2325,10 @@ async function openThread(convId) {
   try {
     const c = await api(`/api/v1/conversations/${convId}?auto_mark_as_read=true`);
     inboxCache[convId] = c;
+    // Sync the inbox row's local state — Canvas auto-marked as read, so the row
+    // should drop its unread dot/bold when we close the thread.
+    const _idx = inboxState.all.findIndex(x => x.id === convId);
+    if (_idx >= 0) inboxState.all[_idx].workflow_state = c.workflow_state || 'read';
     const msgs = (c.messages || []).slice().reverse(); // oldest first
     const participants = c.participants || [];
     const starred = !!c.starred;

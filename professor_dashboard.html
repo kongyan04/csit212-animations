@@ -491,29 +491,24 @@ a.email-link:hover { text-decoration: underline; }
 
 <!-- Announcements -->
 <div class="tab-panel" id="tab-announcements">
-
-  <!-- Target courses (top) -->
-  <div class="card" style="background:linear-gradient(180deg,#ebf8ff,#fff);border-left:4px solid #2b6cb0">
-    <h2 style="margin-bottom:6px">🎯 Target course(s)</h2>
-    <p style="font-size:0.82rem;color:#1a365d;margin-bottom:10px">
-      Pick which course(s) the announcement should be posted to.
-    </p>
-    <div style="display:flex;gap:8px;align-items:center;margin:6px 0">
-      <button type="button" onclick="multiAnnSelectAll(true)" style="padding:4px 12px;background:#fff;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Select all</button>
-      <button type="button" onclick="multiAnnSelectAll(false)" style="padding:4px 12px;background:#fff;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Clear</button>
-      <span id="multi-ann-courses-count" style="font-size:0.78rem;color:#1a365d;font-weight:600"></span>
-    </div>
-    <div id="multi-ann-courses" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#fff;border:1px solid #cbd5e0;border-radius:8px;min-height:54px"></div>
-  </div>
-
   <div class="card">
     <h2>📢 New Announcement</h2>
-    <p style="font-size:0.84rem;color:#666;margin-bottom:14px">Write once and post to every course checked above.</p>
+    <p style="font-size:0.84rem;color:#666;margin-bottom:14px">Compose once and send to any combination of your loaded courses.</p>
 
     <div style="margin-bottom:14px">
       <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Title</label>
       <input type="text" id="multi-ann-title" placeholder="e.g., Class canceled tomorrow"
              style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.92rem;margin-top:4px">
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Send to which course(s)?</label>
+      <div style="display:flex;gap:8px;align-items:center;margin:6px 0">
+        <button type="button" onclick="multiAnnSelectAll(true)" style="padding:4px 12px;background:#edf2f7;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Select all</button>
+        <button type="button" onclick="multiAnnSelectAll(false)" style="padding:4px 12px;background:#edf2f7;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Clear</button>
+        <span id="multi-ann-courses-count" style="font-size:0.78rem;color:#666"></span>
+      </div>
+      <div id="multi-ann-courses" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:8px;min-height:54px"></div>
     </div>
 
     <div style="margin-bottom:14px">

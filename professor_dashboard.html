@@ -3679,6 +3679,7 @@ async function loadAnnouncements() {
 // ── Gradebook ──
 async function loadGradebook() {
   const el = document.getElementById('gradebook-area');
+  el.classList.remove('loading');  // strip the flex layout from the initial markup
   if (!course_id) {
     el.innerHTML = '<div class="empty" style="padding:30px;text-align:center;color:#666">Pick a course to load its gradebook.</div>';
     return;

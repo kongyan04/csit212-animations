@@ -3696,9 +3696,14 @@ async function loadGradebook() {
     });
     const pubAsns = assignments.filter(a => a.published).slice(0, 20); // limit display
     const sortedEnrolls = enrollments.slice().sort((a, b) => (a.user?.sortable_name || a.user?.name || '').localeCompare(b.user?.sortable_name || b.user?.name || ''));
-    let html = '<div style="overflow-x:auto"><table style="min-width:max-content"><thead><tr><th style="position:sticky;left:0;background:#f7fafc;z-index:1">Student</th><th>Total %</th>';
+    // Scroll container with bounded height so both the horizontal scrollbar
+    // (at the bottom) and the sticky header stay visible while you scroll.
+    let html = '<div style="overflow:auto;max-height:70vh;border:1px solid #e2e8f0;border-radius:6px"><table style="min-width:max-content;border-collapse:separate;border-spacing:0">'
+            +  '<thead><tr>'
+            +    '<th style="position:sticky;left:0;top:0;background:#edf2f7;z-index:3;padding:10px 12px;border-bottom:2px solid #cbd5e0">Student</th>'
+            +    '<th style="position:sticky;top:0;background:#edf2f7;z-index:2;padding:10px 12px;border-bottom:2px solid #cbd5e0">Total %</th>';
     pubAsns.forEach(a => {
-      html += `<th title="${esc(a.name)}" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((a.name||'').slice(0, 18))}</th>`;
+      html += `<th title="${esc(a.name)}" style="position:sticky;top:0;background:#edf2f7;z-index:2;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:10px 12px;border-bottom:2px solid #cbd5e0">${esc((a.name||'').slice(0, 18))}</th>`;
     });
     html += '</tr></thead><tbody>';
     sortedEnrolls.forEach(e => {

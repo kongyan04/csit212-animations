@@ -540,7 +540,11 @@ a.email-link:hover { text-decoration: underline; }
   <div class="card">
     <h2 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <span>✉️ Canvas Inbox</span>
-      <span style="display:flex;gap:6px">
+      <span style="display:flex;gap:6px;flex-wrap:wrap">
+        <button onclick="toggleNewMessage()" id="new-msg-btn"
+                style="padding:6px 14px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.82rem">
+          ✉️ New Message
+        </button>
         <select id="inbox-scope" onchange="loadInbox()"
                 style="padding:6px 10px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.86rem">
           <option value="inbox">Inbox</option>
@@ -552,6 +556,39 @@ a.email-link:hover { text-decoration: underline; }
         <button onclick="loadInbox()" style="padding:6px 14px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">↻ Refresh</button>
       </span>
     </h2>
+
+    <!-- New message composer (hidden by default) -->
+    <div id="new-msg-panel" class="hide" style="background:#f7fafc;border:1px solid #cbd5e0;border-radius:8px;padding:14px;margin-bottom:14px">
+      <div style="margin-bottom:10px">
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">To</label>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+          <input type="text" id="new-msg-search" list="new-msg-suggestions" placeholder="Type a student name to add…"
+                 oninput="onRecipientInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();addRecipientFromInput();}"
+                 style="flex:1;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem">
+          <datalist id="new-msg-suggestions"></datalist>
+          <button type="button" onclick="addRecipientFromInput()" style="padding:7px 14px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">Add</button>
+        </div>
+        <div id="new-msg-recipients" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:24px"></div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Subject</label>
+        <input type="text" id="new-msg-subject" placeholder="Subject"
+               style="width:100%;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px">
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Message</label>
+        <textarea id="new-msg-body" rows="5" placeholder="Type your message…"
+                  style="width:100%;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px;font-family:inherit;resize:vertical;min-height:120px"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="sendNewMessage()" id="new-msg-send-btn"
+                style="padding:8px 22px;background:#276749;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">Send</button>
+        <button onclick="toggleNewMessage(true)"
+                style="padding:8px 18px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.86rem">Cancel</button>
+        <span id="new-msg-status" style="margin-left:8px;font-size:0.84rem"></span>
+      </div>
+    </div>
+
     <div id="inbox-list" class="loading"><span class="spinner"></span> Loading…</div>
   </div>
 </div>
@@ -1769,6 +1806,144 @@ function renderMultiAtRisk() {
     tbody.innerHTML = rows.length
       ? rows.map(rowHtml).join('')
       : `<tr><td colspan="4" class="empty" style="text-align:center;color:#276749">No students below 70% in ${esc(c?.code || '')} 🎉</td></tr>`;
+  }
+}
+
+// ── Inbox: New Message composer ──
+let newMsgRecipients = [];   // {id, name, courseId (for context)}
+
+function gatherAllEnrolledStudents() {
+  // Build a deduped list of {id, name, courseId, courseCode} from loaded courses
+  const pool = [];
+  const seen = new Set();
+  const courses = multi_courses.length
+    ? multi_courses
+    : (course_id ? [{ id: course_id, code: course_info?.course_code || 'Current', enrollments }] : []);
+  for (const c of courses) {
+    for (const e of (c.enrollments || [])) {
+      const uid = e.user_id || e.user?.id;
+      const name = e.user?.name || '';
+      if (!uid || !name) continue;
+      const key = uid + '|' + c.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pool.push({ id: uid, name, courseId: c.id, courseCode: c.code });
+    }
+  }
+  return pool;
+}
+
+function toggleNewMessage(forceClose) {
+  const panel = document.getElementById('new-msg-panel');
+  const willOpen = forceClose ? false : panel.classList.contains('hide');
+  if (willOpen) {
+    panel.classList.remove('hide');
+    document.getElementById('new-msg-search').focus();
+  } else {
+    panel.classList.add('hide');
+    document.getElementById('new-msg-subject').value = '';
+    document.getElementById('new-msg-body').value = '';
+    document.getElementById('new-msg-search').value = '';
+    newMsgRecipients = [];
+    renderRecipientChips();
+    setStatus('new-msg-status', '', '');
+  }
+}
+
+function onRecipientInput(val) {
+  const list = document.getElementById('new-msg-suggestions');
+  const q = (val || '').toLowerCase().trim();
+  if (q.length < 1) { list.innerHTML = ''; return; }
+  const pool = gatherAllEnrolledStudents();
+  const matches = pool.filter(p => p.name.toLowerCase().includes(q)).slice(0, 12);
+  list.innerHTML = matches.map(p => `<option value="${esc(p.name)} (${esc(p.courseCode || '')})">`).join('');
+}
+
+function addRecipientFromInput() {
+  const input = document.getElementById('new-msg-search');
+  const raw = input.value.trim();
+  if (!raw) return;
+  // Strip trailing " (CSIT...)" if user picked from datalist
+  const cleanName = raw.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const pool = gatherAllEnrolledStudents();
+  // Prefer exact (case-insensitive) name match
+  let match = pool.find(p => p.name.toLowerCase() === cleanName.toLowerCase());
+  if (!match) match = pool.find(p => p.name.toLowerCase().includes(cleanName.toLowerCase()));
+  if (!match) {
+    setStatus('new-msg-status', `No match for "${cleanName}" in loaded courses.`, 'err');
+    return;
+  }
+  if (newMsgRecipients.some(r => r.id === match.id && r.courseId === match.courseId)) {
+    setStatus('new-msg-status', 'Already added.', 'warn');
+    input.value = '';
+    return;
+  }
+  newMsgRecipients.push(match);
+  input.value = '';
+  setStatus('new-msg-status', '', '');
+  renderRecipientChips();
+}
+
+function removeRecipient(i) {
+  newMsgRecipients.splice(i, 1);
+  renderRecipientChips();
+}
+
+function renderRecipientChips() {
+  const el = document.getElementById('new-msg-recipients');
+  if (!newMsgRecipients.length) {
+    el.innerHTML = '<span style="color:#a0aec0;font-size:0.82rem">No recipients yet — type a name above.</span>';
+    return;
+  }
+  el.innerHTML = newMsgRecipients.map((r, i) => `
+    <span style="display:inline-flex;align-items:center;gap:6px;background:#ebf8ff;border:1px solid #2b6cb0;color:#1a365d;padding:4px 10px;border-radius:14px;font-size:0.82rem;font-weight:600">
+      ${esc(r.name)} <span style="color:#666;font-weight:400">·</span> <span style="color:#666;font-size:0.74rem">${esc(r.courseCode || '')}</span>
+      <span onclick="removeRecipient(${i})" style="cursor:pointer;color:#666;font-size:0.82rem;margin-left:2px" title="Remove">×</span>
+    </span>
+  `).join('');
+}
+
+async function sendNewMessage() {
+  const subj = document.getElementById('new-msg-subject').value.trim();
+  const body = document.getElementById('new-msg-body').value.trim();
+  if (!newMsgRecipients.length) { setStatus('new-msg-status', 'Add at least one recipient.', 'err'); return; }
+  if (!subj) { setStatus('new-msg-status', 'Subject required.', 'err'); return; }
+  if (!body) { setStatus('new-msg-status', 'Message required.', 'err'); return; }
+  const btn = document.getElementById('new-msg-send-btn');
+  btn.disabled = true;
+  setStatus('new-msg-status', `Sending to ${newMsgRecipients.length} recipient(s)…`, 'info');
+
+  // Group recipients by course context so we can pass a context_code per Canvas conversation
+  const byCourse = {};
+  newMsgRecipients.forEach(r => {
+    const k = r.courseId;
+    (byCourse[k] ||= []).push(r);
+  });
+  let ok = 0, fail = 0;
+  for (const cid of Object.keys(byCourse)) {
+    const recips = byCourse[cid];
+    try {
+      const params = [
+        ['subject', subj],
+        ['body', body],
+        ['context_code', `course_${cid}`],
+        ['mode', 'async'],
+        ['group_conversation', 'false'],  // one separate convo per recipient
+      ];
+      recips.forEach(r => params.push(['recipients[]', String(r.id)]));
+      await apiPost('/api/v1/conversations', params);
+      ok += recips.length;
+    } catch (e) {
+      fail += recips.length;
+      console.error('New message failed for course', cid, e);
+    }
+  }
+  btn.disabled = false;
+  if (fail === 0) {
+    setStatus('new-msg-status', `✓ Sent to ${ok} recipient(s).`, 'ok');
+    setTimeout(() => { toggleNewMessage(true); loadInbox(); }, 1200);
+  } else {
+    setStatus('new-msg-status', `Sent ${ok}/${ok+fail} (${fail} failed, see console).`, 'warn');
   }
 }
 

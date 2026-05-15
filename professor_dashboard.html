@@ -562,11 +562,10 @@ a.email-link:hover { text-decoration: underline; }
       <div style="margin-bottom:10px">
         <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">To</label>
         <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
-          <input type="text" id="new-msg-search" list="new-msg-suggestions" placeholder="Type a student name to add…"
-                 oninput="onRecipientInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();addRecipientFromInput();}"
-                 style="flex:1;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem">
-          <datalist id="new-msg-suggestions"></datalist>
-          <button type="button" onclick="addRecipientFromInput()" style="padding:7px 14px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">Add</button>
+          <select id="new-msg-picker" style="flex:1;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem">
+            <option value="">— Pick a student —</option>
+          </select>
+          <button type="button" onclick="addRecipientFromPicker()" style="padding:7px 14px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">+ Add</button>
         </div>
         <div id="new-msg-recipients" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:24px"></div>
       </div>
@@ -577,8 +576,17 @@ a.email-link:hover { text-decoration: underline; }
       </div>
       <div style="margin-bottom:10px">
         <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Message</label>
-        <textarea id="new-msg-body" rows="5" placeholder="Type your message…"
-                  style="width:100%;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px;font-family:inherit;resize:vertical;min-height:120px"></textarea>
+        <div class="editor-toolbar">
+          <button onclick="document.execCommand('bold',false,null)" title="Bold"><b>B</b></button>
+          <button onclick="document.execCommand('italic',false,null)" title="Italic"><i>I</i></button>
+          <button onclick="document.execCommand('underline',false,null)" title="Underline"><u>U</u></button>
+          <button onclick="document.execCommand('insertUnorderedList',false,null)">• List</button>
+          <button onclick="document.execCommand('insertOrderedList',false,null)">1. List</button>
+          <button onclick="(function(){const u=prompt('URL:');if(u)document.execCommand('createLink',false,u);})()">🔗 Link</button>
+          <button onclick="document.execCommand('formatBlock',false,'h3')">H</button>
+        </div>
+        <div id="new-msg-body" contenteditable="true" class="rich-editor"
+             style="border:1px solid #cbd5e0;border-top:none;border-radius:0 0 6px 6px;padding:12px;min-height:160px;font-size:0.92rem;line-height:1.5;background:#fff"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <button onclick="sendNewMessage()" id="new-msg-send-btn"
@@ -1833,53 +1841,51 @@ function gatherAllEnrolledStudents() {
   return pool;
 }
 
+function populateNewMessagePicker() {
+  const sel = document.getElementById('new-msg-picker');
+  const pool = gatherAllEnrolledStudents().slice().sort((a, b) =>
+    lastNameKey(null, a.name).localeCompare(lastNameKey(null, b.name)));
+  if (!pool.length) {
+    sel.innerHTML = '<option value="">— Load a course or semester first —</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">— Pick a student —</option>'
+    + pool.map(p => `<option value="${p.id}|${p.courseId}">${esc(p.name)} (${esc(p.courseCode || '')})</option>`).join('');
+}
+
 function toggleNewMessage(forceClose) {
   const panel = document.getElementById('new-msg-panel');
   const willOpen = forceClose ? false : panel.classList.contains('hide');
   if (willOpen) {
     panel.classList.remove('hide');
-    document.getElementById('new-msg-search').focus();
+    populateNewMessagePicker();
+    document.getElementById('new-msg-picker').focus();
   } else {
     panel.classList.add('hide');
     document.getElementById('new-msg-subject').value = '';
-    document.getElementById('new-msg-body').value = '';
-    document.getElementById('new-msg-search').value = '';
+    document.getElementById('new-msg-body').innerHTML = '';
+    document.getElementById('new-msg-picker').value = '';
     newMsgRecipients = [];
     renderRecipientChips();
     setStatus('new-msg-status', '', '');
   }
 }
 
-function onRecipientInput(val) {
-  const list = document.getElementById('new-msg-suggestions');
-  const q = (val || '').toLowerCase().trim();
-  if (q.length < 1) { list.innerHTML = ''; return; }
+function addRecipientFromPicker() {
+  const sel = document.getElementById('new-msg-picker');
+  const v = sel.value;
+  if (!v) { setStatus('new-msg-status', 'Pick a student from the dropdown first.', 'err'); return; }
+  const [uidStr, courseIdStr] = v.split('|');
   const pool = gatherAllEnrolledStudents();
-  const matches = pool.filter(p => p.name.toLowerCase().includes(q)).slice(0, 12);
-  list.innerHTML = matches.map(p => `<option value="${esc(p.name)} (${esc(p.courseCode || '')})">`).join('');
-}
-
-function addRecipientFromInput() {
-  const input = document.getElementById('new-msg-search');
-  const raw = input.value.trim();
-  if (!raw) return;
-  // Strip trailing " (CSIT...)" if user picked from datalist
-  const cleanName = raw.replace(/\s*\([^)]*\)\s*$/, '').trim();
-  const pool = gatherAllEnrolledStudents();
-  // Prefer exact (case-insensitive) name match
-  let match = pool.find(p => p.name.toLowerCase() === cleanName.toLowerCase());
-  if (!match) match = pool.find(p => p.name.toLowerCase().includes(cleanName.toLowerCase()));
-  if (!match) {
-    setStatus('new-msg-status', `No match for "${cleanName}" in loaded courses.`, 'err');
-    return;
-  }
+  const match = pool.find(p => String(p.id) === uidStr && String(p.courseId) === courseIdStr);
+  if (!match) { setStatus('new-msg-status', 'Student not found.', 'err'); return; }
   if (newMsgRecipients.some(r => r.id === match.id && r.courseId === match.courseId)) {
     setStatus('new-msg-status', 'Already added.', 'warn');
-    input.value = '';
+    sel.value = '';
     return;
   }
   newMsgRecipients.push(match);
-  input.value = '';
+  sel.value = '';
   setStatus('new-msg-status', '', '');
   renderRecipientChips();
 }
@@ -1905,10 +1911,10 @@ function renderRecipientChips() {
 
 async function sendNewMessage() {
   const subj = document.getElementById('new-msg-subject').value.trim();
-  const body = document.getElementById('new-msg-body').value.trim();
+  const body = document.getElementById('new-msg-body').innerHTML.trim();
   if (!newMsgRecipients.length) { setStatus('new-msg-status', 'Add at least one recipient.', 'err'); return; }
   if (!subj) { setStatus('new-msg-status', 'Subject required.', 'err'); return; }
-  if (!body) { setStatus('new-msg-status', 'Message required.', 'err'); return; }
+  if (!body || body === '<br>') { setStatus('new-msg-status', 'Message required.', 'err'); return; }
   const btn = document.getElementById('new-msg-send-btn');
   btn.disabled = true;
   setStatus('new-msg-status', `Sending to ${newMsgRecipients.length} recipient(s)…`, 'info');

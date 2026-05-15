@@ -418,12 +418,25 @@ a.email-link:hover { text-decoration: underline; }
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
       <div>
         <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Due Date</label>
         <input type="datetime-local" id="multi-asn-due"
                style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
       </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Available From</label>
+        <input type="datetime-local" id="multi-asn-unlock"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Available Until</label>
+        <input type="datetime-local" id="multi-asn-lock"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
       <div>
         <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Submission Type</label>
         <select id="multi-asn-type" style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
@@ -433,6 +446,36 @@ a.email-link:hover { text-decoration: underline; }
           <option value="online_url">URL</option>
           <option value="on_paper">On Paper</option>
           <option value="none">No Submission</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Allowed Extensions</label>
+        <input type="text" id="multi-asn-extensions" placeholder="pdf, java, zip (comma-sep)"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Max Attempts</label>
+        <input type="number" id="multi-asn-attempts" placeholder="(unlimited)" min="-1"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Grading Type</label>
+        <select id="multi-asn-grading" style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+          <option value="points">Points</option>
+          <option value="percent">Percent</option>
+          <option value="letter_grade">Letter Grade</option>
+          <option value="gpa_scale">GPA Scale</option>
+          <option value="pass_fail">Complete / Incomplete</option>
+          <option value="not_graded">Not Graded</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Assignment Group</label>
+        <select id="multi-asn-group" style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+          <option value="">(course default)</option>
         </select>
       </div>
     </div>
@@ -452,11 +495,19 @@ a.email-link:hover { text-decoration: underline; }
            style="border:1px solid #cbd5e0;border-top:none;border-radius:0 0 6px 6px;padding:12px;min-height:200px;font-size:0.92rem;line-height:1.5;background:#fff"></div>
     </div>
 
-    <div style="margin-bottom:14px">
-      <label style="font-size:0.86rem;font-weight:600">
-        <input type="checkbox" id="multi-asn-publish" checked>
-        Publish immediately (visible to students)
-      </label>
+    <div style="margin-bottom:14px;padding:10px 12px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:6px">
+      <div style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase;margin-bottom:6px">Settings</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:0.86rem">
+        <label><input type="checkbox" id="multi-asn-publish" checked> Publish immediately</label>
+        <label><input type="checkbox" id="multi-asn-peer"> Peer reviews</label>
+        <label><input type="checkbox" id="multi-asn-auto-peer"> Automatic peer review assignment</label>
+        <label><input type="checkbox" id="multi-asn-anonymous"> Anonymous grading</label>
+        <label><input type="checkbox" id="multi-asn-omit"> Omit from final grade</label>
+        <label><input type="checkbox" id="multi-asn-hide"> Hide in gradebook (mute)</label>
+        <label><input type="checkbox" id="multi-asn-lockdown"> Require LockDown Browser</label>
+        <label><input type="checkbox" id="multi-asn-postsis"> Post grade to SIS</label>
+        <label><input type="checkbox" id="multi-asn-notify"> Notify users this assignment changed</label>
+      </div>
     </div>
 
     <div style="display:flex;gap:8px;align-items:center">
@@ -2635,6 +2686,26 @@ function updateMultiAsnCount() {
   const el = document.getElementById('multi-asn-courses-count');
   if (el) el.textContent = `${n} of ${total} selected`;
   refreshPastAssignmentCopyPanel();
+  populateAssignmentGroupDropdown();
+}
+
+async function populateAssignmentGroupDropdown() {
+  const sel = document.getElementById('multi-asn-group');
+  if (!sel) return;
+  const checked = getActiveTargetCourses();
+  if (!checked.length) {
+    sel.innerHTML = '<option value="">(pick target course first)</option>';
+    return;
+  }
+  // Use the first checked course's groups (group names are matched by name in each target on send)
+  const cid = checked[0].id;
+  try {
+    const groups = await api(`/api/v1/courses/${cid}/assignment_groups?per_page=50`);
+    sel.innerHTML = '<option value="">(course default)</option>' +
+      groups.map(g => `<option value="${esc(g.name)}">${esc(g.name)}</option>`).join('');
+  } catch (e) {
+    sel.innerHTML = '<option value="">(course default)</option>';
+  }
 }
 
 function multiAsnSelectAll(on) {
@@ -2646,8 +2717,16 @@ function resetMultiAssignmentForm() {
   document.getElementById('multi-asn-name').value = '';
   document.getElementById('multi-asn-points').value = '20';
   document.getElementById('multi-asn-due').value = '';
+  document.getElementById('multi-asn-unlock').value = '';
+  document.getElementById('multi-asn-lock').value = '';
+  document.getElementById('multi-asn-extensions').value = '';
+  document.getElementById('multi-asn-attempts').value = '';
+  document.getElementById('multi-asn-grading').value = 'points';
+  document.getElementById('multi-asn-group').value = '';
   document.getElementById('multi-asn-desc').innerHTML = '';
   document.getElementById('multi-asn-publish').checked = true;
+  ['multi-asn-peer','multi-asn-auto-peer','multi-asn-anonymous','multi-asn-omit','multi-asn-hide','multi-asn-lockdown','multi-asn-postsis','multi-asn-notify']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
   multiAsnSelectAll(false);
   setStatus('multi-asn-status', '', '');
   pastCarryover = null;
@@ -2664,9 +2743,25 @@ async function createMultiAssignment() {
   const name = document.getElementById('multi-asn-name').value.trim();
   const points = document.getElementById('multi-asn-points').value;
   const due = document.getElementById('multi-asn-due').value;
+  const unlock = document.getElementById('multi-asn-unlock').value;
+  const lock = document.getElementById('multi-asn-lock').value;
   const subType = document.getElementById('multi-asn-type').value;
+  const extensions = document.getElementById('multi-asn-extensions').value
+    .split(',').map(s => s.trim().replace(/^\./,'')).filter(Boolean);
+  const attemptsRaw = document.getElementById('multi-asn-attempts').value.trim();
+  const gradingType = document.getElementById('multi-asn-grading').value;
+  const groupName = document.getElementById('multi-asn-group').value;
   const desc = document.getElementById('multi-asn-desc').innerHTML.trim();
   const publish = document.getElementById('multi-asn-publish').checked;
+  const flag = id => !!document.getElementById(id)?.checked;
+  const peer = flag('multi-asn-peer');
+  const autoPeer = flag('multi-asn-auto-peer');
+  const anonymous = flag('multi-asn-anonymous');
+  const omit = flag('multi-asn-omit');
+  const hide = flag('multi-asn-hide');
+  const lockdown = flag('multi-asn-lockdown');
+  const postSis = flag('multi-asn-postsis');
+  const notify = flag('multi-asn-notify');
   const checked = Array.from(document.querySelectorAll('#multi-asn-courses input[type=checkbox]:checked'));
   if (!name) { setStatus('multi-asn-status', 'Name required.', 'err'); return; }
   if (!checked.length) { setStatus('multi-asn-status', 'Pick at least one course.', 'err'); return; }
@@ -2733,36 +2828,32 @@ async function createMultiAssignment() {
         ['assignment[points_possible]', points],
         ['assignment[description]', descFinal],
         ['assignment[published]', publish ? 'true' : 'false'],
-        ['assignment[grading_type]', pastCarryover?.grading_type || 'points'],
+        ['assignment[grading_type]', gradingType || 'points'],
+        ['assignment[notify_of_update]', notify ? 'true' : 'false'],
       ];
       for (const st of subType.split(',')) params.push(['assignment[submission_types][]', st]);
       if (due) params.push(['assignment[due_at]', new Date(due).toISOString()]);
-
-      // Carryover fields from copied past assignment
-      if (pastCarryover) {
-        if (pastCarryover.allowed_extensions?.length) {
-          for (const ext of pastCarryover.allowed_extensions) {
-            params.push(['assignment[allowed_extensions][]', ext]);
-          }
-        }
-        if (pastCarryover.allowed_attempts != null) params.push(['assignment[allowed_attempts]', String(pastCarryover.allowed_attempts)]);
-        if (pastCarryover.omit_from_final_grade) params.push(['assignment[omit_from_final_grade]', 'true']);
-        if (pastCarryover.peer_reviews) {
-          params.push(['assignment[peer_reviews]', 'true']);
-          if (pastCarryover.automatic_peer_reviews) params.push(['assignment[automatic_peer_reviews]', 'true']);
-        }
-        if (pastCarryover.anonymous_grading) params.push(['assignment[anonymous_grading]', 'true']);
-        if (pastCarryover.require_lockdown_browser) params.push(['assignment[require_lockdown_browser]', 'true']);
-        // Translate assignment group by name in the target course
-        if (pastCarryover.group_name) {
-          try {
-            const groups = await api(`/api/v1/courses/${t.id}/assignment_groups?per_page=50`);
-            const match = groups.find(g => g.name?.toLowerCase() === pastCarryover.group_name.toLowerCase());
-            if (match) params.push(['assignment[assignment_group_id]', String(match.id)]);
-          } catch (e) { /* ignore — assignment will go into default group */ }
-        }
+      if (unlock) params.push(['assignment[unlock_at]', new Date(unlock).toISOString()]);
+      if (lock) params.push(['assignment[lock_at]', new Date(lock).toISOString()]);
+      extensions.forEach(e => params.push(['assignment[allowed_extensions][]', e]));
+      if (attemptsRaw !== '') params.push(['assignment[allowed_attempts]', attemptsRaw]);
+      if (peer) params.push(['assignment[peer_reviews]', 'true']);
+      if (peer && autoPeer) params.push(['assignment[automatic_peer_reviews]', 'true']);
+      if (anonymous) params.push(['assignment[anonymous_grading]', 'true']);
+      if (omit) params.push(['assignment[omit_from_final_grade]', 'true']);
+      if (hide) params.push(['assignment[hide_in_gradebook]', 'true']);
+      if (lockdown) params.push(['assignment[require_lockdown_browser]', 'true']);
+      if (postSis) params.push(['assignment[post_to_sis]', 'true']);
+      // Map assignment group name → id within this target course
+      if (groupName) {
+        try {
+          const groups = await api(`/api/v1/courses/${t.id}/assignment_groups?per_page=50`);
+          const m = groups.find(g => g.name === groupName);
+          if (m) params.push(['assignment[assignment_group_id]', String(m.id)]);
+        } catch (e) { /* default group */ }
       }
 
+      // Legacy carryover fields from past assignment that aren't in the form (rubric is handled below)
       const created = await apiPost(`/api/v1/courses/${t.id}/assignments`, params);
 
       // After creating the assignment, attach the rubric (if any) via the rubric association endpoint
@@ -3083,10 +3174,32 @@ async function fillFormFromPastAssignment() {
     typeSel.value = 'none';
   }
 
-  // Don't copy due date
+  // Don't copy due / unlock / lock dates
   document.getElementById('multi-asn-due').value = '';
-  // Publish state from source
+  document.getElementById('multi-asn-unlock').value = '';
+  document.getElementById('multi-asn-lock').value = '';
+  // Carry over the rest of the fields into the visible form
+  document.getElementById('multi-asn-extensions').value = (a.allowed_extensions || []).join(', ');
+  document.getElementById('multi-asn-attempts').value = (a.allowed_attempts != null && a.allowed_attempts !== -1) ? String(a.allowed_attempts) : '';
+  document.getElementById('multi-asn-grading').value = a.grading_type || 'points';
   document.getElementById('multi-asn-publish').checked = !!a.published;
+  const setCk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+  setCk('multi-asn-peer', a.peer_reviews);
+  setCk('multi-asn-auto-peer', a.automatic_peer_reviews);
+  setCk('multi-asn-anonymous', a.anonymous_grading);
+  setCk('multi-asn-omit', a.omit_from_final_grade);
+  setCk('multi-asn-hide', a.hide_in_gradebook);
+  setCk('multi-asn-lockdown', a.require_lockdown_browser);
+  setCk('multi-asn-postsis', a.post_to_sis);
+  setCk('multi-asn-notify', false); // notify is a one-shot flag, leave off
+  // Group: pre-select by name (best-effort)
+  const groupName = (pastAsnGroups[cid] || []).find(g => g.id === a.assignment_group_id)?.name;
+  if (groupName) {
+    const sel = document.getElementById('multi-asn-group');
+    if (sel && Array.from(sel.options).some(o => o.value === groupName)) {
+      sel.value = groupName;
+    }
+  }
 
   // Stash extras for the create call to pass through
   const groupName = (pastAsnGroups[cid] || []).find(g => g.id === a.assignment_group_id)?.name;

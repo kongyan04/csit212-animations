@@ -1362,15 +1362,10 @@ function filterBySemester() {
     status.textContent = `${list.length} course(s) in ${semesterLabel(tag)}`;
   }
   status.className = 'conn-status ok';
-  if (list.length === 1) {
-    const sel = document.getElementById('course-select');
-    sel.value = list[0].id;
-    selectCourse(list[0].id);
-  } else if (list.length > 1 && tag !== '__all__') {
-    // Default to the combined-view option for the chosen semester
+  // Pre-select but do NOT auto-load — wait for explicit Load Courses click.
+  if (list.length > 1 && tag !== '__all__') {
     const sel = document.getElementById('course-select');
     sel.value = '__all__';
-    loadAllInSemester();
   }
 }
 

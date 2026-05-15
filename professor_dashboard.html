@@ -525,6 +525,19 @@ a.email-link:hover { text-decoration: underline; }
            style="border:1px solid #cbd5e0;border-top:none;border-radius:0 0 6px 6px;padding:12px;min-height:200px;font-size:0.92rem;line-height:1.5;background:#fff"></div>
     </div>
 
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Attach files</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">
+        <input type="file" id="multi-ann-file-input" multiple onchange="onAnnAttachFiles(this.files)"
+               style="display:none">
+        <button type="button" onclick="document.getElementById('multi-ann-file-input').click()"
+                style="padding:7px 14px;background:#edf2f7;color:#2b6cb0;border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">
+          📎 Choose files
+        </button>
+        <div id="multi-ann-attachments" style="display:flex;flex-wrap:wrap;gap:6px;flex:1"></div>
+      </div>
+    </div>
+
     <div style="display:flex;gap:8px;align-items:center">
       <button onclick="postMultiAnnouncement()" id="multi-ann-send-btn"
               style="padding:10px 24px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">📢 Send Announcement</button>
@@ -3123,22 +3136,86 @@ function multiAnnSelectAll(on) {
   updateMultiAnnCount();
 }
 
+let multiAnnAttachments = [];   // [{id, name, url, uploading?}]
+
+function renderAnnAttachmentChips() {
+  const el = document.getElementById('multi-ann-attachments');
+  if (!el) return;
+  if (!multiAnnAttachments.length) { el.innerHTML = ''; return; }
+  el.innerHTML = multiAnnAttachments.map((a, i) => `
+    <span style="display:inline-flex;align-items:center;gap:6px;background:#fffbeb;border:1px solid #d69e2e;color:#744210;padding:4px 10px;border-radius:14px;font-size:0.82rem;font-weight:600">
+      ${a.uploading ? '<span class="spinner" style="width:10px;height:10px"></span>' : '📎'} ${esc(a.name)}
+      ${a.id ? `<span onclick="removeAnnAttachment(${i})" style="cursor:pointer;color:#666;font-size:0.82rem;margin-left:2px" title="Remove">×</span>` : ''}
+    </span>
+  `).join('');
+}
+
+function removeAnnAttachment(i) {
+  multiAnnAttachments.splice(i, 1);
+  renderAnnAttachmentChips();
+}
+
+async function onAnnAttachFiles(fileList) {
+  if (!fileList || !fileList.length) return;
+  const placeholders = [];
+  for (const f of fileList) {
+    const ph = { id: null, name: f.name, url: null, uploading: true };
+    multiAnnAttachments.push(ph);
+    placeholders.push({ ph, f });
+  }
+  renderAnnAttachmentChips();
+  for (const { ph, f } of placeholders) {
+    try {
+      const obj = await uploadFileToCanvas(f);
+      ph.id = obj.id;
+      ph.url = obj.url || obj['url'];
+      ph.uploading = false;
+    } catch (e) {
+      console.error('Upload failed for', f.name, e);
+      const idx = multiAnnAttachments.indexOf(ph);
+      if (idx >= 0) multiAnnAttachments.splice(idx, 1);
+      setStatus('multi-ann-status', `✗ Upload failed for ${f.name}: ${e.message}`, 'err');
+    }
+    renderAnnAttachmentChips();
+  }
+  const fi = document.getElementById('multi-ann-file-input');
+  if (fi) fi.value = '';
+}
+
 function resetMultiAnnouncementForm() {
   document.getElementById('multi-ann-title').value = '';
   document.getElementById('multi-ann-body').innerHTML = '';
   multiAnnSelectAll(false);
+  multiAnnAttachments = [];
+  renderAnnAttachmentChips();
+  const fi = document.getElementById('multi-ann-file-input'); if (fi) fi.value = '';
   setStatus('multi-ann-status', '', '');
 }
 
 async function postMultiAnnouncement() {
   const title = document.getElementById('multi-ann-title').value.trim();
-  const body = document.getElementById('multi-ann-body').innerHTML.trim();
+  let body = document.getElementById('multi-ann-body').innerHTML.trim();
   const checked = Array.from(document.querySelectorAll('#multi-ann-courses input[type=checkbox]:checked'));
   if (!title) { setStatus('multi-ann-status', 'Title required.', 'err'); return; }
   if (!body || body === '<br>') { setStatus('multi-ann-status', 'Message required.', 'err'); return; }
   if (!checked.length) { setStatus('multi-ann-status', 'Pick at least one course.', 'err'); return; }
   const targets = checked.map(c => ({ id: c.value, code: c.dataset.code }));
-  if (!confirm(`Send this announcement to ${targets.length} course(s)?\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
+
+  // Wait for uploads to finish before sending
+  const stillUploading = multiAnnAttachments.some(a => a.uploading);
+  if (stillUploading) {
+    setStatus('multi-ann-status', 'Wait for file uploads to finish before sending.', 'warn');
+    return;
+  }
+
+  // Append file links to the body so students can download
+  const uploaded = multiAnnAttachments.filter(a => a.id && a.url);
+  if (uploaded.length) {
+    const links = uploaded.map(a => `<a href="${esc(a.url)}" class="instructure_file_link" target="_blank">${esc(a.name)}</a>`).join(', ');
+    body += `<p><strong>📎 Attachments:</strong> ${links}</p>`;
+  }
+
+  if (!confirm(`Send this announcement to ${targets.length} course(s)?${uploaded.length ? `\n${uploaded.length} file attachment(s) will be linked.` : ''}\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
 
   const btn = document.getElementById('multi-ann-send-btn');
   btn.disabled = true;

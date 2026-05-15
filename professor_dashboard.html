@@ -3561,8 +3561,14 @@ function renderStudents() {
 
 // ── Assignments ──
 function renderAssignments() {
-  const search = (document.getElementById('asn-search').value || '').toLowerCase();
-  const filter = document.getElementById('asn-filter').value;
+  // The Assignments tab is now a composer (no list/search UI here);
+  // this function used to populate that table. Guard against missing
+  // elements so callers (like selectCourse) don't blow up.
+  const searchEl = document.getElementById('asn-search');
+  const filterEl = document.getElementById('asn-filter');
+  if (!searchEl || !filterEl) return;
+  const search = (searchEl.value || '').toLowerCase();
+  const filter = filterEl.value;
   const now = new Date();
   const in30 = new Date(); in30.setDate(in30.getDate() + 30);
 

@@ -1892,8 +1892,20 @@ function populateNewMessagePicker() {
     sel.innerHTML = '<option value="">— Load a course or semester first —</option>';
     return;
   }
-  sel.innerHTML = '<option value="">— Pick a student —</option>'
-    + pool.map(p => `<option value="${p.id}|${p.courseId}">${esc(p.name)} (${esc(p.courseCode || '')})</option>`).join('');
+  // Per-course "All students" entries at the top
+  const courses = multi_courses.length
+    ? multi_courses.map(c => ({ id: c.id, code: c.code, count: (c.enrollments || []).length }))
+    : (course_id ? [{ id: course_id, code: course_info?.course_code || 'Current', count: enrollments.length }] : []);
+  let html = '<option value="">— Pick a recipient —</option>';
+  html += '<optgroup label="📣 All students">';
+  for (const c of courses) {
+    html += `<option value="all|${c.id}">All students in ${esc(c.code)} (${c.count})</option>`;
+  }
+  html += '</optgroup>';
+  html += '<optgroup label="Individual students">';
+  html += pool.map(p => `<option value="${p.id}|${p.courseId}">${esc(p.name)} (${esc(p.courseCode || '')})</option>`).join('');
+  html += '</optgroup>';
+  sel.innerHTML = html;
 }
 
 function toggleNewMessage(forceClose) {
@@ -1925,8 +1937,31 @@ function toggleNewMessage(forceClose) {
 function addRecipientFromPicker() {
   const sel = document.getElementById('new-msg-picker');
   const v = sel.value;
-  if (!v) { setStatus('new-msg-status', 'Pick a student from the dropdown first.', 'err'); return; }
-  const [uidStr, courseIdStr] = v.split('|');
+  if (!v) { setStatus('new-msg-status', 'Pick a recipient from the dropdown first.', 'err'); return; }
+  const [head, courseIdStr] = v.split('|');
+
+  // Whole-course "all students" recipient
+  if (head === 'all') {
+    const courseObj = multi_courses.find(c => String(c.id) === courseIdStr)
+      || (String(course_id) === courseIdStr ? { id: course_id, code: course_info?.course_code || 'Current' } : null);
+    if (!courseObj) { setStatus('new-msg-status', 'Course not loaded.', 'err'); return; }
+    if (newMsgRecipients.some(r => r.bulk && r.courseId === courseObj.id)) {
+      setStatus('new-msg-status', 'Already added.', 'warn'); sel.value = ''; return;
+    }
+    newMsgRecipients.push({
+      id: `course_${courseObj.id}_students`,
+      name: `All students in ${courseObj.code}`,
+      courseId: courseObj.id,
+      courseCode: courseObj.code,
+      bulk: true,
+    });
+    sel.value = '';
+    setStatus('new-msg-status', '', '');
+    renderRecipientChips();
+    return;
+  }
+
+  const uidStr = head;
   const pool = gatherAllEnrolledStudents();
   const match = pool.find(p => String(p.id) === uidStr && String(p.courseId) === courseIdStr);
   if (!match) { setStatus('new-msg-status', 'Student not found.', 'err'); return; }

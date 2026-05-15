@@ -2328,11 +2328,35 @@ async function openThread(convId) {
     const msgs = (c.messages || []).slice().reverse(); // oldest first
     const participants = c.participants || [];
     const starred = !!c.starred;
+
+    // Resolve the course context (e.g. "course_217720" → CSIT111_11SU26 + full name)
+    let courseLine = '';
+    const ctx = c.context_code || '';
+    const m = ctx.match(/^course_(\d+)$/);
+    if (m) {
+      const cidCtx = m[1];
+      let courseObj = (allCourses || []).find(x => String(x.id) === cidCtx);
+      if (!courseObj) {
+        try { courseObj = await api(`/api/v1/courses/${cidCtx}?include[]=term`); } catch (e) {}
+      }
+      if (courseObj) {
+        const term = courseObj.term?.name ? ` · ${esc(courseObj.term.name)}` : '';
+        courseLine = `<div style="margin-top:6px;padding:6px 10px;background:#ebf8ff;border-left:3px solid #2b6cb0;border-radius:4px;font-size:0.84rem;color:#1a365d">
+          📚 <strong>${esc(courseObj.course_code || '')}</strong> — ${esc(courseObj.name || '')}${term}
+        </div>`;
+      } else {
+        courseLine = `<div style="margin-top:6px;font-size:0.82rem;color:#666">📚 Course id ${esc(cidCtx)} (not in loaded courses)</div>`;
+      }
+    } else if (c.context_name) {
+      courseLine = `<div style="margin-top:6px;font-size:0.82rem;color:#666">📚 ${esc(c.context_name)}</div>`;
+    }
+
     panel.innerHTML = `
       <div style="background:#f7fafc;border:1px solid #cbd5e0;border-radius:8px;padding:14px">
         <div style="margin-bottom:6px">
           <div style="font-weight:700;color:#1a365d;font-size:1.05rem">${esc(c.subject || '(no subject)')}</div>
-          <div style="font-size:0.82rem;color:#666;margin-top:2px">${participants.length} participant(s) · ${msgs.length} message(s)</div>
+          ${courseLine}
+          <div style="font-size:0.82rem;color:#666;margin-top:6px">${participants.length} participant(s) · ${msgs.length} message(s)</div>
         </div>
         <div style="max-height:440px;overflow-y:auto;padding-right:6px;margin-top:12px">
           ${msgs.map(m => {

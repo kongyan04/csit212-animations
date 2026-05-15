@@ -6,6 +6,7 @@
 <title>Professor Dashboard — Canvas</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
+html { scrollbar-gutter: stable; }  /* always reserve vertical scrollbar space — keeps layout from shifting when content height changes between tabs */
 body { background: #f5f7fa; font-family: 'Segoe UI', system-ui, sans-serif; color: #1a202c; min-height: 100vh; }
 
 header {
@@ -3826,6 +3827,8 @@ function showTab(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + id).classList.add('active');
   event.currentTarget.classList.add('active');
+  // Scroll the page to the top so the right pane lines up with the sidebar each time.
+  window.scrollTo({ top: 0, behavior: 'instant' });
   if (id === 'announcements') renderAnnouncementComposerCourses();
   if (id === 'assignments') renderAssignmentComposerCourses();
   if (id === 'syllabus') renderSyllabusCourses();

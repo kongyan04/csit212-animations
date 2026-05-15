@@ -591,11 +591,15 @@ a.email-link:hover { text-decoration: underline; }
       </div>
       <div style="margin-bottom:8px">
         <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Attach files</label>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:3px">
+        <div style="display:flex;gap:8px;align-items:center;margin-top:3px;flex-wrap:wrap">
           <input type="file" id="new-msg-file-input" multiple onchange="onAttachFiles(this.files)"
-                 style="font-size:0.84rem">
+                 style="display:none">
+          <button type="button" onclick="document.getElementById('new-msg-file-input').click()"
+                  style="padding:6px 14px;background:#edf2f7;color:#2b6cb0;border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">
+            📎 Choose files
+          </button>
+          <div id="new-msg-attachments" style="display:flex;flex-wrap:wrap;gap:6px;flex:1"></div>
         </div>
-        <div id="new-msg-attachments" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <button onclick="sendNewMessage()" id="new-msg-send-btn"

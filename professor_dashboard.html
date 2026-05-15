@@ -3702,6 +3702,7 @@ async function loadGradebook() {
     html += '<div style="overflow:auto;max-height:70vh;border:1px solid #e2e8f0;border-radius:6px"><table style="min-width:max-content;border-collapse:separate;border-spacing:0">'
             +  '<thead><tr>'
             +    '<th style="position:sticky;left:0;top:0;background:#edf2f7;z-index:3;padding:10px 12px;border-bottom:2px solid #cbd5e0">Student</th>'
+            +    '<th style="position:sticky;top:0;background:#edf2f7;z-index:2;padding:10px 12px;border-bottom:2px solid #cbd5e0">Letter</th>'
             +    '<th style="position:sticky;top:0;background:#edf2f7;z-index:2;padding:10px 12px;border-bottom:2px solid #cbd5e0">Total %</th>';
     pubAsns.forEach(a => {
       html += `<th title="${esc(a.name)}" style="position:sticky;top:0;background:#edf2f7;z-index:2;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:10px 12px;border-bottom:2px solid #cbd5e0">${esc((a.name||'').slice(0, 18))}</th>`;
@@ -3711,7 +3712,8 @@ async function loadGradebook() {
       const total = parseFloat(e.grades?.current_score || 0);
       const letter = gradeLetter(total);
       html += `<tr><td style="position:sticky;left:0;background:#fff;font-weight:600">${esc(e.user?.name||'')}</td>`;
-      html += `<td>${total ? `<span class="pill ${pillClass(letter)}">${total.toFixed(1)}%</span>` : '—'}</td>`;
+      html += `<td style="text-align:center">${total ? `<span class="pill ${pillClass(letter)}">${letter}</span>` : '—'}</td>`;
+      html += `<td style="text-align:center">${total ? total.toFixed(1) + '%' : '—'}</td>`;
       pubAsns.forEach(a => {
         const sub = map[e.user_id]?.[a.id];
         let cell = '<span style="color:#ccc">—</span>';

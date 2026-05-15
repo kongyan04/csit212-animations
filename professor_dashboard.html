@@ -5,16 +5,61 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Professor Dashboard — Canvas</title>
 <style>
+:root {
+  /* Apple-style design tokens */
+  --brand-primary: #0a84ff;        /* macOS system blue, overridden by school color on connect */
+  --brand-primary-dark: #0866cc;
+  --brand-on-primary: #fff;
+  --bg-page: #f5f5f7;              /* macOS Sonoma window background */
+  --bg-card: rgba(255,255,255,0.85);
+  --bg-card-solid: #ffffff;
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --border: #d2d2d7;
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06);
+  --radius: 10px;
+  --radius-lg: 14px;
+}
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { scrollbar-gutter: stable; }  /* always reserve vertical scrollbar space — keeps layout from shifting when content height changes between tabs */
-body { background: #f5f7fa; font-family: 'Segoe UI', system-ui, sans-serif; color: #1a202c; min-height: 100vh; }
+html { scrollbar-gutter: stable; }
+body {
+  background: var(--bg-page);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', system-ui, sans-serif;
+  color: var(--text-primary); min-height: 100vh;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
 
 header {
-  background: linear-gradient(135deg, #1a365d, #2b6cb0);
-  padding: 22px 24px; color: #fff;
+  background: var(--brand-primary);
+  padding: 16px 24px;
+  color: var(--brand-on-primary);
+  display: flex; align-items: center; gap: 14px;
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.08);
 }
-header h1 { font-size: 1.4rem; font-weight: 800; margin-bottom: 2px; }
-header p { color: #bee3f8; font-size: 0.82rem; }
+header .brand-mark { display: flex; align-items: center; gap: 12px; }
+header .brand-mark img { height: 36px; width: auto; max-width: 160px;
+  background: rgba(255,255,255,0.95); padding: 4px 8px; border-radius: 6px; }
+header .brand-title { display: flex; flex-direction: column; line-height: 1.15; }
+header h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
+header p { color: rgba(255,255,255,0.85); font-size: 0.78rem; margin-top: 1px; font-weight: 400; }
+
+/* Apple-style buttons / cards */
+.card {
+  background: var(--bg-card-solid);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-card);
+  border: 0.5px solid var(--border);
+}
+.card h2 {
+  font-size: 1rem; font-weight: 600; color: var(--text-primary);
+  letter-spacing: -0.01em; margin-bottom: 12px;
+  padding-left: 0; border-left: none;
+}
 
 .connect-bar {
   background: #fff; border-bottom: 1px solid #e2e8f0;
@@ -32,10 +77,10 @@ header p { color: #bee3f8; font-size: 0.82rem; }
 .connect-bar input[type=password] { width: 220px; font-family: monospace; }
 .connect-bar select { min-width: 280px; }
 .connect-bar button {
-  padding: 7px 18px; background: #2b6cb0; color: #fff; border: none;
-  border-radius: 6px; font-size: 0.82rem; font-weight: 700; cursor: pointer;
+  padding: 7px 18px; background: var(--brand-primary); color: var(--brand-on-primary); border: none;
+  border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
 }
-.connect-bar button:hover { background: #1a365d; }
+.connect-bar button:hover { background: var(--brand-primary-dark); }
 .conn-status { font-size: 0.8rem; }
 .conn-status.ok { color: #276749; }
 .conn-status.err { color: #c53030; }
@@ -106,8 +151,8 @@ main {
 }
 .tab-btn:hover { background: #edf2f7; color: #2b6cb0; }
 .tab-btn.active {
-  background: #2b6cb0; color: #fff;
-  box-shadow: inset 3px 0 0 #1a365d;
+  background: var(--brand-primary); color: var(--brand-on-primary);
+  box-shadow: inset 3px 0 0 var(--brand-primary-dark);
 }
 
 .tab-content { min-width: 0; }  /* prevents grid blowout */
@@ -252,8 +297,14 @@ a.email-link:hover { text-decoration: underline; }
 <body>
 
 <header>
-  <h1>Professor Dashboard</h1>
-  <p>See your courses, students, and grades — everything in one place</p>
+  <div class="brand-mark">
+    <img id="brand-logo" src="" alt="" style="display:none">
+    <span id="brand-emoji" style="font-size:1.4rem">🎓</span>
+  </div>
+  <div class="brand-title">
+    <h1 id="brand-title">Professor Dashboard</h1>
+    <p id="brand-subtitle">Your courses, students, and grades — in one place</p>
+  </div>
 </header>
 
 <div class="connect-bar">
@@ -1254,10 +1305,54 @@ async function loadCourses() {
     status.textContent = `✓ Found ${courses.length} courses`;
     status.className = 'conn-status ok';
     document.getElementById('token-help').classList.add('hide');
+    applySchoolBranding();   // fire-and-forget; updates header colors + logo
   } catch (e) {
     status.textContent = '✗ ' + e.message;
     status.className = 'conn-status err';
   }
+}
+
+// Pull the institution's brand colors + logo from Canvas and apply them.
+async function applySchoolBranding() {
+  try {
+    const b = await api('/api/v1/brand_variables');
+    // Canvas exposes a bunch of "ic-brand-*" keys; the primary brand color
+    // is usually ic-brand-primary; the logo is ic-brand-header-image.
+    const primary = b['ic-brand-primary'] || b['ic-brand-global-nav-bgd'] || '';
+    const logo = b['ic-brand-header-image'] || b['ic-brand-Login-logo-image'] || '';
+    const root = document.documentElement;
+    if (primary && /^#[0-9a-f]{3,8}$/i.test(primary)) {
+      root.style.setProperty('--brand-primary', primary);
+      root.style.setProperty('--brand-primary-dark', darkenHex(primary, 0.12));
+      // White contrast for solid backgrounds (heuristic — Canvas usually uses
+      // a dark primary, so white text is safe).
+      root.style.setProperty('--brand-on-primary', '#fff');
+    }
+    // Subtitle = institution name if we can find it
+    const inst = b['ic-brand-msu-name'] || b['ic-brand-school-name'] ||
+                 (document.getElementById('domain').value.match(/\/\/([^/.]+)/) || [])[1] || '';
+    if (inst) document.getElementById('brand-subtitle').textContent = inst.toUpperCase() + ' · Canvas';
+    if (logo) {
+      const img = document.getElementById('brand-logo');
+      img.src = logo;
+      img.alt = inst || 'School logo';
+      img.style.display = 'inline-block';
+      const emoji = document.getElementById('brand-emoji');
+      if (emoji) emoji.style.display = 'none';
+    }
+  } catch (e) {
+    console.warn('Brand vars unavailable:', e);
+  }
+}
+
+function darkenHex(hex, amt) {
+  // amt in [0,1], returns hex string darkened by that fraction.
+  let h = hex.replace(/^#/, '');
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const r = Math.max(0, parseInt(h.slice(0,2),16) * (1 - amt) | 0);
+  const g = Math.max(0, parseInt(h.slice(2,4),16) * (1 - amt) | 0);
+  const b = Math.max(0, parseInt(h.slice(4,6),16) * (1 - amt) | 0);
+  return '#' + [r,g,b].map(n => n.toString(16).padStart(2,'0')).join('');
 }
 
 function populateCourseSelect(courses, placeholder) {

@@ -2953,18 +2953,38 @@ function getActiveTargetCourses() {
 function detectLastPastCourse() {
   if (!allCourses?.length) return null;
   const checked = getActiveTargetCourses();
-  if (!checked.length) return null;            // require an explicit pick
+  if (!checked.length) return null;
   const base = courseCodeBase(checked[0].code);
   if (!base) return null;
-  // Exclude every checked target so we don't suggest copying from itself
+
+  // Resolve the target's semester tag (e.g. SP26). We exclude any course
+  // in the same semester so we only consider PREVIOUS semesters.
+  const refCourse = allCourses.find(c => String(c.id) === String(checked[0].id));
+  const targetTag = refCourse ? semesterTagFromCourse(refCourse) : '';
+  const targetTagRank = semesterTagRank(targetTag);
+
   const targetIds = new Set(checked.map(c => String(c.id)));
   const candidates = allCourses.filter(c => {
     if (targetIds.has(String(c.id))) return false;
-    return courseCodeBase(c.course_code) === base;
+    if (courseCodeBase(c.course_code) !== base) return false;
+    const t = semesterTagFromCourse(c);
+    // Same semester as the target? skip.
+    if (t && targetTag && t === targetTag) return false;
+    // Must be earlier than the target semester (or target has no tag, then accept anything else)
+    if (targetTagRank && t && semesterTagRank(t) >= targetTagRank) return false;
+    return true;
   });
-  // "Most recent past" = most recently created (excluding any target)
   candidates.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   return candidates[0] || null;
+}
+
+// Numeric rank from a SP/SU/FA + 2-digit-year tag, for ordering.
+function semesterTagRank(tag) {
+  if (!tag) return 0;
+  const season = { SP: 1, SU: 2, FA: 3 }[tag.slice(0, 2)] || 0;
+  const yy = parseInt(tag.slice(2), 10);
+  if (isNaN(yy)) return 0;
+  return (2000 + yy) * 10 + season;
 }
 
 async function refreshPastAssignmentCopyPanel() {
@@ -2980,8 +3000,9 @@ async function refreshPastAssignmentCopyPanel() {
   }
   const past = detectLastPastCourse();
   if (!past) {
-    ctx.textContent = `No prior offering of ${checked[0].code} was found in your other courses.`;
-    asnSel.innerHTML = '<option value="">— No past course —</option>';
+    const base = courseCodeBase(checked[0].code) || checked[0].code;
+    ctx.innerHTML = `<strong>No previous-semester offering of ${esc(base)} was found.</strong> The copy panel only looks at courses from earlier semesters. If you've taught it before, hit <em>Connect</em> at the top to make sure all your courses are loaded.`;
+    asnSel.innerHTML = '<option value="">— No previous-semester course —</option>';
     lastPastCourseId = null;
     return;
   }

@@ -1319,7 +1319,15 @@ async function applySchoolBranding() {
     // Canvas exposes a bunch of "ic-brand-*" keys; the primary brand color
     // is usually ic-brand-primary; the logo is ic-brand-header-image.
     const primary = b['ic-brand-primary'] || b['ic-brand-global-nav-bgd'] || '';
-    const logo = b['ic-brand-header-image'] || b['ic-brand-Login-logo-image'] || '';
+    // Prefer the institution's own logo over Canvas's generic 'header-image'.
+    // Order: nav logos (always school-branded) → login logo → fallback.
+    const logo =
+        b['ic-brand-mobile-global-nav-logo']
+     || b['ic-brand-right-sidebar-logo']
+     || b['ic-brand-Login-logo']
+     || b['ic-brand-Login-logo-image']
+     || b['ic-brand-header-image']
+     || '';
     const root = document.documentElement;
     if (primary && /^#[0-9a-f]{3,8}$/i.test(primary)) {
       root.style.setProperty('--brand-primary', primary);
@@ -1328,9 +1336,8 @@ async function applySchoolBranding() {
       // a dark primary, so white text is safe).
       root.style.setProperty('--brand-on-primary', '#fff');
     }
-    // Subtitle = institution name if we can find it
-    const inst = b['ic-brand-msu-name'] || b['ic-brand-school-name'] ||
-                 (document.getElementById('domain').value.match(/\/\/([^/.]+)/) || [])[1] || '';
+    // Subtitle = institution name derived from the domain (e.g., montclair → MONTCLAIR · Canvas)
+    const inst = (document.getElementById('domain').value.match(/\/\/([^/.]+)/) || [])[1] || '';
     if (inst) document.getElementById('brand-subtitle').textContent = inst.toUpperCase() + ' · Canvas';
     if (logo) {
       const img = document.getElementById('brand-logo');

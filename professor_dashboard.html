@@ -3202,7 +3202,6 @@ async function fillFormFromPastAssignment() {
   }
 
   // Stash extras for the create call to pass through
-  const groupName = (pastAsnGroups[cid] || []).find(g => g.id === a.assignment_group_id)?.name;
   pastCarryover = {
     is_quiz: isQuiz,
     quiz_id: a.quiz_id || null,

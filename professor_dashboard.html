@@ -610,6 +610,7 @@ a.email-link:hover { text-decoration: underline; }
       </div>
     </div>
 
+    <div id="thread-panel" class="hide"></div>
     <div id="inbox-list" class="loading"><span class="spinner"></span> Loading…</div>
   </div>
 </div>
@@ -2230,7 +2231,7 @@ function convRowHtml(c) {
   const dot = unread ? '<span title="Unread" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2b6cb0"></span>' : '';
   const star = starred ? '<span title="Starred" style="color:#d69e2e">★</span>' : '';
   const weight = unread ? '700' : '500';
-  return `<tr style="border-bottom:1px solid #edf2f7;cursor:pointer;font-weight:${weight}" onclick="openThread(${c.id}, this)">
+  return `<tr style="border-bottom:1px solid #edf2f7;cursor:pointer;font-weight:${weight}" onclick="openThread(${c.id})">
     <td style="padding:10px 12px;text-align:center;white-space:nowrap">${dot} ${star}</td>
     <td style="padding:10px 12px">${esc(senders)}</td>
     <td style="padding:10px 12px">
@@ -2241,27 +2242,28 @@ function convRowHtml(c) {
   </tr>`;
 }
 
-async function openThread(convId, rowEl) {
-  // Toggle: if next row is the detail, close it
-  const next = rowEl.nextElementSibling;
-  if (next && next.classList.contains('thread-detail')) { next.remove(); return; }
-  const detail = document.createElement('tr');
-  detail.className = 'thread-detail';
-  detail.innerHTML = `<td colspan="4" style="padding:14px;background:#f7fafc">
-    <div class="loading"><span class="spinner"></span> Loading thread…</div>
-  </td>`;
-  rowEl.parentNode.insertBefore(detail, rowEl.nextElementSibling);
+async function openThread(convId) {
+  const panel = document.getElementById('thread-panel');
+  const list = document.getElementById('inbox-list');
+  panel.classList.remove('hide');
+  list.classList.add('hide');
+  panel.innerHTML = `<div style="padding:30px;text-align:center;color:#666"><span class="spinner"></span> Loading thread…</div>`;
   try {
     const c = await api(`/api/v1/conversations/${convId}?auto_mark_as_read=true`);
     inboxCache[convId] = c;
     const msgs = (c.messages || []).slice().reverse(); // oldest first
     const participants = c.participants || [];
     const starred = !!c.starred;
-    const html = `
-      <td colspan="4" style="padding:14px;background:#f7fafc;border-bottom:1px solid #cbd5e0">
-        <div style="font-weight:700;margin-bottom:6px;color:#1a365d">${esc(c.subject || '(no subject)')}</div>
-        <div style="font-size:0.82rem;color:#666;margin-bottom:12px">${participants.length} participant(s) · ${msgs.length} message(s)</div>
-        <div style="max-height:420px;overflow-y:auto;padding-right:6px">
+    panel.innerHTML = `
+      <div style="background:#f7fafc;border:1px solid #cbd5e0;border-radius:8px;padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+          <div>
+            <div style="font-weight:700;color:#1a365d;font-size:1.05rem">${esc(c.subject || '(no subject)')}</div>
+            <div style="font-size:0.82rem;color:#666;margin-top:2px">${participants.length} participant(s) · ${msgs.length} message(s)</div>
+          </div>
+          <button onclick="closeThread()" style="padding:7px 18px;background:#276749;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">✓ Done</button>
+        </div>
+        <div style="max-height:440px;overflow-y:auto;padding-right:6px;margin-top:12px">
           ${msgs.map(m => {
             const author = participants.find(p => p.id === m.author_id)?.name || `User ${m.author_id}`;
             const when = m.created_at ? new Date(m.created_at).toLocaleString() : '';
@@ -2275,8 +2277,7 @@ async function openThread(convId, rowEl) {
                   </a>
                 `).join('')}
               </div>` : '';
-            const mediaHtml = (m.media_comment) ? `
-              <div style="margin-top:6px;font-size:0.78rem;color:#666">🎤 media attachment (open in Canvas)</div>` : '';
+            const mediaHtml = (m.media_comment) ? `<div style="margin-top:6px;font-size:0.78rem;color:#666">🎤 media attachment (open in Canvas)</div>` : '';
             return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-bottom:8px">
               <div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#4a5568">
                 <strong>${esc(author)}</strong>
@@ -2304,11 +2305,20 @@ async function openThread(convId, rowEl) {
             <span id="reply-status-${convId}" style="font-size:0.82rem"></span>
           </div>
         </div>
-      </td>`;
-    detail.innerHTML = html;
+      </div>`;
   } catch (e) {
-    detail.innerHTML = `<td colspan="4" style="padding:14px;color:#c53030">Error: ${esc(e.message)}</td>`;
+    panel.innerHTML = `<div style="color:#c53030;padding:14px">Error: ${esc(e.message)}</div>
+      <div style="margin-top:10px"><button onclick="closeThread()" style="padding:7px 18px;background:#276749;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.84rem">✓ Done</button></div>`;
   }
+}
+
+function closeThread() {
+  const panel = document.getElementById('thread-panel');
+  const list = document.getElementById('inbox-list');
+  panel.classList.add('hide');
+  panel.innerHTML = '';
+  list.classList.remove('hide');
+  renderInbox(); // re-render so any star/unread changes show up in the list
 }
 
 async function sendReply(convId) {

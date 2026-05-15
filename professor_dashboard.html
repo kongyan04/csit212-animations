@@ -3695,6 +3695,8 @@ async function loadGradebook() {
     el.innerHTML = '<div class="empty" style="padding:30px;text-align:center;color:#666">Pick a course to load its gradebook.</div>';
     return;
   }
+  // Capture sort mode BEFORE the spinner wipes the DOM
+  const sortMode = (document.getElementById('gradebook-sort')?.value) || 'name';
   el.innerHTML = '<div class="loading" style="padding:30px;text-align:center"><span class="spinner"></span> Loading gradebook…</div>';
   const requestedCid = course_id;  // pin to detect a course-switch mid-fetch
   try {
@@ -3707,7 +3709,6 @@ async function loadGradebook() {
       map[s.user_id][s.assignment_id] = s;
     });
     const pubAsns = assignments.filter(a => a.published).slice(0, 20); // limit display
-    const sortMode = (document.getElementById('gradebook-sort')?.value) || 'name';
     const sortedEnrolls = enrollments.slice().sort((a, b) => {
       const aName = lastNameKey(a.user?.sortable_name, a.user?.name);
       const bName = lastNameKey(b.user?.sortable_name, b.user?.name);
@@ -3717,10 +3718,10 @@ async function loadGradebook() {
       if (sortMode === 'current_asc')  return aPct - bPct;
       return aName.localeCompare(bName);
     });
-    // Header row: legend + sort selector
-    let html = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">'
-            +    '<div style="font-size:0.78rem;color:#666"><span class="pill pill-yellow">📥</span> = Submitted (ungraded), <span class="pill pill-red">M</span> = Missing</div>'
-            +    '<select id="gradebook-sort" onchange="loadGradebook()" style="padding:6px 10px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.82rem">'
+    // Legend with the sort selector inline right after "Missing"
+    let html = '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:0.78rem;color:#666">'
+            +    '<span><span class="pill pill-yellow">📥</span> = Submitted (ungraded), <span class="pill pill-red">M</span> = Missing</span>'
+            +    '<select id="gradebook-sort" onchange="loadGradebook()" style="padding:5px 10px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.82rem">'
             +      `<option value="name" ${sortMode==='name'?'selected':''}>Sort by last name</option>`
             +      `<option value="current_desc" ${sortMode==='current_desc'?'selected':''}>Sort by grade (high → low)</option>`
             +      `<option value="current_asc" ${sortMode==='current_asc'?'selected':''}>Sort by grade (low → high)</option>`

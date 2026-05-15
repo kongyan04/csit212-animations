@@ -1366,6 +1366,11 @@ function filterBySemester() {
     const sel = document.getElementById('course-select');
     sel.value = list[0].id;
     selectCourse(list[0].id);
+  } else if (list.length > 1 && tag !== '__all__') {
+    // Default to the combined-view option for the chosen semester
+    const sel = document.getElementById('course-select');
+    sel.value = '__all__';
+    loadAllInSemester();
   }
 }
 

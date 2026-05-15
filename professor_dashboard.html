@@ -3696,9 +3696,9 @@ async function loadGradebook() {
     });
     const pubAsns = assignments.filter(a => a.published).slice(0, 20); // limit display
     const sortedEnrolls = enrollments.slice().sort((a, b) => (a.user?.sortable_name || a.user?.name || '').localeCompare(b.user?.sortable_name || b.user?.name || ''));
-    // Scroll container with bounded height so both the horizontal scrollbar
-    // (at the bottom) and the sticky header stay visible while you scroll.
-    let html = '<div style="overflow:auto;max-height:70vh;border:1px solid #e2e8f0;border-radius:6px"><table style="min-width:max-content;border-collapse:separate;border-spacing:0">'
+    // Legend on top, then the scrollable table
+    let html = '<div style="font-size:0.78rem;color:#666;margin-bottom:8px"><span class="pill pill-yellow">📥</span> = Submitted (ungraded), <span class="pill pill-red">M</span> = Missing</div>';
+    html += '<div style="overflow:auto;max-height:70vh;border:1px solid #e2e8f0;border-radius:6px"><table style="min-width:max-content;border-collapse:separate;border-spacing:0">'
             +  '<thead><tr>'
             +    '<th style="position:sticky;left:0;top:0;background:#edf2f7;z-index:3;padding:10px 12px;border-bottom:2px solid #cbd5e0">Student</th>'
             +    '<th style="position:sticky;top:0;background:#edf2f7;z-index:2;padding:10px 12px;border-bottom:2px solid #cbd5e0">Total %</th>';
@@ -3728,7 +3728,6 @@ async function loadGradebook() {
       html += '</tr>';
     });
     html += '</tbody></table></div>';
-    html += '<div style="font-size:0.74rem;color:#666;margin-top:8px">Showing first 20 assignments. <span class="pill pill-yellow">📥</span> = Submitted (ungraded), <span class="pill pill-red">M</span> = Missing</div>';
     el.innerHTML = html;
   } catch (e) {
     console.error('[loadGradebook] failed for course', course_id, e);

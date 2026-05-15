@@ -2401,10 +2401,10 @@ async function sendReply(convId) {
   status.style.color = '#4a5568';
   try {
     await apiPost(`/api/v1/conversations/${convId}/add_message`, [['body', txt]]);
-    status.textContent = '✓ Sent.';
+    status.textContent = '✓ Sent. Returning to inbox…';
     status.style.color = '#276749';
     document.getElementById('reply-' + convId).value = '';
-    setTimeout(loadInbox, 1000);
+    setTimeout(() => { closeThread(); }, 700);
   } catch (e) {
     status.textContent = '✗ ' + e.message;
     status.style.color = '#c53030';

@@ -276,7 +276,7 @@ a.email-link:hover { text-decoration: underline; }
       <label>Course</label><br>
       <select id="course-select"><option value="">— Load your courses first —</option></select>
     </div>
-    <button onclick="loadAllInSemester()" title="Load every course in the chosen semester as a combined view">📚 Load Courses</button>
+    <button onclick="loadFromCourseDropdown()" title="Load whatever the Course dropdown is set to (a specific course, or All courses)">📚 Load Courses</button>
     <span id="conn-status" class="conn-status"></span>
   </div>
 </div>
@@ -1209,12 +1209,7 @@ window.addEventListener('load', () => {
   const d = localStorage.getItem('pd_domain'); if (d) document.getElementById('domain').value = d;
   document.getElementById('token').addEventListener('change', e => localStorage.setItem('pd_token', e.target.value));
   document.getElementById('domain').addEventListener('change', e => localStorage.setItem('pd_domain', e.target.value));
-  document.getElementById('course-select').addEventListener('change', e => {
-    const v = e.target.value;
-    if (!v) return;
-    if (v === '__all__') loadAllInSemester();
-    else selectCourse(v);
-  });
+  // course-select selection no longer auto-loads — user has to click 'Load Courses'.
 });
 
 // ── API ──
@@ -1404,6 +1399,22 @@ async function loadCurrentSemester() {
   } catch (e) {
     status.textContent = '✗ ' + e.message;
     status.className = 'conn-status err';
+  }
+}
+
+function loadFromCourseDropdown() {
+  const sel = document.getElementById('course-select');
+  const v = sel.value;
+  if (!v) {
+    const status = document.getElementById('conn-status');
+    status.textContent = 'Pick a course (or "All courses") from the dropdown first.';
+    status.className = 'conn-status warn';
+    return;
+  }
+  if (v === '__all__') {
+    loadAllInSemester();
+  } else {
+    selectCourse(v);
   }
 }
 

@@ -2425,6 +2425,14 @@ async function sendReply(convId) {
   status.style.color = '#4a5568';
   try {
     await apiPost(`/api/v1/conversations/${convId}/add_message`, [['body', txt]]);
+    // Mark conversation as read both server-side and in local cache so the row clears its unread dot/bold
+    try {
+      await apiPut(`/api/v1/conversations/${convId}`, [['conversation[workflow_state]', 'read']]);
+    } catch (e) { /* not fatal — Canvas usually marks read on reply anyway */ }
+    if (inboxCache[convId]) inboxCache[convId].workflow_state = 'read';
+    const idx = inboxState.all.findIndex(x => x.id === convId);
+    if (idx >= 0) inboxState.all[idx].workflow_state = 'read';
+
     status.textContent = '✓ Sent. Returning to inbox…';
     status.style.color = '#276749';
     document.getElementById('reply-' + convId).value = '';

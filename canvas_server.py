@@ -1160,6 +1160,7 @@ def task_endpoint():
         return jsonify({'ok': False, 'error': 'prompt required'}), 400
     plan = task_engine.plan_task(prompt)
     if not plan:
+        _log_queue(prompt, False, None, None, 'parse_failed')
         return jsonify({'ok': False, 'error': 'Could not parse. Try: announce: TITLE | MESSAGE / publish all / shift dates by N / full credit on NAME / email all|failing|missing: SUBJECT | BODY / create assignment: NAME | due 5/22 | 20 pts'}), 200
     if dry:
         resp = jsonify({'ok': True, 'plan': plan, 'dry_run': True})
@@ -1169,10 +1170,49 @@ def task_endpoint():
         return jsonify({'ok': False, 'error': 'token and domain required (send in request body or headers)'}), 400
     try:
         result = task_engine.execute(plan, token, domain, course_id)
+        _log_queue(prompt, True, plan, result, None)
         resp = jsonify({'ok': True, 'plan': plan, 'result': result})
     except Exception as e:
+        _log_queue(prompt, False, plan, None, str(e))
         resp = jsonify({'ok': False, 'plan': plan, 'error': str(e)})
         resp.status_code = 500
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    return resp
+
+
+
+import json as _json
+from pathlib import Path as _Path
+_QUEUE = _Path.home() / 'scdev' / 'ydev' / 'claude_queue.jsonl'
+
+def _log_queue(prompt, ok, plan, result, err):
+    try:
+        with open(_QUEUE, 'a') as f:
+            f.write(_json.dumps({
+                'ts': time.time(),
+                'prompt': prompt,
+                'ok': ok,
+                'plan': plan,
+                'result': result,
+                'error': err,
+            }) + '\n')
+    except Exception:
+        pass
+
+@app.route('/claude-queue', methods=['GET'])
+def claude_queue():
+    if not _QUEUE.exists():
+        resp = jsonify({'entries': []})
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        return resp
+    rows = []
+    with open(_QUEUE) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try: rows.append(_json.loads(line))
+                except: pass
+    resp = jsonify({'entries': rows[-50:]})
     resp.headers['Access-Control-Allow-Origin'] = '*'
     return resp
 

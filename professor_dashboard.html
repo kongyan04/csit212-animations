@@ -736,6 +736,29 @@ a.email-link:hover { text-decoration: underline; }
 <div class="tab-panel" id="tab-tasks">
   <div class="multi-picker-bar hide" id="picker-tasks"></div>
 
+  <!-- Ask Claude (natural-language window) -->
+  <div class="card" style="background:linear-gradient(135deg,#3d2a5c,#7c5cbf);color:#fff;border:none">
+    <h2 style="color:#fff;border-left-color:#fff;margin-bottom:8px">✨ Ask Claude</h2>
+    <p style="font-size:0.82rem;color:#e9d8fd;margin-bottom:10px">
+      Describe what you want done in plain English. Recognized patterns run instantly via the keyword parser; anything else is queued server-side for natural-language processing once an Anthropic API key is configured (Claude Max is a consumer subscription and doesn't include API access).
+    </p>
+    <textarea id="claude-task-input" rows="5"
+              placeholder='e.g. "give everyone full credit on HW1" or "post an announcement saying class is canceled tomorrow"'
+              style="width:100%;padding:12px 14px;border:none;border-radius:8px;font-size:0.92rem;line-height:1.5;background:rgba(255,255,255,0.97);color:#1a202c;font-family:inherit"></textarea>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+      <button onclick="submitClaudeTask()" id="claude-submit-btn"
+              style="padding:9px 22px;background:#fff;color:#3d2a5c;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.88rem">
+        ✨ Submit
+      </button>
+      <button onclick="document.getElementById('claude-task-input').value=''"
+              style="padding:9px 18px;background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.4);border-radius:6px;font-weight:600;cursor:pointer;font-size:0.84rem">
+        Clear
+      </button>
+      <span id="claude-status" style="font-size:0.84rem;color:#e9d8fd"></span>
+    </div>
+    <div id="claude-result" class="hide" style="margin-top:12px;background:rgba(255,255,255,0.97);color:#1a202c;border-radius:8px;padding:14px;font-size:0.88rem"></div>
+  </div>
+
   <!-- Smart Task input -->
   <div class="card" style="background:linear-gradient(135deg,#1a365d,#2b6cb0);color:#fff;border:none">
     <h2 style="color:#fff;border-left-color:#fff">⚡ Quick Task</h2>
@@ -5635,6 +5658,41 @@ function taskBackendUrl() {
   if (window.TASK_BACKEND) return window.TASK_BACKEND.replace(/\/$/, '') + '/task';
   // Same-origin if the page is served by the Flask backend (it has /task)
   return '/task';
+}
+
+async function submitClaudeTask() {
+  const prompt = document.getElementById('claude-task-input').value.trim();
+  const resultEl = document.getElementById('claude-result');
+  if (!prompt) { setStatus('claude-status', 'Type something first.', 'err'); return; }
+  if (!course_id) { setStatus('claude-status', 'Select a course first.', 'err'); return; }
+  const token = document.getElementById('token').value.trim();
+  const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+  setStatus('claude-status', 'Submitting…', 'info');
+  resultEl.classList.add('hide');
+  try {
+    const r = await fetch(taskBackendUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, token, domain, course_id }),
+    });
+    const data = await r.json();
+    resultEl.classList.remove('hide');
+    if (data.ok) {
+      const planLine = data.plan ? `<div style="margin-bottom:6px"><strong>Plan:</strong> <code style="background:#f7fafc;padding:2px 6px;border-radius:4px">${esc(JSON.stringify(data.plan))}</code></div>` : '';
+      const resultLine = data.result ? `<div><strong>Result:</strong> <code style="background:#f7fafc;padding:2px 6px;border-radius:4px">${esc(JSON.stringify(data.result))}</code></div>` : '';
+      resultEl.innerHTML = `<div style="color:#276749;font-weight:600;margin-bottom:6px">✓ Done</div>${planLine}${resultLine}`;
+      setStatus('claude-status', '', '');
+      // Refresh data after a mutation
+      setTimeout(() => selectCourse(course_id), 500);
+    } else {
+      resultEl.innerHTML = `<div style="color:#c53030;font-weight:600;margin-bottom:6px">⚠ Couldn't auto-run</div>
+        <div style="margin-bottom:6px">${esc(data.error || 'Unknown error')}</div>
+        <div style="font-size:0.82rem;color:#666">Your prompt has been recorded — when an Anthropic API key is added to the backend, queued prompts will be processed by Claude. Until then, use one of the recognized patterns above, or ask me in the Claude Code session to handle it.</div>`;
+      setStatus('claude-status', '', '');
+    }
+  } catch (e) {
+    setStatus('claude-status', '✗ ' + e.message, 'err');
+  }
 }
 
 async function planSmartTask() {

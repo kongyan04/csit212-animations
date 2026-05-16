@@ -1680,6 +1680,9 @@ async function loadAllInSemester() {
     submissionsCache = {};
     pastAsnCache = {};
     pastAsnGroups = {};
+    pastModuleCache = {};
+    lastPastModuleCourseId = null;
+    moduleAttachments = [];
     document.getElementById('dashboard').classList.remove('hide');
     renderMultiStudents();
     renderMultiOtherTabs();

@@ -5628,21 +5628,63 @@ function parseDate(s) {
   return null;
 }
 
-function planSmartTask() {
+// Tasks now run through the backend /task endpoint when available.
+// If the dashboard is served by the Flask backend, we hit /task directly;
+// otherwise the user can override window.TASK_BACKEND to point at it.
+function taskBackendUrl() {
+  if (window.TASK_BACKEND) return window.TASK_BACKEND.replace(/\/$/, '') + '/task';
+  // Same-origin if the page is served by the Flask backend (it has /task)
+  return '/task';
+}
+
+async function planSmartTask() {
   const prompt = document.getElementById('smart-task-input').value.trim();
   if (!prompt) { setStatus('smart-status', 'Type a command first', 'err'); return; }
   if (!course_id) { setStatus('smart-status', 'Select a course first', 'err'); return; }
-
-  setStatus('smart-status', '', '');
-  const plan = parseCommand(prompt);
-
-  if (plan.action === 'unknown') {
-    setStatus('smart-status', '✗ ' + plan.error, 'err');
-    return;
+  setStatus('smart-status', 'Planning…', 'info');
+  try {
+    const r = await fetch(taskBackendUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, dry_run: true }),
+    });
+    const data = await r.json();
+    if (!data.ok) {
+      setStatus('smart-status', '✗ ' + (data.error || 'parse failed'), 'err');
+      return;
+    }
+    smartPlan = data.plan;
+    renderBackendPlan(data.plan);
+    setStatus('smart-status', '', '');
+  } catch (e) {
+    setStatus('smart-status', '✗ Backend unreachable: ' + e.message, 'err');
   }
+}
 
-  smartPlan = plan;
-  renderPlan(plan);
+function renderBackendPlan(plan) {
+  const el = document.getElementById('smart-plan-content');
+  const wrap = document.getElementById('smart-plan');
+  document.getElementById('smart-exec-btn').classList.remove('hide');
+  let html = '';
+  if (plan.type === 'announce') {
+    html = `<div><strong>📢 Announce</strong> · ${esc(plan.title)}</div>
+      <div style="margin-top:4px;border:1px solid #e2e8f0;border-radius:4px;padding:8px;background:#f7fafc">${esc(plan.message)}</div>`;
+  } else if (plan.type === 'publish_all') {
+    html = `<div><strong>${plan.publish ? '📤 Publish' : '📥 Unpublish'} all assignments</strong></div>`;
+  } else if (plan.type === 'shift_dates') {
+    html = `<div><strong>📅 Shift dates by ${plan.days} days</strong></div>`;
+  } else if (plan.type === 'full_credit') {
+    html = `<div><strong>🎓 Full credit on "${esc(plan.name)}"</strong></div>`;
+  } else if (plan.type === 'email') {
+    html = `<div><strong>✉️ Email ${plan.group} students</strong> · ${esc(plan.subject)}</div>
+      <div style="margin-top:4px;border:1px solid #e2e8f0;border-radius:4px;padding:8px;background:#f7fafc;white-space:pre-wrap">${esc(plan.body)}</div>`;
+  } else if (plan.type === 'create_assignment') {
+    html = `<div><strong>📝 Create assignment</strong> · ${esc(plan.name)} · ${plan.points} pts${plan.due ? ' · due ' + esc(plan.due) : ''}</div>`;
+  } else {
+    html = `<pre>${esc(JSON.stringify(plan, null, 2))}</pre>`;
+  }
+  el.innerHTML = html;
+  wrap.classList.remove('hide');
 }
 
 function renderPlan(plan) {
@@ -5696,16 +5738,25 @@ async function executeSmartTask() {
   if (!smartPlan) return;
   const btn = document.getElementById('smart-exec-btn');
   btn.disabled = true; btn.textContent = 'Executing...';
-  setStatus('smart-status', '', '');
-
+  setStatus('smart-status', 'Running on backend…', 'info');
   try {
-    await executePlan(smartPlan);
-    setStatus('smart-status', '✓ Done!', 'ok');
+    const token = document.getElementById('token').value.trim();
+    const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+    const prompt = document.getElementById('smart-task-input').value.trim();
+    const r = await fetch(taskBackendUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, token, domain, course_id }),
+    });
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'execution failed');
+    setStatus('smart-status', '✓ ' + (data.result ? JSON.stringify(data.result) : 'Done!'), 'ok');
     document.getElementById('smart-plan').classList.add('hide');
     document.getElementById('smart-task-input').value = '';
     smartPlan = null;
-    // Refresh relevant data
+    btn.disabled = false; btn.textContent = '✓ Execute';
     setTimeout(() => selectCourse(course_id), 500);
+    return;
   } catch (e) {
     setStatus('smart-status', '✗ ' + e.message, 'err');
   }

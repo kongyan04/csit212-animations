@@ -175,6 +175,13 @@ def send_email(to_addr, student_name, commenter_name, comment_body, project_url)
 def index():
     return app.response_class(HTML, mimetype='text/html')
 
+@app.route('/dashboard')
+def dashboard():
+    with open('professor_dashboard.html', 'r') as f:
+        html = f.read()
+    return app.response_class(html, mimetype='text/html')
+
+
 @app.route('/canvas-proxy/<path:canvas_path>', methods=['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'])
 def canvas_proxy(canvas_path):
     """Forward requests to Canvas with server-side or user-supplied auth token.
@@ -1131,6 +1138,43 @@ document.addEventListener('keydown', e => {
 # ── Startup ────────────────────────────────────────────────────────────────────
 
 threading.Thread(target=keep_alive, daemon=True).start()
+
+
+import task_engine
+
+@app.route('/task', methods=['POST', 'OPTIONS'])
+def task_endpoint():
+    if request.method == 'OPTIONS':
+        resp = app.response_class('')
+        resp.headers['Access-Control-Allow-Origin']  = '*'
+        resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Canvas-Token, X-Canvas-Domain'
+        resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        return resp
+    data = request.get_json(silent=True) or {}
+    prompt = (data.get('prompt') or '').strip()
+    token  = (data.get('token')  or request.headers.get('X-Canvas-Token') or '').strip()
+    domain = (data.get('domain') or request.headers.get('X-Canvas-Domain') or '').strip().rstrip('/')
+    course_id = data.get('course_id') or data.get('cid')
+    dry      = bool(data.get('dry_run'))
+    if not prompt:
+        return jsonify({'ok': False, 'error': 'prompt required'}), 400
+    plan = task_engine.plan_task(prompt)
+    if not plan:
+        return jsonify({'ok': False, 'error': 'Could not parse. Try: announce: TITLE | MESSAGE / publish all / shift dates by N / full credit on NAME / email all|failing|missing: SUBJECT | BODY / create assignment: NAME | due 5/22 | 20 pts'}), 200
+    if dry:
+        resp = jsonify({'ok': True, 'plan': plan, 'dry_run': True})
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        return resp
+    if not token or not domain:
+        return jsonify({'ok': False, 'error': 'token and domain required (send in request body or headers)'}), 400
+    try:
+        result = task_engine.execute(plan, token, domain, course_id)
+        resp = jsonify({'ok': True, 'plan': plan, 'result': result})
+    except Exception as e:
+        resp = jsonify({'ok': False, 'plan': plan, 'error': str(e)})
+        resp.status_code = 500
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    return resp
 
 if __name__ == '__main__':
     print('\n  Canvas Final Project Server')

@@ -1226,8 +1226,13 @@ a.email-link:hover { text-decoration: underline; }
     <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:10px">
       <div>
         <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Target module (for item copy)</label>
-        <input type="text" id="copy-past-mod-target-name" placeholder="Name of the module the item should go into (created if missing)"
-               style="width:100%;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.86rem;margin-top:4px">
+        <select id="copy-past-mod-target-select" onchange="onCopyTargetSelectChange(this.value)"
+                style="width:100%;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.86rem;margin-top:4px;background:#fff">
+          <option value="">— Pick a target course first —</option>
+        </select>
+        <input type="text" id="copy-past-mod-target-name" class="hide" placeholder="New module name…"
+               style="width:100%;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.86rem;margin-top:6px">
+        <div style="font-size:0.74rem;color:#666;margin-top:4px">Existing modules come from the first checked target course; module names are matched by name across the rest.</div>
       </div>
     </div>
     <div style="margin-bottom:10px;font-size:0.86rem">
@@ -4101,6 +4106,47 @@ function updateMultiModCount() {
   if (el) el.textContent = `${n} of ${total} selected`;
   refreshPastModuleCopyPanel();
   populatePrereqDropdown();
+  populateCopyTargetModuleDropdown();
+}
+
+async function populateCopyTargetModuleDropdown() {
+  const sel = document.getElementById('copy-past-mod-target-select');
+  const newInp = document.getElementById('copy-past-mod-target-name');
+  if (!sel) return;
+  const checked = getActiveModTargetCourses();
+  if (!checked.length) {
+    sel.innerHTML = '<option value="">— Pick a target course first —</option>';
+    newInp.classList.add('hide');
+    newInp.value = '';
+    return;
+  }
+  try {
+    const mods = await api(`/api/v1/courses/${checked[0].id}/modules?per_page=100`);
+    let html = '<option value="__new__">+ Create new module…</option>';
+    if (mods.length) {
+      html += '<optgroup label="Existing modules">';
+      mods.forEach(m => { html += `<option value="${esc(m.name)}">${esc(m.name)}</option>`; });
+      html += '</optgroup>';
+    }
+    sel.innerHTML = html;
+    sel.value = mods.length ? mods[0].name : '__new__';
+    onCopyTargetSelectChange(sel.value);
+  } catch (e) {
+    sel.innerHTML = '<option value="__new__">+ Create new module…</option>';
+    sel.value = '__new__';
+    onCopyTargetSelectChange('__new__');
+  }
+}
+
+function onCopyTargetSelectChange(v) {
+  const inp = document.getElementById('copy-past-mod-target-name');
+  if (v === '__new__') {
+    inp.classList.remove('hide');
+    inp.focus();
+  } else {
+    inp.classList.add('hide');
+    inp.value = '';
+  }
 }
 
 function multiModSelectAll(on) {
@@ -4284,17 +4330,21 @@ const ITEM_TYPE_META = {
 async function copyModuleItemFromPast() {
   const srcModId = document.getElementById('copy-past-mod').value;
   const itemOpt = document.getElementById('copy-past-mod-item').selectedOptions[0];
-  const targetModName = document.getElementById('copy-past-mod-target-name').value.trim();
+  const sel = document.getElementById('copy-past-mod-target-select');
+  const newInp = document.getElementById('copy-past-mod-target-name');
+  const selVal = sel.value;
+  const targetModName = (selVal === '__new__' ? newInp.value : selVal).trim();
   const targets = getActiveModTargetCourses();
   if (!srcModId) { setStatus('copy-past-mod-status', 'Pick a source module first.', 'err'); return; }
   if (!itemOpt || !itemOpt.value) { setStatus('copy-past-mod-status', 'Pick an item to copy.', 'err'); return; }
   if (!targets.length) { setStatus('copy-past-mod-status', 'Pick at least one target course.', 'err'); return; }
+  if (!targetModName) { setStatus('copy-past-mod-status', 'Pick or name a target module.', 'err'); return; }
 
   const cidPast = lastPastModuleCourseId;
   const srcMod = (pastModuleCache[cidPast] || []).find(m => String(m.id) === String(srcModId));
   const srcItem = (srcMod?.items || []).find(it => String(it.id) === itemOpt.value);
   if (!srcItem) { setStatus('copy-past-mod-status', 'Source item not found.', 'err'); return; }
-  const finalTargetModName = targetModName || (srcMod?.name || 'Imported');
+  const finalTargetModName = targetModName;
 
   if (!confirm(`Copy "${srcItem.title}" (${srcItem.type}) into module "${finalTargetModName}" in ${targets.length} course(s)?`)) return;
 

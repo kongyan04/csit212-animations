@@ -1203,22 +1203,39 @@ a.email-link:hover { text-decoration: underline; }
     <div id="multi-mod-courses" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#fff;border:1px solid #cbd5e0;border-radius:8px;min-height:54px"></div>
   </div>
 
-  <!-- Copy module from a past semester -->
+  <!-- Copy module / item from a past semester -->
   <div class="card" style="background:#fffbeb;border-left:4px solid #d69e2e">
-    <h2 style="margin-bottom:6px">📋 Copy a module from a past semester</h2>
+    <h2 style="margin-bottom:6px">📋 Copy from a past semester</h2>
     <p style="font-size:0.82rem;color:#744210;margin-bottom:10px"><span id="copy-past-mod-context">Pick a target course above first…</span></p>
-    <div style="display:grid;grid-template-columns:1fr;gap:10px;align-items:end">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end;margin-bottom:10px">
       <div>
-        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Pick a module to copy</label>
-        <select id="copy-past-mod" style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px">
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Source module</label>
+        <select id="copy-past-mod" onchange="onPastModuleChange(this.value)"
+                style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px">
           <option value="">— Pick a target course above first —</option>
         </select>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button onclick="copyModuleFromPast()" id="copy-mod-btn"
-                style="padding:9px 22px;background:#d69e2e;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">↓ Copy module (with items)</button>
-        <span style="font-size:0.78rem;color:#744210">Uses Canvas content migration — copies the module, its items, and any attached files. Async, ~30s–2min per target.</span>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Item (for single-item copy)</label>
+        <select id="copy-past-mod-item"
+                style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px">
+          <option value="">— Pick a source module first —</option>
+        </select>
       </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:10px">
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Target module (for item copy)</label>
+        <input type="text" id="copy-past-mod-target-name" placeholder="(blank = same name as source module — created if it doesn't exist)"
+               style="width:100%;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.86rem;margin-top:4px">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button onclick="copyModuleItemFromPast()" id="copy-mod-item-btn"
+              style="padding:9px 22px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">↓ Copy this item</button>
+      <button onclick="copyModuleFromPast()" id="copy-mod-btn"
+              style="padding:9px 22px;background:#d69e2e;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">↓ Copy whole module (all items)</button>
+      <span style="font-size:0.78rem;color:#744210">Async — ~30s–2min per target.</span>
     </div>
     <span id="copy-past-mod-status" style="font-size:0.82rem;color:#744210;margin-top:8px;display:inline-block"></span>
   </div>
@@ -4173,6 +4190,42 @@ function fillPastModuleDropdown(cid) {
   }
   sel.innerHTML = '<option value="">— Pick a module —</option>'
     + list.map(m => `<option value="${m.id}">${esc(m.name)} (${(m.items||[]).length} items)</option>`).join('');
+  // Reset items dropdown
+  document.getElementById('copy-past-mod-item').innerHTML = '<option value="">— Pick a source module first —</option>';
+  document.getElementById('copy-past-mod-target-name').value = '';
+}
+
+function onPastModuleChange(mid) {
+  const itemSel = document.getElementById('copy-past-mod-item');
+  const targetInput = document.getElementById('copy-past-mod-target-name');
+  if (!mid || !lastPastModuleCourseId) {
+    itemSel.innerHTML = '<option value="">— Pick a source module first —</option>';
+    targetInput.value = '';
+    return;
+  }
+  const mod = (pastModuleCache[lastPastModuleCourseId] || []).find(m => String(m.id) === String(mid));
+  if (!mod) return;
+  const items = mod.items || [];
+  itemSel.innerHTML = items.length
+    ? '<option value="">— Pick an item —</option>' +
+      items.map(it => `<option value="${it.id}" data-type="${esc(it.type||'')}" data-cid="${it.content_id||''}" data-title="${esc(it.title||'')}">${moduleItemIcon(it.type)} ${esc(it.title || '(untitled)')} <small>[${esc(it.type||'')}]</small></option>`).join('')
+    : '<option value="">— Module has no items —</option>';
+  // Default the target-module input to the source module's name
+  targetInput.value = mod.name || '';
+}
+
+function moduleItemIcon(type) {
+  switch (type) {
+    case 'Assignment': return '📝';
+    case 'Quiz': return '❓';
+    case 'File': return '📎';
+    case 'Page': return '📄';
+    case 'Discussion': return '💬';
+    case 'ExternalUrl': return '🔗';
+    case 'ExternalTool': return '🛠️';
+    case 'SubHeader': return '➖';
+    default: return '•';
+  }
 }
 
 async function copyModuleFromPast() {
@@ -4201,6 +4254,130 @@ async function copyModuleFromPast() {
   }
   btn.disabled = false;
   setStatus('copy-past-mod-status', `Copied to ${ok} of ${targets.length}${fail ? ` · ${fail} failed (see console)` : ''}.`, fail ? 'warn' : 'ok');
+}
+
+// Maps a module-item type to the matching content_migrations select key + Canvas API path
+// used to find the freshly-copied object after migration.
+const ITEM_TYPE_META = {
+  Assignment:    { select: 'assignments',       listPath: cid => `/api/v1/courses/${cid}/assignments?per_page=200`,            matchField: 'name' },
+  Quiz:          { select: 'quizzes',           listPath: cid => `/api/v1/courses/${cid}/quizzes?per_page=200`,                matchField: 'title' },
+  Page:          { select: 'wiki_pages',        listPath: cid => `/api/v1/courses/${cid}/pages?per_page=200`,                  matchField: 'title' },
+  Discussion:    { select: 'discussion_topics', listPath: cid => `/api/v1/courses/${cid}/discussion_topics?per_page=200`,      matchField: 'title' },
+  ExternalUrl:   { select: null }, // handled inline — just add a new External URL item
+  ExternalTool:  { select: null },
+  SubHeader:     { select: null },
+  File:          { select: null }, // copied via /folders/{}/copy_file
+};
+
+async function copyModuleItemFromPast() {
+  const srcModId = document.getElementById('copy-past-mod').value;
+  const itemOpt = document.getElementById('copy-past-mod-item').selectedOptions[0];
+  const targetModName = document.getElementById('copy-past-mod-target-name').value.trim();
+  const targets = getActiveModTargetCourses();
+  if (!srcModId) { setStatus('copy-past-mod-status', 'Pick a source module first.', 'err'); return; }
+  if (!itemOpt || !itemOpt.value) { setStatus('copy-past-mod-status', 'Pick an item to copy.', 'err'); return; }
+  if (!targets.length) { setStatus('copy-past-mod-status', 'Pick at least one target course.', 'err'); return; }
+
+  const cidPast = lastPastModuleCourseId;
+  const srcMod = (pastModuleCache[cidPast] || []).find(m => String(m.id) === String(srcModId));
+  const srcItem = (srcMod?.items || []).find(it => String(it.id) === itemOpt.value);
+  if (!srcItem) { setStatus('copy-past-mod-status', 'Source item not found.', 'err'); return; }
+  const finalTargetModName = targetModName || (srcMod?.name || 'Imported');
+
+  if (!confirm(`Copy "${srcItem.title}" (${srcItem.type}) into module "${finalTargetModName}" in ${targets.length} course(s)?`)) return;
+
+  const btn = document.getElementById('copy-mod-item-btn');
+  btn.disabled = true;
+  let ok = 0, fail = 0;
+  for (const t of targets) {
+    setStatus('copy-past-mod-status', `[${ok + fail + 1}/${targets.length}] ${t.code}: copying…`, 'info');
+    try {
+      await copyOneItem(cidPast, srcItem, t.id, finalTargetModName,
+        msg => setStatus('copy-past-mod-status', `[${ok + fail + 1}/${targets.length}] ${t.code}: ${msg}`, 'info'));
+      ok++;
+    } catch (e) {
+      fail++;
+      console.error('Item copy failed for', t.code, e);
+    }
+  }
+  btn.disabled = false;
+  setStatus('copy-past-mod-status', `Copied to ${ok} of ${targets.length}${fail ? ` · ${fail} failed (see console)` : ''}.`, fail ? 'warn' : 'ok');
+}
+
+async function copyOneItem(srcCid, srcItem, targetCid, targetModName, statusFn) {
+  // 1. Make sure the target module exists; create if not.
+  if (statusFn) statusFn('finding/creating target module…');
+  const existingMods = await api(`/api/v1/courses/${targetCid}/modules?per_page=100`);
+  let targetMod = existingMods.find(m => m.name === targetModName);
+  if (!targetMod) {
+    targetMod = await apiPost(`/api/v1/courses/${targetCid}/modules`, [
+      ['module[name]', targetModName],
+      ['module[published]', 'true'],
+    ]);
+  }
+
+  // 2. Get the underlying content into the target course depending on type.
+  let newContentId = null;
+  let extraParams = [];
+  const type = srcItem.type;
+
+  if (type === 'ExternalUrl') {
+    extraParams = [['module_item[external_url]', srcItem.external_url || srcItem.html_url || '']];
+  } else if (type === 'SubHeader') {
+    // No content to copy — just create a header item.
+  } else if (type === 'File') {
+    // Copy the file directly via /folders/.../copy_file
+    if (statusFn) statusFn('copying file…');
+    const folder = await api(`/api/v1/courses/${targetCid}/folders/root`);
+    const copied = await apiPost(`/api/v1/folders/${folder.id}/copy_file`, [
+      ['source_file_id', String(srcItem.content_id)],
+      ['on_duplicate', 'rename'],
+    ]);
+    newContentId = copied.id;
+  } else if (ITEM_TYPE_META[type] && ITEM_TYPE_META[type].select) {
+    const meta = ITEM_TYPE_META[type];
+    if (statusFn) statusFn(`migrating ${type.toLowerCase()}…`);
+    await migrateOneItem(srcCid, meta.select, srcItem.content_id, targetCid, statusFn);
+    // Find the new object in the target by name match
+    if (statusFn) statusFn(`locating new ${type.toLowerCase()}…`);
+    const list = await api(meta.listPath(targetCid));
+    // For quizzes the response key is 'title'; for assignments 'name'; pages also 'title'.
+    const sourceTitle = srcItem.title;
+    const match = list.find(x => (x[meta.matchField] || x.name || x.title) === sourceTitle)
+               || list.slice(-1)[0];  // last as fallback
+    if (!match) throw new Error('Could not find migrated ' + type + ' in target');
+    newContentId = match.id;
+  } else {
+    throw new Error('Unsupported item type: ' + type);
+  }
+
+  // 3. Add as a module item to the target module
+  if (statusFn) statusFn('adding to module…');
+  const params = [
+    ['module_item[type]', type],
+    ['module_item[title]', srcItem.title || ''],
+  ];
+  if (newContentId != null) params.push(['module_item[content_id]', String(newContentId)]);
+  extraParams.forEach(p => params.push(p));
+  await apiPost(`/api/v1/courses/${targetCid}/modules/${targetMod.id}/items`, params);
+}
+
+async function migrateOneItem(srcCid, selectKey, sourceObjId, targetCid, statusFn) {
+  const mig = await apiPost(`/api/v1/courses/${targetCid}/content_migrations`, [
+    ['migration_type', 'course_copy_importer'],
+    ['settings[source_course_id]', String(srcCid)],
+    [`select[${selectKey}][]`, String(sourceObjId)],
+  ]);
+  const mid = mig.id;
+  const start = Date.now();
+  while (Date.now() - start < 5 * 60 * 1000) {
+    await new Promise(r => setTimeout(r, 3000));
+    const m = await api(`/api/v1/courses/${targetCid}/content_migrations/${mid}`);
+    if (statusFn) statusFn(`Canvas migration: ${m.workflow_state}${m.progress != null ? ' ' + Math.round(m.progress) + '%' : ''}`);
+    if (m.workflow_state === 'completed') return m;
+    if (m.workflow_state === 'failed') throw new Error('Migration failed');
+  }
+  throw new Error('Migration timed out');
 }
 
 async function migrateModuleToCourse(srcCid, moduleId, targetCid, statusFn) {

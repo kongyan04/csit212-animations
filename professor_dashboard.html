@@ -1190,43 +1190,95 @@ a.email-link:hover { text-decoration: underline; }
 
 <!-- Modules -->
 <div class="tab-panel" id="tab-modules">
+
+  <!-- Target courses (top) -->
+  <div class="card" style="background:linear-gradient(180deg,#ebf8ff,#fff);border-left:4px solid var(--brand-primary)">
+    <h2 style="margin-bottom:6px">🎯 Target course(s)</h2>
+    <p style="font-size:0.82rem;color:#1a365d;margin-bottom:10px">Pick which course(s) the module should be created in.</p>
+    <div style="display:flex;gap:8px;align-items:center;margin:6px 0">
+      <button type="button" onclick="multiModSelectAll(true)" style="padding:4px 12px;background:#fff;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Select all</button>
+      <button type="button" onclick="multiModSelectAll(false)" style="padding:4px 12px;background:#fff;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Clear</button>
+      <span id="multi-mod-courses-count" style="font-size:0.78rem;color:#1a365d;font-weight:600"></span>
+    </div>
+    <div id="multi-mod-courses" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#fff;border:1px solid #cbd5e0;border-radius:8px;min-height:54px"></div>
+  </div>
+
+  <!-- Copy module from a past semester -->
+  <div class="card" style="background:#fffbeb;border-left:4px solid #d69e2e">
+    <h2 style="margin-bottom:6px">📋 Copy a module from a past semester</h2>
+    <p style="font-size:0.82rem;color:#744210;margin-bottom:10px"><span id="copy-past-mod-context">Pick a target course above first…</span></p>
+    <div style="display:grid;grid-template-columns:1fr;gap:10px;align-items:end">
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Pick a module to copy</label>
+        <select id="copy-past-mod" style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.88rem;margin-top:4px">
+          <option value="">— Pick a target course above first —</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="copyModuleFromPast()" id="copy-mod-btn"
+                style="padding:9px 22px;background:#d69e2e;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">↓ Copy module (with items)</button>
+        <span style="font-size:0.78rem;color:#744210">Uses Canvas content migration — copies the module, its items, and any attached files. Async, ~30s–2min per target.</span>
+      </div>
+    </div>
+    <span id="copy-past-mod-status" style="font-size:0.82rem;color:#744210;margin-top:8px;display:inline-block"></span>
+  </div>
+
+  <!-- New Module from scratch -->
   <div class="card">
     <h2>🧱 New Module</h2>
+    <p style="font-size:0.84rem;color:#666;margin-bottom:14px">Create a fresh module in every checked course above. Optionally attach files — each one is added as a File item inside the new module.</p>
 
-    <div style="margin-bottom:14px">
+    <div style="margin-bottom:12px">
       <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Module name</label>
       <input type="text" id="multi-mod-name" placeholder="e.g., Week 1 — Introduction"
              style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.92rem;margin-top:4px">
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
       <div>
-        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Unlock at (optional)</label>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Unlock at</label>
         <input type="datetime-local" id="multi-mod-unlock"
                style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
       </div>
       <div>
-        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Position (optional)</label>
-        <input type="number" id="multi-mod-position" min="1" placeholder="(end)"
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Lock at</label>
+        <input type="datetime-local" id="multi-mod-lock"
+               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+      </div>
+      <div>
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Position</label>
+        <input type="number" id="multi-mod-position" min="1" placeholder="(end of list)"
                style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
       </div>
     </div>
 
-    <div style="margin-bottom:14px">
-      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Create in which course(s)?</label>
-      <div style="display:flex;gap:8px;align-items:center;margin:6px 0">
-        <button type="button" onclick="multiModSelectAll(true)" style="padding:4px 12px;background:#edf2f7;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Select all</button>
-        <button type="button" onclick="multiModSelectAll(false)" style="padding:4px 12px;background:#edf2f7;border:1px solid #cbd5e0;border-radius:14px;font-size:0.78rem;cursor:pointer">Clear</button>
-        <span id="multi-mod-courses-count" style="font-size:0.78rem;color:#666"></span>
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Prerequisite modules (optional)</label>
+      <select id="multi-mod-prereq" multiple size="3"
+              style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.86rem;margin-top:4px">
+        <option value="">(none — pick a target course first to see existing modules)</option>
+      </select>
+      <div style="font-size:0.74rem;color:#666;margin-top:4px">Hold ⌘ / Ctrl to pick multiple. Modules are matched by name across target courses.</div>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Attach files (added as File items inside the module)</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">
+        <input type="file" id="multi-mod-file-input" multiple onchange="onModuleAttachFiles(this.files)"
+               style="display:none">
+        <button type="button" onclick="document.getElementById('multi-mod-file-input').click()"
+                style="padding:6px 14px;background:#edf2f7;color:var(--brand-primary);border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">📎 Choose files</button>
+        <div id="multi-mod-attachments" style="display:flex;flex-wrap:wrap;gap:6px;flex:1"></div>
       </div>
-      <div id="multi-mod-courses" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:8px;min-height:54px"></div>
     </div>
 
     <div style="margin-bottom:14px;padding:10px 12px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:6px">
       <div style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase;margin-bottom:6px">Settings</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:0.86rem">
-        <label><input type="checkbox" id="multi-mod-publish" checked> Publish immediately</label>
-        <label><input type="checkbox" id="multi-mod-sequential"> Require sequential progress (students complete in order)</label>
+        <label><input type="checkbox" id="multi-mod-publish" checked> Publish module immediately</label>
+        <label><input type="checkbox" id="multi-mod-publish-items" checked> Publish each attached file</label>
+        <label><input type="checkbox" id="multi-mod-sequential"> Require sequential progress</label>
+        <label><input type="checkbox" id="multi-mod-published-finalgrade"> Publish final grade after completion</label>
       </div>
     </div>
 
@@ -3993,6 +4045,10 @@ function renderGradebookFromSubs(subs, sortMode) {
 
 // ── Tabs ──
 // ── Modules tab (multi-course composer) ──
+let pastModuleCache = {};       // courseId -> module list
+let lastPastModuleCourseId = null;
+let moduleAttachments = [];     // [{id, name, uploading}]
+
 function renderModuleComposerCourses() {
   const wrap = document.getElementById('multi-mod-courses');
   if (!wrap) return;
@@ -4002,6 +4058,7 @@ function renderModuleComposerCourses() {
   if (!pool.length) {
     wrap.innerHTML = '<div style="color:#666;font-size:0.86rem;padding:6px">Connect and load a course or semester first.</div>';
     document.getElementById('multi-mod-courses-count').textContent = '';
+    refreshPastModuleCopyPanel();
     return;
   }
   wrap.innerHTML = pool.map(c => `
@@ -4011,6 +4068,7 @@ function renderModuleComposerCourses() {
     </label>
   `).join('');
   updateMultiModCount();
+  refreshPastModuleCopyPanel();
 }
 
 function updateMultiModCount() {
@@ -4018,6 +4076,8 @@ function updateMultiModCount() {
   const total = document.querySelectorAll('#multi-mod-courses input[type=checkbox]').length;
   const el = document.getElementById('multi-mod-courses-count');
   if (el) el.textContent = `${n} of ${total} selected`;
+  refreshPastModuleCopyPanel();
+  populatePrereqDropdown();
 }
 
 function multiModSelectAll(on) {
@@ -4025,44 +4085,280 @@ function multiModSelectAll(on) {
   updateMultiModCount();
 }
 
+function getActiveModTargetCourses() {
+  return Array.from(document.querySelectorAll('#multi-mod-courses input[type=checkbox]:checked'))
+    .map(cb => ({ id: cb.value, code: cb.dataset.code }));
+}
+
+// Populate the prerequisite-module dropdown from the FIRST checked target's modules
+async function populatePrereqDropdown() {
+  const sel = document.getElementById('multi-mod-prereq');
+  if (!sel) return;
+  const checked = getActiveModTargetCourses();
+  if (!checked.length) {
+    sel.innerHTML = '<option value="">(pick a target course first)</option>';
+    return;
+  }
+  try {
+    const mods = await api(`/api/v1/courses/${checked[0].id}/modules?per_page=100`);
+    sel.innerHTML = mods.length
+      ? mods.map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('')
+      : '<option value="">(target has no existing modules)</option>';
+  } catch (e) {
+    sel.innerHTML = '<option value="">(error loading modules)</option>';
+  }
+}
+
+// ── Copy from past semester ──
+async function refreshPastModuleCopyPanel() {
+  const ctx = document.getElementById('copy-past-mod-context');
+  const sel = document.getElementById('copy-past-mod');
+  if (!ctx || !sel) return;
+  const checked = getActiveModTargetCourses();
+  if (!checked.length) {
+    ctx.textContent = 'Pick a target course above first — then I\'ll find its last semester.';
+    sel.innerHTML = '<option value="">— Pick a target course above first —</option>';
+    lastPastModuleCourseId = null;
+    return;
+  }
+  // Reuse the assignments past-course detector — same rule (same code base, earlier semester)
+  // We need to set the assignment-form "checked" temporarily; instead duplicate the logic here.
+  const refCourse = allCourses.find(c => String(c.id) === String(checked[0].id));
+  const base = courseCodeBase(checked[0].code);
+  const targetTag = refCourse ? semesterTagFromCourse(refCourse) : '';
+  const targetTagRank = semesterTagRank(targetTag);
+  const targetIds = new Set(checked.map(c => String(c.id)));
+  const candidates = (allCourses || []).filter(c => {
+    if (targetIds.has(String(c.id))) return false;
+    if (courseCodeBase(c.course_code) !== base) return false;
+    const t = semesterTagFromCourse(c);
+    if (t && targetTag && t === targetTag) return false;
+    if (targetTagRank && t && semesterTagRank(t) >= targetTagRank) return false;
+    return true;
+  });
+  candidates.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  const past = candidates[0];
+  if (!past) {
+    ctx.innerHTML = `<strong>No previous-semester offering of ${esc(base || checked[0].code)} was found.</strong>`;
+    sel.innerHTML = '<option value="">— No previous-semester course —</option>';
+    lastPastModuleCourseId = null;
+    return;
+  }
+  const term = past.term?.name ? ` · ${esc(past.term.name)}` : '';
+  ctx.innerHTML = `Pulling from: <strong>${esc(past.course_code || past.name)}</strong>${term}`;
+  if (past.id === lastPastModuleCourseId && pastModuleCache[past.id]) {
+    fillPastModuleDropdown(past.id);
+    return;
+  }
+  lastPastModuleCourseId = past.id;
+  sel.innerHTML = '<option value="">Loading modules…</option>';
+  try {
+    const mods = await api(`/api/v1/courses/${past.id}/modules?per_page=100&include[]=items`);
+    pastModuleCache[past.id] = mods;
+    fillPastModuleDropdown(past.id);
+  } catch (e) {
+    sel.innerHTML = `<option value="">Error: ${esc(e.message)}</option>`;
+  }
+}
+
+function fillPastModuleDropdown(cid) {
+  const sel = document.getElementById('copy-past-mod');
+  const list = pastModuleCache[cid] || [];
+  if (!list.length) {
+    sel.innerHTML = '<option value="">— No modules in that course —</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">— Pick a module —</option>'
+    + list.map(m => `<option value="${m.id}">${esc(m.name)} (${(m.items||[]).length} items)</option>`).join('');
+}
+
+async function copyModuleFromPast() {
+  const mid = document.getElementById('copy-past-mod').value;
+  const cidPast = lastPastModuleCourseId;
+  if (!mid || !cidPast) { setStatus('copy-past-mod-status', 'Pick a module first.', 'err'); return; }
+  const targets = getActiveModTargetCourses();
+  if (!targets.length) { setStatus('copy-past-mod-status', 'Pick at least one target course.', 'err'); return; }
+  const src = (pastModuleCache[cidPast] || []).find(m => String(m.id) === mid);
+  const srcName = src?.name || 'this module';
+  if (!confirm(`Copy module "${srcName}" (with all items) into ${targets.length} course(s)?\nMigrations are async — this may take 30s–2min per course.\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
+
+  const btn = document.getElementById('copy-mod-btn');
+  btn.disabled = true;
+  let ok = 0, fail = 0;
+  for (const t of targets) {
+    setStatus('copy-past-mod-status', `[${ok + fail + 1}/${targets.length}] ${t.code}: starting migration…`, 'info');
+    try {
+      await migrateModuleToCourse(cidPast, mid, t.id,
+        msg => setStatus('copy-past-mod-status', `[${ok + fail + 1}/${targets.length}] ${t.code}: ${msg}`, 'info'));
+      ok++;
+    } catch (e) {
+      fail++;
+      console.error('Module migration failed for', t.code, e);
+    }
+  }
+  btn.disabled = false;
+  setStatus('copy-past-mod-status', `Copied to ${ok} of ${targets.length}${fail ? ` · ${fail} failed (see console)` : ''}.`, fail ? 'warn' : 'ok');
+}
+
+async function migrateModuleToCourse(srcCid, moduleId, targetCid, statusFn) {
+  if (statusFn) statusFn('Starting migration…');
+  const mig = await apiPost(`/api/v1/courses/${targetCid}/content_migrations`, [
+    ['migration_type', 'course_copy_importer'],
+    ['settings[source_course_id]', String(srcCid)],
+    ['select[context_modules][]', String(moduleId)],
+  ]);
+  const mid = mig.id;
+  const start = Date.now();
+  while (Date.now() - start < 5 * 60 * 1000) {
+    await new Promise(r => setTimeout(r, 3000));
+    const m = await api(`/api/v1/courses/${targetCid}/content_migrations/${mid}`);
+    const pct = m.progress != null ? ` ${Math.round(m.progress)}%` : '';
+    if (statusFn) statusFn(`Canvas migration: ${m.workflow_state}${pct}`);
+    if (m.workflow_state === 'completed') return m;
+    if (m.workflow_state === 'failed') throw new Error('Migration failed');
+  }
+  throw new Error('Migration timed out');
+}
+
+// ── File attachments for new module ──
+function renderModAttachmentChips() {
+  const el = document.getElementById('multi-mod-attachments');
+  if (!el) return;
+  if (!moduleAttachments.length) { el.innerHTML = ''; return; }
+  el.innerHTML = moduleAttachments.map((a, i) => `
+    <span style="display:inline-flex;align-items:center;gap:6px;background:#fffbeb;border:1px solid #d69e2e;color:#744210;padding:4px 10px;border-radius:14px;font-size:0.82rem;font-weight:600">
+      ${a.uploading ? '<span class="spinner" style="width:10px;height:10px"></span>' : '📎'} ${esc(a.name)}
+      ${a.id ? `<span onclick="removeModAttachment(${i})" style="cursor:pointer;color:#666;font-size:0.82rem;margin-left:2px" title="Remove">×</span>` : ''}
+    </span>
+  `).join('');
+}
+
+function removeModAttachment(i) {
+  moduleAttachments.splice(i, 1);
+  renderModAttachmentChips();
+}
+
+async function onModuleAttachFiles(fileList) {
+  if (!fileList || !fileList.length) return;
+  const placeholders = [];
+  for (const f of fileList) {
+    const ph = { id: null, name: f.name, uploading: true };
+    moduleAttachments.push(ph);
+    placeholders.push({ ph, f });
+  }
+  renderModAttachmentChips();
+  for (const { ph, f } of placeholders) {
+    try {
+      const obj = await uploadFileToCanvas(f);
+      ph.id = obj.id;
+      ph.uploading = false;
+    } catch (e) {
+      console.error('Upload failed for', f.name, e);
+      const idx = moduleAttachments.indexOf(ph);
+      if (idx >= 0) moduleAttachments.splice(idx, 1);
+      setStatus('multi-mod-status', `✗ Upload failed for ${f.name}: ${e.message}`, 'err');
+    }
+    renderModAttachmentChips();
+  }
+  const fi = document.getElementById('multi-mod-file-input');
+  if (fi) fi.value = '';
+}
+
 function resetMultiModuleForm() {
   document.getElementById('multi-mod-name').value = '';
   document.getElementById('multi-mod-unlock').value = '';
+  document.getElementById('multi-mod-lock').value = '';
   document.getElementById('multi-mod-position').value = '';
   document.getElementById('multi-mod-publish').checked = true;
+  document.getElementById('multi-mod-publish-items').checked = true;
   document.getElementById('multi-mod-sequential').checked = false;
+  document.getElementById('multi-mod-published-finalgrade').checked = false;
   multiModSelectAll(false);
+  moduleAttachments = [];
+  renderModAttachmentChips();
+  const fi = document.getElementById('multi-mod-file-input'); if (fi) fi.value = '';
+  // Clear prereq selection
+  const prereq = document.getElementById('multi-mod-prereq');
+  if (prereq) Array.from(prereq.options).forEach(o => o.selected = false);
   setStatus('multi-mod-status', '', '');
 }
 
 async function createMultiModule() {
   const name = document.getElementById('multi-mod-name').value.trim();
   const unlock = document.getElementById('multi-mod-unlock').value;
+  const lock = document.getElementById('multi-mod-lock').value;
   const position = document.getElementById('multi-mod-position').value.trim();
   const publish = document.getElementById('multi-mod-publish').checked;
+  const publishItems = document.getElementById('multi-mod-publish-items').checked;
   const sequential = document.getElementById('multi-mod-sequential').checked;
+  const publishFinalGrade = document.getElementById('multi-mod-published-finalgrade').checked;
+  const prereqNames = Array.from(document.getElementById('multi-mod-prereq').selectedOptions)
+    .map(o => o.value).filter(Boolean);
   const checked = Array.from(document.querySelectorAll('#multi-mod-courses input[type=checkbox]:checked'));
   if (!name) { setStatus('multi-mod-status', 'Name required.', 'err'); return; }
   if (!checked.length) { setStatus('multi-mod-status', 'Pick at least one course.', 'err'); return; }
+  if (moduleAttachments.some(a => a.uploading)) {
+    setStatus('multi-mod-status', 'Wait for file uploads to finish before creating.', 'warn');
+    return;
+  }
   const targets = checked.map(c => ({ id: c.value, code: c.dataset.code }));
-  if (!confirm(`Create module "${name}" in ${targets.length} course(s)?\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
+  const attLen = moduleAttachments.filter(a => a.id).length;
+  if (!confirm(`Create module "${name}" in ${targets.length} course(s)${attLen ? ` with ${attLen} file item(s)` : ''}?\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
 
   const btn = document.getElementById('multi-mod-create-btn');
   btn.disabled = true;
   let ok = 0, fail = 0;
   for (const t of targets) {
-    setStatus('multi-mod-status', `Creating in ${t.code} (${ok + fail + 1}/${targets.length})…`, 'info');
+    setStatus('multi-mod-status', `[${ok + fail + 1}/${targets.length}] Creating in ${t.code}…`, 'info');
     try {
+      // 1. Resolve prerequisite module ids per target (by name match)
+      let prereqIds = [];
+      if (prereqNames.length) {
+        try {
+          const existing = await api(`/api/v1/courses/${t.id}/modules?per_page=100`);
+          prereqIds = existing.filter(m => prereqNames.includes(m.name)).map(m => m.id);
+        } catch (e) { /* ignore */ }
+      }
+      // 2. Create the module
       const params = [
         ['module[name]', name],
         ['module[require_sequential_progress]', sequential ? 'true' : 'false'],
+        ['module[publish_final_grade]', publishFinalGrade ? 'true' : 'false'],
       ];
       if (unlock) params.push(['module[unlock_at]', new Date(unlock).toISOString()]);
       if (position) params.push(['module[position]', position]);
+      prereqIds.forEach(id => params.push(['module[prerequisite_module_ids][]', String(id)]));
       const created = await apiPost(`/api/v1/courses/${t.id}/modules`, params);
-      // The create endpoint usually returns the module unpublished; flip if requested.
-      if (publish && created?.id) {
-        await apiPut(`/api/v1/courses/${t.id}/modules/${created.id}`, [['module[published]', 'true']]);
+      const newModId = created?.id;
+      // 3. Attach files as File items
+      if (newModId && moduleAttachments.length) {
+        for (const a of moduleAttachments) {
+          if (!a.id) continue;
+          // The uploaded file lives in user files; first move it to the target course
+          let targetFileId = a.id;
+          try {
+            const folder = await api(`/api/v1/courses/${t.id}/folders/root`);
+            const copied = await apiPost(`/api/v1/folders/${folder.id}/copy_file`, [
+              ['source_file_id', String(a.id)], ['on_duplicate', 'rename'],
+            ]);
+            targetFileId = copied.id;
+          } catch (e) { /* fall back to the original file id */ }
+          await apiPost(`/api/v1/courses/${t.id}/modules/${newModId}/items`, [
+            ['module_item[type]', 'File'],
+            ['module_item[content_id]', String(targetFileId)],
+            ['module_item[title]', a.name],
+          ]);
+          if (publishItems) {
+            try {
+              // Module items inherit publish state from the underlying file. Touch the file.
+              await apiPut(`/api/v1/files/${targetFileId}`, [['hidden', 'false'], ['locked', 'false']]);
+            } catch (e) { /* not critical */ }
+          }
+        }
+      }
+      // 4. Flip publish on module if requested
+      if (publish && newModId) {
+        await apiPut(`/api/v1/courses/${t.id}/modules/${newModId}`, [['module[published]', 'true']]);
       }
       ok++;
     } catch (e) {

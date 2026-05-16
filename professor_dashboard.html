@@ -347,6 +347,7 @@ a.email-link:hover { text-decoration: underline; }
   <button class="tab-btn" onclick="showTab('assignments')">📝 Assignments</button>
   <button class="tab-btn" onclick="showTab('tasks')">✏️ Tasks</button>
   <button class="tab-btn" onclick="showTab('syllabus')">📜 Syllabus</button>
+  <button class="tab-btn" onclick="showTab('modules')">🧱 Modules</button>
   <button class="tab-btn" onclick="showTab('gradebook')">📋 Gradebook</button>
   <button class="tab-btn" onclick="showTab('atrisk')">⚠️ At-Risk</button>
 </div>
@@ -1187,6 +1188,24 @@ a.email-link:hover { text-decoration: underline; }
   </div>
 </div>
 
+<!-- Modules -->
+<div class="tab-panel" id="tab-modules">
+  <div class="multi-picker-bar hide" id="picker-modules"></div>
+  <div class="card">
+    <h2 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>🧱 Modules</span>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="new-module-name" placeholder="New module name…"
+               style="padding:6px 10px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.84rem;min-width:200px">
+        <button onclick="createModule()" style="padding:6px 14px;background:var(--brand-primary);color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">+ Add Module</button>
+        <button onclick="loadModules(true)" style="padding:6px 14px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">↻ Refresh</button>
+      </div>
+    </h2>
+    <div id="modules-status" style="font-size:0.84rem;color:#666;margin-bottom:10px"></div>
+    <div id="modules-list" class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</div>
+
 </div><!-- /.tab-content -->
 
 <div style="grid-column:1/-1;text-align:center;padding:10px;color:#a0aec0;font-size:0.72rem;font-family:monospace">
@@ -1575,6 +1594,7 @@ async function loadAllInSemester() {
     submissionsCache = {};
     pastAsnCache = {};
     pastAsnGroups = {};
+    modulesCache = {};
     document.getElementById('dashboard').classList.remove('hide');
     renderMultiStudents();
     renderMultiOtherTabs();
@@ -1749,9 +1769,11 @@ function renderMultiOtherTabs() {
   showMultiPicker('gradebook', false);
   showMultiPicker('atrisk', true);
   showMultiPicker('tasks', false);
+  showMultiPicker('modules', false);
   renderMultiAtRisk();
   renderMultiGradebook();
   renderMultiTasks();
+  renderMultiModules();
   // Composer tabs — populate the course checkboxes
   renderAnnouncementComposerCourses();
   renderAssignmentComposerCourses();
@@ -1790,7 +1812,7 @@ function onMultiPickerChange(tabKey, val) {
     return;
   }
   // Tabs that can't operate in multi-mode switch to single-course mode for that course
-  if ((tabKey === 'gradebook' || tabKey === 'tasks') && val && val !== 'all') {
+  if ((tabKey === 'gradebook' || tabKey === 'tasks' || tabKey === 'modules') && val && val !== 'all') {
     selectCourse(val);
     return;
   }
@@ -1810,7 +1832,7 @@ function onMultiPickerChange(tabKey, val) {
 }
 
 function hideMultiPickers() {
-  ['gradebook','atrisk','tasks'].forEach(k => {
+  ['gradebook','atrisk','tasks','modules'].forEach(k => {
     const el = document.getElementById('picker-' + k);
     if (el) { el.classList.add('hide'); el.innerHTML = ''; }
   });
@@ -3558,6 +3580,21 @@ function renderMultiTasks() {
   // Switching only happens via onMultiPickerChange.
 }
 
+// ── Multi: Modules tab ──
+function renderMultiModules() {
+  if (!multi_mode) return;
+  const list = document.getElementById('modules-list');
+  if (!list) return;
+  list.classList.remove('loading');
+  list.innerHTML = `<div class="empty" style="padding:30px;text-align:center">
+    <div style="font-size:1.6rem;margin-bottom:6px">🧱</div>
+    <div style="font-weight:600;margin-bottom:4px">Pick a course above</div>
+    <div style="color:#666;font-size:0.88rem">Modules are per-course; selecting one will switch the dashboard to single-course mode.</div>
+  </div>`;
+  const statusEl = document.getElementById('modules-status');
+  if (statusEl) statusEl.textContent = '';
+}
+
 function removeMultiSectionColumn() {
   const secSel = document.getElementById('section-filter');
   if (secSel) { secSel.classList.add('hide'); secSel.value = ''; }
@@ -3567,13 +3604,14 @@ function removeMultiSectionColumn() {
 
 function refreshPickersForCurrentCourse(cid) {
   if (!multi_courses.length) return;
-  ['gradebook','atrisk','tasks'].forEach(k => {
+  ['gradebook','atrisk','tasks','modules'].forEach(k => {
     multi_tab_active[k] = String(cid);
   });
   // Re-render each picker so it shows the new selection
   showMultiPicker('gradebook', false);
   showMultiPicker('atrisk', true);
   showMultiPicker('tasks', false);
+  showMultiPicker('modules', false);
   // Composer tabs: refresh their course checkboxes
   renderAnnouncementComposerCourses();
   renderAssignmentComposerCourses();
@@ -3936,6 +3974,142 @@ function renderGradebookFromSubs(subs, sortMode) {
 }
 
 // ── Tabs ──
+// ── Modules tab ──
+let modulesCache = {}; // courseId -> array of modules (with items)
+
+async function loadModules(forceFetch) {
+  const list = document.getElementById('modules-list');
+  const statusEl = document.getElementById('modules-status');
+  list.classList.remove('loading');
+  if (!course_id) {
+    list.innerHTML = '<div class="empty" style="padding:30px;text-align:center;color:#666">Pick a course (from the picker above) to manage its modules.</div>';
+    statusEl.textContent = '';
+    return;
+  }
+  if (modulesCache[course_id] && !forceFetch) {
+    renderModules(modulesCache[course_id]);
+    return;
+  }
+  list.innerHTML = '<div class="loading" style="padding:30px;text-align:center"><span class="spinner"></span> Loading modules…</div>';
+  try {
+    const mods = await api(`/api/v1/courses/${course_id}/modules?per_page=100&include[]=items&include[]=content_details`);
+    modulesCache[course_id] = mods;
+    renderModules(mods);
+  } catch (e) {
+    list.innerHTML = `<div style="color:#c53030;padding:14px">Error loading modules: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderModules(mods) {
+  const list = document.getElementById('modules-list');
+  const statusEl = document.getElementById('modules-status');
+  if (!mods || !mods.length) {
+    list.innerHTML = '<div class="empty" style="padding:30px;text-align:center;color:#666">No modules in this course yet. Use "+ Add Module" above to create one.</div>';
+    statusEl.textContent = '';
+    return;
+  }
+  const code = course_info?.course_code || `course ${course_id}`;
+  statusEl.textContent = `${mods.length} module(s) in ${code}.`;
+  list.innerHTML = mods.map(m => modCardHtml(m)).join('');
+}
+
+function modCardHtml(m) {
+  const published = !!m.published;
+  const items = m.items || [];
+  const lockNote = m.unlock_at ? `Unlocks ${new Date(m.unlock_at).toLocaleDateString()}` : '';
+  return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden">
+    <div style="padding:12px 14px;background:${published?'#f0fff4':'#fafafa'};display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;border-bottom:1px solid #e2e8f0">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-weight:700;color:#1a365d;font-size:0.96rem">${esc(m.name || '(untitled)')}</span>
+        ${published
+          ? '<span style="background:#c6f6d5;color:#22543d;padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:600">PUBLISHED</span>'
+          : '<span style="background:#edf2f7;color:#4a5568;padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:600">UNPUBLISHED</span>'}
+        ${lockNote ? `<span style="font-size:0.78rem;color:#666">🔒 ${esc(lockNote)}</span>` : ''}
+        <span style="font-size:0.78rem;color:#666">${items.length} item(s)</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="toggleModulePublished(${m.id}, ${!published})"
+                style="padding:5px 12px;background:${published?'#edf2f7':'var(--brand-primary)'};color:${published?'#4a5568':'#fff'};border:1px solid ${published?'#cbd5e0':'transparent'};border-radius:5px;font-size:0.78rem;font-weight:600;cursor:pointer">
+          ${published ? 'Unpublish' : 'Publish'}
+        </button>
+        <button onclick="renameModule(${m.id})" style="padding:5px 10px;background:#edf2f7;color:#4a5568;border:1px solid #cbd5e0;border-radius:5px;font-size:0.78rem;font-weight:600;cursor:pointer">Rename</button>
+        <button onclick="deleteModule(${m.id})" style="padding:5px 10px;background:#fed7d7;color:#9b2c2c;border:1px solid #fc8181;border-radius:5px;font-size:0.78rem;font-weight:600;cursor:pointer">Delete</button>
+      </div>
+    </div>
+    ${items.length ? `<ul style="list-style:none;padding:6px 0">
+      ${items.map(it => `<li style="padding:6px 14px;display:flex;justify-content:space-between;align-items:center;font-size:0.86rem;border-bottom:1px solid #f7fafc">
+        <span>${moduleItemIcon(it.type)} <span style="margin-left:6px">${esc(it.title || '(untitled)')}</span>
+          ${it.published===false ? '<span style="margin-left:6px;color:#a0aec0;font-size:0.74rem">(unpublished)</span>' : ''}</span>
+        <span style="color:#a0aec0;font-size:0.74rem">${esc(it.type || '')}</span>
+      </li>`).join('')}
+    </ul>` : '<div style="padding:10px 14px;color:#a0aec0;font-size:0.84rem">No items.</div>'}
+  </div>`;
+}
+
+function moduleItemIcon(type) {
+  switch (type) {
+    case 'Assignment': return '📝';
+    case 'Quiz': return '❓';
+    case 'File': return '📎';
+    case 'Page': return '📄';
+    case 'Discussion': return '💬';
+    case 'ExternalUrl': return '🔗';
+    case 'ExternalTool': return '🛠️';
+    case 'SubHeader': return '➖';
+    default: return '•';
+  }
+}
+
+async function createModule() {
+  const inp = document.getElementById('new-module-name');
+  const name = inp.value.trim();
+  if (!name) { inp.focus(); return; }
+  if (!course_id) { alert('Pick a course first.'); return; }
+  try {
+    await apiPost(`/api/v1/courses/${course_id}/modules`, [['module[name]', name]]);
+    inp.value = '';
+    await loadModules(true);
+  } catch (e) {
+    alert('Create failed: ' + e.message);
+  }
+}
+
+async function toggleModulePublished(mid, makePublished) {
+  try {
+    await apiPut(`/api/v1/courses/${course_id}/modules/${mid}`, [['module[published]', makePublished ? 'true' : 'false']]);
+    await loadModules(true);
+  } catch (e) {
+    alert('Publish toggle failed: ' + e.message);
+  }
+}
+
+async function renameModule(mid) {
+  const newName = prompt('New module name:');
+  if (!newName || !newName.trim()) return;
+  try {
+    await apiPut(`/api/v1/courses/${course_id}/modules/${mid}`, [['module[name]', newName.trim()]]);
+    await loadModules(true);
+  } catch (e) {
+    alert('Rename failed: ' + e.message);
+  }
+}
+
+async function deleteModule(mid) {
+  if (!confirm('Delete this module and all its items? This cannot be undone.')) return;
+  try {
+    const token = document.getElementById('token').value.trim();
+    const domain = document.getElementById('domain').value.trim().replace(/\/$/, '');
+    const res = await fetch(`${PROXY}/api/v1/courses/${course_id}/modules/${mid}`, {
+      method: 'DELETE',
+      headers: { 'X-Canvas-Token': token, 'X-Canvas-Domain': domain },
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    await loadModules(true);
+  } catch (e) {
+    alert('Delete failed: ' + e.message);
+  }
+}
+
 function showTab(id) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -3947,6 +4121,7 @@ function showTab(id) {
   if (id === 'assignments') renderAssignmentComposerCourses();
   if (id === 'syllabus') renderSyllabusCourses();
   if (id === 'inbox') loadInbox();
+  if (id === 'modules') loadModules();
 }
 
 function esc(s) {

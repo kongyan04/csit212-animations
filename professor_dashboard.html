@@ -1226,16 +1226,19 @@ a.email-link:hover { text-decoration: underline; }
     <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:10px">
       <div>
         <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Target module (for item copy)</label>
-        <input type="text" id="copy-past-mod-target-name" placeholder="(blank = same name as source module — created if it doesn't exist)"
+        <input type="text" id="copy-past-mod-target-name" placeholder="Name of the module the item should go into (created if missing)"
                style="width:100%;padding:8px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.86rem;margin-top:4px">
       </div>
+    </div>
+    <div style="margin-bottom:10px;font-size:0.86rem">
+      <label><input type="checkbox" id="copy-mod-publish" checked> Publish the module (and item) after copying</label>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button onclick="copyModuleItemFromPast()" id="copy-mod-item-btn"
               style="padding:9px 22px;background:#2b6cb0;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">↓ Copy this item</button>
       <button onclick="copyModuleFromPast()" id="copy-mod-btn"
               style="padding:9px 22px;background:#d69e2e;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.86rem">↓ Copy whole module (all items)</button>
-      <span style="font-size:0.78rem;color:#744210">Async — ~30s–2min per target.</span>
+      <span style="font-size:0.78rem;color:#744210">Async — ~30s–2min per target. Independent of the New Module form below.</span>
     </div>
     <span id="copy-past-mod-status" style="font-size:0.82rem;color:#744210;margin-top:8px;display:inline-block"></span>
   </div>
@@ -4210,8 +4213,7 @@ function onPastModuleChange(mid) {
     ? '<option value="">— Pick an item —</option>' +
       items.map(it => `<option value="${it.id}" data-type="${esc(it.type||'')}" data-cid="${it.content_id||''}" data-title="${esc(it.title||'')}">${moduleItemIcon(it.type)} ${esc(it.title || '(untitled)')} <small>[${esc(it.type||'')}]</small></option>`).join('')
     : '<option value="">— Module has no items —</option>';
-  // Default the target-module input to the source module's name
-  targetInput.value = mod.name || '';
+  // Leave target-module-name empty for explicit user input.
 }
 
 function moduleItemIcon(type) {
@@ -4236,7 +4238,8 @@ async function copyModuleFromPast() {
   if (!targets.length) { setStatus('copy-past-mod-status', 'Pick at least one target course.', 'err'); return; }
   const src = (pastModuleCache[cidPast] || []).find(m => String(m.id) === mid);
   const srcName = src?.name || 'this module';
-  if (!confirm(`Copy module "${srcName}" (with all items) into ${targets.length} course(s)?\nMigrations are async — this may take 30s–2min per course.\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
+  const publish = !!document.getElementById('copy-mod-publish')?.checked;
+  if (!confirm(`Copy module "${srcName}" (with all items) into ${targets.length} course(s)?${publish ? '\nThe copied module will be published.' : '\nThe copied module will stay unpublished.'}\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
 
   const btn = document.getElementById('copy-mod-btn');
   btn.disabled = true;
@@ -4246,6 +4249,15 @@ async function copyModuleFromPast() {
     try {
       await migrateModuleToCourse(cidPast, mid, t.id,
         msg => setStatus('copy-past-mod-status', `[${ok + fail + 1}/${targets.length}] ${t.code}: ${msg}`, 'info'));
+      // After migration, find the new module by source name and publish if requested.
+      if (publish) {
+        setStatus('copy-past-mod-status', `[${ok + fail + 1}/${targets.length}] ${t.code}: publishing…`, 'info');
+        const mods = await api(`/api/v1/courses/${t.id}/modules?per_page=100`);
+        const newMod = mods.find(m => m.name === srcName);
+        if (newMod) {
+          await apiPut(`/api/v1/courses/${t.id}/modules/${newMod.id}`, [['module[published]', 'true']]);
+        }
+      }
       ok++;
     } catch (e) {
       fail++;
@@ -4286,13 +4298,14 @@ async function copyModuleItemFromPast() {
 
   if (!confirm(`Copy "${srcItem.title}" (${srcItem.type}) into module "${finalTargetModName}" in ${targets.length} course(s)?`)) return;
 
+  const publish = !!document.getElementById('copy-mod-publish')?.checked;
   const btn = document.getElementById('copy-mod-item-btn');
   btn.disabled = true;
   let ok = 0, fail = 0;
   for (const t of targets) {
     setStatus('copy-past-mod-status', `[${ok + fail + 1}/${targets.length}] ${t.code}: copying…`, 'info');
     try {
-      await copyOneItem(cidPast, srcItem, t.id, finalTargetModName,
+      await copyOneItem(cidPast, srcItem, t.id, finalTargetModName, publish,
         msg => setStatus('copy-past-mod-status', `[${ok + fail + 1}/${targets.length}] ${t.code}: ${msg}`, 'info'));
       ok++;
     } catch (e) {
@@ -4304,7 +4317,7 @@ async function copyModuleItemFromPast() {
   setStatus('copy-past-mod-status', `Copied to ${ok} of ${targets.length}${fail ? ` · ${fail} failed (see console)` : ''}.`, fail ? 'warn' : 'ok');
 }
 
-async function copyOneItem(srcCid, srcItem, targetCid, targetModName, statusFn) {
+async function copyOneItem(srcCid, srcItem, targetCid, targetModName, publish, statusFn) {
   // 1. Make sure the target module exists; create if not.
   if (statusFn) statusFn('finding/creating target module…');
   const existingMods = await api(`/api/v1/courses/${targetCid}/modules?per_page=100`);
@@ -4312,8 +4325,13 @@ async function copyOneItem(srcCid, srcItem, targetCid, targetModName, statusFn) 
   if (!targetMod) {
     targetMod = await apiPost(`/api/v1/courses/${targetCid}/modules`, [
       ['module[name]', targetModName],
-      ['module[published]', 'true'],
+      ['module[published]', publish ? 'true' : 'false'],
     ]);
+  } else if (publish && !targetMod.published) {
+    // Existing module — flip to published if requested
+    try {
+      await apiPut(`/api/v1/courses/${targetCid}/modules/${targetMod.id}`, [['module[published]', 'true']]);
+    } catch (e) { /* not fatal */ }
   }
 
   // 2. Get the underlying content into the target course depending on type.
@@ -4359,7 +4377,18 @@ async function copyOneItem(srcCid, srcItem, targetCid, targetModName, statusFn) 
   ];
   if (newContentId != null) params.push(['module_item[content_id]', String(newContentId)]);
   extraParams.forEach(p => params.push(p));
-  await apiPost(`/api/v1/courses/${targetCid}/modules/${targetMod.id}/items`, params);
+  const newItem = await apiPost(`/api/v1/courses/${targetCid}/modules/${targetMod.id}/items`, params);
+  // 4. If asked to publish, flip the underlying content + item to published
+  if (publish && newContentId != null) {
+    try {
+      // Assignment/Quiz/Page/Discussion publish via their own endpoint
+      if (type === 'Assignment')      await apiPut(`/api/v1/courses/${targetCid}/assignments/${newContentId}`,       [['assignment[published]','true']]);
+      else if (type === 'Quiz')       await apiPut(`/api/v1/courses/${targetCid}/quizzes/${newContentId}`,           [['quiz[published]','true']]);
+      else if (type === 'Page' && newItem?.page_url) await apiPut(`/api/v1/courses/${targetCid}/pages/${newItem.page_url}`, [['wiki_page[published]','true']]);
+      else if (type === 'Discussion') await apiPut(`/api/v1/courses/${targetCid}/discussion_topics/${newContentId}`, [['published','true']]);
+      else if (type === 'File')       await apiPut(`/api/v1/files/${newContentId}`,                                  [['hidden','false'],['locked','false']]);
+    } catch (e) { /* not fatal */ }
+  }
 }
 
 async function migrateOneItem(srcCid, selectKey, sourceObjId, targetCid, statusFn) {

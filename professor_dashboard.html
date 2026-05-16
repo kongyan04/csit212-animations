@@ -1248,71 +1248,79 @@ a.email-link:hover { text-decoration: underline; }
     <span id="copy-past-mod-status" style="font-size:0.82rem;color:#744210;margin-top:8px;display:inline-block"></span>
   </div>
 
-  <!-- New Module from scratch -->
+  <!-- Add a new item to an existing module -->
   <div class="card">
-    <h2>🧱 New Module</h2>
-    <p style="font-size:0.84rem;color:#666;margin-bottom:14px">Create a fresh module in every checked course above. Optionally attach files — each one is added as a File item inside the new module.</p>
+    <h2>➕ Add Module Item</h2>
+    <p style="font-size:0.84rem;color:#666;margin-bottom:14px">Add a new item to an existing module in every checked target course. The target module is matched by name across courses.</p>
 
-    <div style="margin-bottom:12px">
-      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Module name</label>
-      <input type="text" id="multi-mod-name" placeholder="e.g., Week 1 — Introduction"
-             style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.92rem;margin-top:4px">
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
       <div>
-        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Unlock at</label>
-        <input type="datetime-local" id="multi-mod-unlock"
-               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Target module</label>
+        <select id="new-item-module"
+                style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+          <option value="">— Pick a target course first —</option>
+        </select>
       </div>
       <div>
-        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Lock at</label>
-        <input type="datetime-local" id="multi-mod-lock"
-               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Item type</label>
+        <select id="new-item-type" onchange="onItemTypeChange(this.value)"
+                style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+          <option value="File">📎 File (upload new)</option>
+          <option value="ExternalUrl">🔗 External URL</option>
+          <option value="SubHeader">➖ Subheader (text only)</option>
+          <option value="Assignment">📝 Existing Assignment</option>
+          <option value="Page">📄 Existing Page</option>
+          <option value="Quiz">❓ Existing Quiz</option>
+          <option value="Discussion">💬 Existing Discussion</option>
+        </select>
       </div>
-      <div>
-        <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Position</label>
-        <input type="number" id="multi-mod-position" min="1" placeholder="(end of list)"
-               style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
-      </div>
-    </div>
-
-    <div style="margin-bottom:12px">
-      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Prerequisite modules (optional)</label>
-      <select id="multi-mod-prereq" multiple size="3"
-              style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.86rem;margin-top:4px">
-        <option value="">(none — pick a target course first to see existing modules)</option>
-      </select>
-      <div style="font-size:0.74rem;color:#666;margin-top:4px">Hold ⌘ / Ctrl to pick multiple. Modules are matched by name across target courses.</div>
     </div>
 
     <div style="margin-bottom:12px">
-      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Attach files (added as File items inside the module)</label>
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Item title</label>
+      <input type="text" id="new-item-title" placeholder="(file name / URL title / subheader text)"
+             style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+    </div>
+
+    <!-- File upload (shown for File type) -->
+    <div id="new-item-file-row" style="margin-bottom:12px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Choose file(s)</label>
       <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">
-        <input type="file" id="multi-mod-file-input" multiple onchange="onModuleAttachFiles(this.files)"
+        <input type="file" id="new-item-file-input" multiple onchange="onItemAttachFiles(this.files)"
                style="display:none">
-        <button type="button" onclick="document.getElementById('multi-mod-file-input').click()"
+        <button type="button" onclick="document.getElementById('new-item-file-input').click()"
                 style="padding:6px 14px;background:#edf2f7;color:var(--brand-primary);border:1px solid #cbd5e0;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.82rem">📎 Choose files</button>
-        <div id="multi-mod-attachments" style="display:flex;flex-wrap:wrap;gap:6px;flex:1"></div>
+        <div id="new-item-attachments" style="display:flex;flex-wrap:wrap;gap:6px;flex:1"></div>
       </div>
     </div>
 
-    <div style="margin-bottom:14px;padding:10px 12px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:6px">
-      <div style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase;margin-bottom:6px">Settings</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:0.86rem">
-        <label><input type="checkbox" id="multi-mod-publish" checked> Publish module immediately</label>
-        <label><input type="checkbox" id="multi-mod-publish-items" checked> Publish each attached file</label>
-        <label><input type="checkbox" id="multi-mod-sequential"> Require sequential progress</label>
-        <label><input type="checkbox" id="multi-mod-published-finalgrade"> Publish final grade after completion</label>
-      </div>
+    <!-- URL input (shown for ExternalUrl) -->
+    <div id="new-item-url-row" class="hide" style="margin-bottom:12px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">URL</label>
+      <input type="url" id="new-item-url" placeholder="https://…"
+             style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+    </div>
+
+    <!-- Existing-content picker (shown for Assignment/Page/Quiz/Discussion) -->
+    <div id="new-item-content-row" class="hide" style="margin-bottom:12px">
+      <label style="font-size:0.74rem;color:#666;font-weight:600;text-transform:uppercase">Pick existing content (from first checked target)</label>
+      <select id="new-item-content"
+              style="width:100%;padding:9px 12px;border:1px solid #cbd5e0;border-radius:6px;font-size:0.9rem;margin-top:4px">
+        <option value="">— Pick a target course and item type first —</option>
+      </select>
+      <div style="font-size:0.74rem;color:#666;margin-top:4px">Across multiple targets, content is matched by exact title.</div>
+    </div>
+
+    <div style="margin-bottom:14px;font-size:0.86rem">
+      <label><input type="checkbox" id="new-item-publish" checked> Publish the item (and underlying content)</label>
     </div>
 
     <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="createMultiModule()" id="multi-mod-create-btn"
-              style="padding:10px 24px;background:var(--brand-primary);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">🧱 Create Module</button>
-      <button onclick="resetMultiModuleForm()"
+      <button onclick="addModuleItem()" id="new-item-add-btn"
+              style="padding:10px 24px;background:var(--brand-primary);color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">➕ Add Item</button>
+      <button onclick="resetItemForm()"
               style="padding:10px 22px;background:#edf2f7;color:#4a5568;border:none;border-radius:6px;font-weight:600;cursor:pointer">Reset</button>
-      <span id="multi-mod-status" style="margin-left:8px;font-size:0.86rem"></span>
+      <span id="new-item-status" style="margin-left:8px;font-size:0.86rem"></span>
     </div>
   </div>
 </div>
@@ -4105,8 +4113,11 @@ function updateMultiModCount() {
   const el = document.getElementById('multi-mod-courses-count');
   if (el) el.textContent = `${n} of ${total} selected`;
   refreshPastModuleCopyPanel();
-  populatePrereqDropdown();
   populateCopyTargetModuleDropdown();
+  populateAddItemTargetModuleDropdown();
+  // Refresh the existing-content picker too, in case the current item-type uses it
+  const currentType = document.getElementById('new-item-type')?.value;
+  if (['Assignment','Page','Quiz','Discussion'].includes(currentType)) populateExistingContentDropdown(currentType);
 }
 
 async function populateCopyTargetModuleDropdown() {
@@ -4157,25 +4168,6 @@ function multiModSelectAll(on) {
 function getActiveModTargetCourses() {
   return Array.from(document.querySelectorAll('#multi-mod-courses input[type=checkbox]:checked'))
     .map(cb => ({ id: cb.value, code: cb.dataset.code }));
-}
-
-// Populate the prerequisite-module dropdown from the FIRST checked target's modules
-async function populatePrereqDropdown() {
-  const sel = document.getElementById('multi-mod-prereq');
-  if (!sel) return;
-  const checked = getActiveModTargetCourses();
-  if (!checked.length) {
-    sel.innerHTML = '<option value="">(pick a target course first)</option>';
-    return;
-  }
-  try {
-    const mods = await api(`/api/v1/courses/${checked[0].id}/modules?per_page=100`);
-    sel.innerHTML = mods.length
-      ? mods.map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('')
-      : '<option value="">(target has no existing modules)</option>';
-  } catch (e) {
-    sel.innerHTML = '<option value="">(error loading modules)</option>';
-  }
 }
 
 // ── Copy from past semester ──
@@ -4479,25 +4471,79 @@ async function migrateModuleToCourse(srcCid, moduleId, targetCid, statusFn) {
   throw new Error('Migration timed out');
 }
 
-// ── File attachments for new module ──
-function renderModAttachmentChips() {
-  const el = document.getElementById('multi-mod-attachments');
+
+function resetItemForm() {
+  document.getElementById('new-item-title').value = '';
+  document.getElementById('new-item-url').value = '';
+  document.getElementById('new-item-publish').checked = true;
+  document.getElementById('new-item-type').value = 'File';
+  onItemTypeChange('File');
+  moduleAttachments = [];
+  renderItemAttachmentChips();
+  const fi = document.getElementById('new-item-file-input'); if (fi) fi.value = '';
+  setStatus('new-item-status', '', '');
+}
+
+function onItemTypeChange(type) {
+  const fileRow = document.getElementById('new-item-file-row');
+  const urlRow = document.getElementById('new-item-url-row');
+  const contentRow = document.getElementById('new-item-content-row');
+  fileRow.classList.toggle('hide', type !== 'File');
+  urlRow.classList.toggle('hide', type !== 'ExternalUrl');
+  const isExisting = ['Assignment','Page','Quiz','Discussion'].includes(type);
+  contentRow.classList.toggle('hide', !isExisting);
+  if (isExisting) populateExistingContentDropdown(type);
+}
+
+async function populateExistingContentDropdown(type) {
+  const sel = document.getElementById('new-item-content');
+  const checked = getActiveModTargetCourses();
+  if (!checked.length) {
+    sel.innerHTML = '<option value="">— Pick a target course first —</option>';
+    return;
+  }
+  const cid = checked[0].id;
+  sel.innerHTML = '<option value="">Loading…</option>';
+  try {
+    let list = [];
+    if (type === 'Assignment')      list = await api(`/api/v1/courses/${cid}/assignments?per_page=200`);
+    else if (type === 'Quiz')       list = await api(`/api/v1/courses/${cid}/quizzes?per_page=200`);
+    else if (type === 'Page')       list = await api(`/api/v1/courses/${cid}/pages?per_page=200`);
+    else if (type === 'Discussion') list = await api(`/api/v1/courses/${cid}/discussion_topics?per_page=200`);
+    if (!list.length) {
+      sel.innerHTML = `<option value="">— No ${type.toLowerCase()}s in that course —</option>`;
+      return;
+    }
+    sel.innerHTML = '<option value="">— Pick one —</option>'
+      + list.map(o => {
+          const id = o.id;
+          const title = o.name || o.title || '(untitled)';
+          return `<option value="${id}" data-title="${esc(title)}">${esc(title)}</option>`;
+        }).join('');
+  } catch (e) {
+    sel.innerHTML = `<option value="">Error: ${esc(e.message)}</option>`;
+  }
+}
+
+// File chips for the Add Module Item form
+function renderItemAttachmentChips() {
+  const el = document.getElementById('new-item-attachments');
   if (!el) return;
   if (!moduleAttachments.length) { el.innerHTML = ''; return; }
   el.innerHTML = moduleAttachments.map((a, i) => `
     <span style="display:inline-flex;align-items:center;gap:6px;background:#fffbeb;border:1px solid #d69e2e;color:#744210;padding:4px 10px;border-radius:14px;font-size:0.82rem;font-weight:600">
       ${a.uploading ? '<span class="spinner" style="width:10px;height:10px"></span>' : '📎'} ${esc(a.name)}
-      ${a.id ? `<span onclick="removeModAttachment(${i})" style="cursor:pointer;color:#666;font-size:0.82rem;margin-left:2px" title="Remove">×</span>` : ''}
+      ${a.id ? `<span onclick="removeItemAttachment(${i})" style="cursor:pointer;color:#666;font-size:0.82rem;margin-left:2px" title="Remove">×</span>` : ''}
     </span>
   `).join('');
 }
 
-function removeModAttachment(i) {
+function removeItemAttachment(i) {
   moduleAttachments.splice(i, 1);
-  renderModAttachmentChips();
+  renderItemAttachmentChips();
 }
 
-async function onModuleAttachFiles(fileList) {
+async function onItemAttachFiles(fileList) {
   if (!fileList || !fileList.length) return;
   const placeholders = [];
   for (const f of fileList) {
@@ -4505,7 +4551,7 @@ async function onModuleAttachFiles(fileList) {
     moduleAttachments.push(ph);
     placeholders.push({ ph, f });
   }
-  renderModAttachmentChips();
+  renderItemAttachmentChips();
   for (const { ph, f } of placeholders) {
     try {
       const obj = await uploadFileToCanvas(f);
@@ -4515,119 +4561,143 @@ async function onModuleAttachFiles(fileList) {
       console.error('Upload failed for', f.name, e);
       const idx = moduleAttachments.indexOf(ph);
       if (idx >= 0) moduleAttachments.splice(idx, 1);
-      setStatus('multi-mod-status', `✗ Upload failed for ${f.name}: ${e.message}`, 'err');
+      setStatus('new-item-status', `✗ Upload failed for ${f.name}: ${e.message}`, 'err');
     }
-    renderModAttachmentChips();
+    renderItemAttachmentChips();
   }
-  const fi = document.getElementById('multi-mod-file-input');
+  const fi = document.getElementById('new-item-file-input');
   if (fi) fi.value = '';
 }
 
-function resetMultiModuleForm() {
-  document.getElementById('multi-mod-name').value = '';
-  document.getElementById('multi-mod-unlock').value = '';
-  document.getElementById('multi-mod-lock').value = '';
-  document.getElementById('multi-mod-position').value = '';
-  document.getElementById('multi-mod-publish').checked = true;
-  document.getElementById('multi-mod-publish-items').checked = true;
-  document.getElementById('multi-mod-sequential').checked = false;
-  document.getElementById('multi-mod-published-finalgrade').checked = false;
-  multiModSelectAll(false);
-  moduleAttachments = [];
-  renderModAttachmentChips();
-  const fi = document.getElementById('multi-mod-file-input'); if (fi) fi.value = '';
-  // Clear prereq selection
-  const prereq = document.getElementById('multi-mod-prereq');
-  if (prereq) Array.from(prereq.options).forEach(o => o.selected = false);
-  setStatus('multi-mod-status', '', '');
-}
-
-async function createMultiModule() {
-  const name = document.getElementById('multi-mod-name').value.trim();
-  const unlock = document.getElementById('multi-mod-unlock').value;
-  const lock = document.getElementById('multi-mod-lock').value;
-  const position = document.getElementById('multi-mod-position').value.trim();
-  const publish = document.getElementById('multi-mod-publish').checked;
-  const publishItems = document.getElementById('multi-mod-publish-items').checked;
-  const sequential = document.getElementById('multi-mod-sequential').checked;
-  const publishFinalGrade = document.getElementById('multi-mod-published-finalgrade').checked;
-  const prereqNames = Array.from(document.getElementById('multi-mod-prereq').selectedOptions)
-    .map(o => o.value).filter(Boolean);
-  const checked = Array.from(document.querySelectorAll('#multi-mod-courses input[type=checkbox]:checked'));
-  if (!name) { setStatus('multi-mod-status', 'Name required.', 'err'); return; }
-  if (!checked.length) { setStatus('multi-mod-status', 'Pick at least one course.', 'err'); return; }
-  if (moduleAttachments.some(a => a.uploading)) {
-    setStatus('multi-mod-status', 'Wait for file uploads to finish before creating.', 'warn');
+// Populate the target-module dropdown for the Add Module Item form
+async function populateAddItemTargetModuleDropdown() {
+  const sel = document.getElementById('new-item-module');
+  if (!sel) return;
+  const checked = getActiveModTargetCourses();
+  if (!checked.length) {
+    sel.innerHTML = '<option value="">— Pick a target course first —</option>';
     return;
   }
-  const targets = checked.map(c => ({ id: c.value, code: c.dataset.code }));
-  const attLen = moduleAttachments.filter(a => a.id).length;
-  if (!confirm(`Create module "${name}" in ${targets.length} course(s)${attLen ? ` with ${attLen} file item(s)` : ''}?\n\n${targets.map(t => '• ' + t.code).join('\n')}`)) return;
+  try {
+    const mods = await api(`/api/v1/courses/${checked[0].id}/modules?per_page=100`);
+    sel.innerHTML = mods.length
+      ? mods.map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('')
+      : '<option value="">— Target course has no modules —</option>';
+  } catch (e) {
+    sel.innerHTML = '<option value="">Error loading modules</option>';
+  }
+}
 
-  const btn = document.getElementById('multi-mod-create-btn');
+async function addModuleItem() {
+  const moduleName = document.getElementById('new-item-module').value.trim();
+  const type = document.getElementById('new-item-type').value;
+  const title = document.getElementById('new-item-title').value.trim();
+  const url = document.getElementById('new-item-url').value.trim();
+  const contentSel = document.getElementById('new-item-content');
+  const contentOpt = contentSel.selectedOptions[0];
+  const publish = document.getElementById('new-item-publish').checked;
+  const targets = getActiveModTargetCourses();
+  if (!targets.length) { setStatus('new-item-status', 'Pick at least one target course.', 'err'); return; }
+  if (!moduleName) { setStatus('new-item-status', 'Pick a target module.', 'err'); return; }
+
+  // Type-specific validation
+  if (type === 'File') {
+    if (moduleAttachments.some(a => a.uploading)) { setStatus('new-item-status', 'Wait for uploads to finish.', 'warn'); return; }
+    if (!moduleAttachments.filter(a => a.id).length) { setStatus('new-item-status', 'Choose at least one file.', 'err'); return; }
+  } else if (type === 'ExternalUrl') {
+    if (!url) { setStatus('new-item-status', 'URL required.', 'err'); return; }
+    if (!title) { setStatus('new-item-status', 'Title required.', 'err'); return; }
+  } else if (type === 'SubHeader') {
+    if (!title) { setStatus('new-item-status', 'Title required.', 'err'); return; }
+  } else {
+    // Existing content
+    if (!contentOpt || !contentOpt.value) { setStatus('new-item-status', 'Pick existing content.', 'err'); return; }
+  }
+
+  if (!confirm(`Add this item to module "${moduleName}" in ${targets.length} course(s)?`)) return;
+  const btn = document.getElementById('new-item-add-btn');
   btn.disabled = true;
   let ok = 0, fail = 0;
   for (const t of targets) {
-    setStatus('multi-mod-status', `[${ok + fail + 1}/${targets.length}] Creating in ${t.code}…`, 'info');
+    setStatus('new-item-status', `[${ok+fail+1}/${targets.length}] ${t.code}: working…`, 'info');
     try {
-      // 1. Resolve prerequisite module ids per target (by name match)
-      let prereqIds = [];
-      if (prereqNames.length) {
-        try {
-          const existing = await api(`/api/v1/courses/${t.id}/modules?per_page=100`);
-          prereqIds = existing.filter(m => prereqNames.includes(m.name)).map(m => m.id);
-        } catch (e) { /* ignore */ }
-      }
-      // 2. Create the module
-      const params = [
-        ['module[name]', name],
-        ['module[require_sequential_progress]', sequential ? 'true' : 'false'],
-        ['module[publish_final_grade]', publishFinalGrade ? 'true' : 'false'],
-      ];
-      if (unlock) params.push(['module[unlock_at]', new Date(unlock).toISOString()]);
-      if (position) params.push(['module[position]', position]);
-      prereqIds.forEach(id => params.push(['module[prerequisite_module_ids][]', String(id)]));
-      const created = await apiPost(`/api/v1/courses/${t.id}/modules`, params);
-      const newModId = created?.id;
-      // 3. Attach files as File items
-      if (newModId && moduleAttachments.length) {
-        for (const a of moduleAttachments) {
-          if (!a.id) continue;
-          // The uploaded file lives in user files; first move it to the target course
-          let targetFileId = a.id;
-          try {
-            const folder = await api(`/api/v1/courses/${t.id}/folders/root`);
-            const copied = await apiPost(`/api/v1/folders/${folder.id}/copy_file`, [
-              ['source_file_id', String(a.id)], ['on_duplicate', 'rename'],
-            ]);
-            targetFileId = copied.id;
-          } catch (e) { /* fall back to the original file id */ }
-          await apiPost(`/api/v1/courses/${t.id}/modules/${newModId}/items`, [
-            ['module_item[type]', 'File'],
-            ['module_item[content_id]', String(targetFileId)],
-            ['module_item[title]', a.name],
-          ]);
-          if (publishItems) {
-            try {
-              // Module items inherit publish state from the underlying file. Touch the file.
-              await apiPut(`/api/v1/files/${targetFileId}`, [['hidden', 'false'], ['locked', 'false']]);
-            } catch (e) { /* not critical */ }
-          }
-        }
-      }
-      // 4. Flip publish on module if requested
-      if (publish && newModId) {
-        await apiPut(`/api/v1/courses/${t.id}/modules/${newModId}`, [['module[published]', 'true']]);
-      }
+      await addOneItemToCourseModule(t.id, moduleName, type, title, url, contentOpt, publish);
       ok++;
     } catch (e) {
       fail++;
-      console.error('Module create failed for', t.code, e);
+      console.error('Add item failed for', t.code, e);
     }
   }
   btn.disabled = false;
-  setStatus('multi-mod-status', `Created in ${ok} of ${targets.length}${fail ? ` · ${fail} failed (see console)` : ''}.`, fail ? 'warn' : 'ok');
-  if (ok > 0 && !fail) setTimeout(resetMultiModuleForm, 1500);
+  setStatus('new-item-status', `Added to ${ok} of ${targets.length}${fail ? ` · ${fail} failed (see console)` : ''}.`, fail ? 'warn' : 'ok');
+  if (ok > 0 && !fail) setTimeout(resetItemForm, 1500);
+}
+
+async function addOneItemToCourseModule(targetCid, moduleName, type, title, url, contentOpt, publish) {
+  // 1. Find the target module by name (must already exist)
+  const mods = await api(`/api/v1/courses/${targetCid}/modules?per_page=100`);
+  const targetMod = mods.find(m => m.name === moduleName);
+  if (!targetMod) throw new Error(`Module "${moduleName}" not found in ${targetCid}`);
+
+  // 2. Type-specific content handling
+  if (type === 'File') {
+    // Each uploaded file becomes one File item. Copy from user files into target course first.
+    const folder = await api(`/api/v1/courses/${targetCid}/folders/root`);
+    for (const a of moduleAttachments) {
+      if (!a.id) continue;
+      let fileId = a.id;
+      try {
+        const copied = await apiPost(`/api/v1/folders/${folder.id}/copy_file`, [
+          ['source_file_id', String(a.id)], ['on_duplicate', 'rename'],
+        ]);
+        fileId = copied.id;
+      } catch (e) { /* fallback to user-file id */ }
+      await apiPost(`/api/v1/courses/${targetCid}/modules/${targetMod.id}/items`, [
+        ['module_item[type]', 'File'],
+        ['module_item[content_id]', String(fileId)],
+        ['module_item[title]', title || a.name],
+      ]);
+      if (publish) {
+        try { await apiPut(`/api/v1/files/${fileId}`, [['hidden','false'],['locked','false']]); } catch (e) {}
+      }
+    }
+  } else if (type === 'ExternalUrl') {
+    await apiPost(`/api/v1/courses/${targetCid}/modules/${targetMod.id}/items`, [
+      ['module_item[type]', 'ExternalUrl'],
+      ['module_item[external_url]', url],
+      ['module_item[title]', title],
+      ['module_item[new_tab]', 'true'],
+    ]);
+  } else if (type === 'SubHeader') {
+    await apiPost(`/api/v1/courses/${targetCid}/modules/${targetMod.id}/items`, [
+      ['module_item[type]', 'SubHeader'],
+      ['module_item[title]', title],
+    ]);
+  } else {
+    // Existing content — match by title across targets
+    const sourceTitle = contentOpt.dataset.title;
+    let list = [];
+    if (type === 'Assignment')      list = await api(`/api/v1/courses/${targetCid}/assignments?per_page=200`);
+    else if (type === 'Quiz')       list = await api(`/api/v1/courses/${targetCid}/quizzes?per_page=200`);
+    else if (type === 'Page')       list = await api(`/api/v1/courses/${targetCid}/pages?per_page=200`);
+    else if (type === 'Discussion') list = await api(`/api/v1/courses/${targetCid}/discussion_topics?per_page=200`);
+    const match = list.find(x => (x.name || x.title) === sourceTitle);
+    if (!match) throw new Error(`No matching ${type} titled "${sourceTitle}" in target`);
+    const params = [
+      ['module_item[type]', type],
+      ['module_item[content_id]', String(match.id)],
+      ['module_item[title]', title || sourceTitle],
+    ];
+    await apiPost(`/api/v1/courses/${targetCid}/modules/${targetMod.id}/items`, params);
+    if (publish) {
+      try {
+        if (type === 'Assignment')      await apiPut(`/api/v1/courses/${targetCid}/assignments/${match.id}`,       [['assignment[published]','true']]);
+        else if (type === 'Quiz')       await apiPut(`/api/v1/courses/${targetCid}/quizzes/${match.id}`,           [['quiz[published]','true']]);
+        else if (type === 'Page')       await apiPut(`/api/v1/courses/${targetCid}/pages/${match.url || match.page_url}`, [['wiki_page[published]','true']]);
+        else if (type === 'Discussion') await apiPut(`/api/v1/courses/${targetCid}/discussion_topics/${match.id}`, [['published','true']]);
+      } catch (e) {}
+    }
+  }
 }
 
 function showTab(id) {
@@ -4641,7 +4711,7 @@ function showTab(id) {
   if (id === 'assignments') renderAssignmentComposerCourses();
   if (id === 'syllabus') renderSyllabusCourses();
   if (id === 'inbox') loadInbox();
-  if (id === 'modules') renderModuleComposerCourses();
+  if (id === 'modules') { renderModuleComposerCourses(); onItemTypeChange(document.getElementById('new-item-type').value); }
 }
 
 function esc(s) {

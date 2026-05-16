@@ -2758,7 +2758,7 @@ function renderSyllabusCourses() {
   if (!wrap) return;
   const pool = multi_courses.length
     ? multi_courses.map(c => ({ id: c.id, code: c.code }))
-    : (course_id ? [{ id: course_id, code: course_info?.course_code || 'Current course' }] : []);
+    : (course_id ? [{ id: course_id, code: course_info?.course_code || (allCourses.find(x => String(x.id) === String(course_id))?.course_code) || ('Course ' + course_id) }] : []);
   if (!pool.length) {
     wrap.innerHTML = '<div style="color:#666;font-size:0.86rem;padding:6px">Connect and load a course or semester first.</div>';
     document.getElementById('multi-syll-courses-count').textContent = '';
@@ -2959,7 +2959,7 @@ function renderAssignmentComposerCourses() {
   if (!wrap) return;
   const pool = multi_courses.length
     ? multi_courses.map(c => ({ id: c.id, code: c.code }))
-    : (course_id ? [{ id: course_id, code: course_info?.course_code || 'Current course' }] : []);
+    : (course_id ? [{ id: course_id, code: course_info?.course_code || (allCourses.find(x => String(x.id) === String(course_id))?.course_code) || ('Course ' + course_id) }] : []);
   if (!pool.length) {
     wrap.innerHTML = '<div style="color:#666;font-size:0.86rem;padding:6px">Connect and load a course or semester first.</div>';
     document.getElementById('multi-asn-courses-count').textContent = '';
@@ -3538,7 +3538,7 @@ function renderAnnouncementComposerCourses() {
   // Build list: prefer loaded multi_courses; if empty, fall back to currently-selected single course
   const pool = multi_courses.length
     ? multi_courses.map(c => ({ id: c.id, code: c.code }))
-    : (course_id ? [{ id: course_id, code: course_info?.course_code || 'Current course' }] : []);
+    : (course_id ? [{ id: course_id, code: course_info?.course_code || (allCourses.find(x => String(x.id) === String(course_id))?.course_code) || ('Course ' + course_id) }] : []);
   if (!pool.length) {
     wrap.innerHTML = '<div style="color:#666;font-size:0.86rem;padding:6px">Connect and load a course or semester first.</div>';
     document.getElementById('multi-ann-courses-count').textContent = '';
@@ -4082,7 +4082,7 @@ function renderModuleComposerCourses() {
   if (!wrap) return;
   const pool = multi_courses.length
     ? multi_courses.map(c => ({ id: c.id, code: c.code }))
-    : (course_id ? [{ id: course_id, code: course_info?.course_code || 'Current course' }] : []);
+    : (course_id ? [{ id: course_id, code: course_info?.course_code || (allCourses.find(x => String(x.id) === String(course_id))?.course_code) || ('Course ' + course_id) }] : []);
   if (!pool.length) {
     wrap.innerHTML = '<div style="color:#666;font-size:0.86rem;padding:6px">Connect and load a course or semester first.</div>';
     document.getElementById('multi-mod-courses-count').textContent = '';

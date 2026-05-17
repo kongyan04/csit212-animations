@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Code Editor</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<style>
+  *,*:before,*:after { box-sizing:border-box; }
+  html,body { margin:0; padding:0; height:100%; background:#fafafa; color:#1a202c;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; font-size:14px; }
+  .wrap { display:flex; flex-direction:column; height:100vh; padding:10px; gap:8px; }
+  header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  header .lang { background:#3d2a5c; color:#fff; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:600; }
+  header .grow { flex:1; }
+  button { font:inherit; cursor:pointer; padding:6px 14px; border-radius:6px; border:1px solid transparent; font-weight:600; }
+  .btn-run    { background:#276749; color:#fff; }
+  .btn-run:disabled    { background:#94a3b8; cursor:wait; }
+  .btn-save   { background:#3d2a5c; color:#fff; }
+  .btn-save.copied { background:#22543d; }
+  .btn-clear  { background:#edf2f7; color:#1a202c; border-color:#cbd5e0; }
+  .editor { flex:2; min-height:0; border:1px solid #cbd5e0; border-radius:6px; overflow:hidden; }
+  .CodeMirror { height:100%; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:13px; }
+  .output { flex:1; min-height:80px; background:#0f172a; color:#e2e8f0; padding:10px 12px; border-radius:6px; overflow:auto;
+    font-family:"SF Mono",Menlo,Consolas,monospace; font-size:12.5px; white-space:pre-wrap; word-break:break-word; }
+  .output.empty { color:#64748b; font-style:italic; }
+  .output.err { color:#fca5a5; }
+  .status { font-size:12px; color:#64748b; }
+  .stdin-row { display:flex; align-items:center; gap:6px; }
+  .stdin-row input { flex:1; padding:5px 8px; border:1px solid #cbd5e0; border-radius:5px; font:inherit; }
+  .stdin-row label { font-size:12px; color:#64748b; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="lang" id="lang-badge">Java</span>
+    <button class="btn-run"   id="run-btn"   onclick="runCode()">▶ Run</button>
+    <button class="btn-save"  id="save-btn"  onclick="saveAnswer()">💾 Save code + output</button>
+    <button class="btn-clear" id="clear-btn" onclick="clearOutput()">Clear output</button>
+    <span class="grow"></span>
+    <span class="status" id="status"></span>
+  </header>
+  <div class="stdin-row">
+    <label for="stdin">stdin:</label>
+    <input id="stdin" type="text" placeholder="(optional input passed to your program)">
+  </div>
+  <div class="editor"><textarea id="code"></textarea></div>
+  <div class="output empty" id="output">Output will appear here after you click Run.</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+
+<script>
+// Map our short language code to (a) CodeMirror mode (b) Piston runtime name (c) display label (d) starter code + main filename.
+const LANG_MAP = {
+  java: {
+    label: 'Java',  mode: 'text/x-java',  piston: 'java',
+    filename: 'Main.java',
+    starter: 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, world!");\n    }\n}\n',
+  },
+  python: {
+    label: 'Python', mode: 'text/x-python', piston: 'python',
+    filename: 'main.py',
+    starter: 'print("Hello, world!")\n',
+  },
+  cpp: {
+    label: 'C++',   mode: 'text/x-c++src',  piston: 'c++',
+    filename: 'main.cpp',
+    starter: '#include <iostream>\nusing namespace std;\nint main() {\n    cout << "Hello, world!" << endl;\n    return 0;\n}\n',
+  },
+  csharp: {
+    label: 'C#',    mode: 'text/x-csharp', piston: 'csharp',
+    filename: 'Main.cs',
+    starter: 'using System;\nclass Main {\n    static void Main() {\n        Console.WriteLine("Hello, world!");\n    }\n}\n',
+  },
+  javascript: {
+    label: 'JavaScript', mode: 'text/javascript', piston: 'javascript',
+    filename: 'main.js',
+    starter: 'console.log("Hello, world!");\n',
+  },
+  sql: {
+    label: 'SQL',  mode: 'text/x-sql', piston: 'sqlite3',
+    filename: 'query.sql',
+    starter: 'SELECT "Hello, world!" AS greeting;\n',
+  },
+  html: {
+    label: 'HTML', mode: 'htmlmixed', piston: '',
+    filename: 'index.html',
+    starter: '<!doctype html>\n<html><body>\n  <h1>Hello, world!</h1>\n</body></html>\n',
+  },
+};
+
+function qs(k, def) {
+  const v = new URL(window.location.href).searchParams.get(k);
+  return v == null ? def : v;
+}
+
+const lang = LANG_MAP[qs('lang', 'java').toLowerCase()] || LANG_MAP.java;
+document.getElementById('lang-badge').textContent = lang.label;
+document.title = lang.label + ' Editor';
+
+const editor = CodeMirror.fromTextArea(document.getElementById('code'), {
+  mode: lang.mode,
+  theme: 'material-darker',
+  lineNumbers: true,
+  matchBrackets: true,
+  autoCloseBrackets: true,
+  indentUnit: 4,
+  tabSize: 4,
+  lineWrapping: false,
+});
+editor.setValue(qs('starter', lang.starter));
+
+let lastOutput = '';
+
+function setStatus(text, kind) {
+  const el = document.getElementById('status');
+  el.textContent = text || '';
+  el.style.color = kind === 'err' ? '#c53030' : kind === 'ok' ? '#276749' : '#64748b';
+}
+
+function clearOutput() {
+  const o = document.getElementById('output');
+  o.className = 'output empty';
+  o.textContent = 'Output will appear here after you click Run.';
+  lastOutput = '';
+}
+
+async function runCode() {
+  if (!lang.piston) { setStatus('This language does not support running here.', 'err'); return; }
+  const code = editor.getValue();
+  const stdin = document.getElementById('stdin').value || '';
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true; btn.textContent = '⏳ Running…';
+  setStatus('Sending to compiler…');
+  const o = document.getElementById('output');
+  o.className = 'output'; o.textContent = '';
+  try {
+    const r = await fetch('https://emkc.org/api/v2/piston/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        language: lang.piston,
+        version: '*',
+        files: [{ name: lang.filename, content: code }],
+        stdin,
+      }),
+    });
+    const data = await r.json();
+    const run = data.run || data.compile || {};
+    const stdout = run.stdout || '';
+    const stderr = run.stderr || '';
+    let combined = '';
+    if (stdout) combined += stdout;
+    if (stderr) combined += (combined ? '\n' : '') + '— stderr —\n' + stderr;
+    if (!combined) combined = '(no output)';
+    o.textContent = combined;
+    if (stderr && !stdout) o.classList.add('err');
+    lastOutput = combined;
+    setStatus(run.code === 0 ? '✓ ran successfully' : '⚠ exited with code ' + (run.code != null ? run.code : '?'), run.code === 0 ? 'ok' : 'err');
+  } catch (e) {
+    o.classList.add('err');
+    o.textContent = 'Network error: ' + (e && e.message ? e.message : e);
+    setStatus('Run failed', 'err');
+    lastOutput = '(run failed: ' + (e && e.message ? e.message : e) + ')';
+  } finally {
+    btn.disabled = false; btn.textContent = '▶ Run';
+  }
+}
+
+// Build the text we hand to the student to paste into Canvas.
+function bundleAnswer() {
+  const code = editor.getValue();
+  const out  = lastOutput || '(not run yet)';
+  return `// ===== CODE (${lang.label}) =====\n${code}\n\n// ===== OUTPUT =====\n${out}\n`;
+}
+
+async function saveAnswer() {
+  const text = bundleAnswer();
+  const btn  = document.getElementById('save-btn');
+  let ok = false;
+  // 1) Try the modern clipboard API (works when the page is in focus).
+  try {
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  } catch (_) {}
+  // 2) Fallback: temporarily inject a textarea and use execCommand.
+  if (!ok) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch (_) {}
+  }
+  // 3) Also bubble the bundle out to the parent page via postMessage
+  //    (Canvas usually blocks cross-frame DOM access, but if a hosting
+  //    page listens, it can autofill the response field).
+  try {
+    window.parent.postMessage({ type: 'quiz-editor-save', payload: text, language: lang.label }, '*');
+  } catch (_) {}
+
+  if (ok) {
+    btn.classList.add('copied');
+    btn.textContent = '✓ Copied — now paste into the answer field';
+    setStatus('Copied. Paste (⌘V / Ctrl-V) into the Canvas answer field below.', 'ok');
+    setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '💾 Save code + output'; }, 6000);
+  } else {
+    // Last resort: open a window with the bundle so they can copy manually.
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write('<pre style="white-space:pre-wrap;font-family:monospace;padding:14px">' +
+        text.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])) + '</pre>');
+      setStatus('Clipboard blocked. Copy from the new tab and paste it in.', 'err');
+    } else {
+      setStatus('Could not copy. Use ⌘C / Ctrl-C from the editor manually.', 'err');
+    }
+  }
+}
+
+// ⌘S / Ctrl-S inside the editor also triggers save.
+editor.setOption('extraKeys', {
+  'Cmd-S': () => { saveAnswer(); return false; },
+  'Ctrl-S': () => { saveAnswer(); return false; },
+});
+</script>
+</body>
+</html>
